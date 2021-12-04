@@ -31,7 +31,7 @@ $hostname = 'localhost';
  * $username = 'fred'.
  */
 
-$username = '';
+$username = 'BBO2022_USER';
 
 /**
  * INSERT YOUR PASSWORD BETWEEN THE SINGLE-QUOTATION MARKS ('').
@@ -39,7 +39,7 @@ $username = '';
  * $password = 'flintsone'.
  */
 
-$password = '';
+$password = 'BBO2022_PASSWORD';
 
 /**
  * The following line is the name of your MySQL database you set up already.
@@ -47,7 +47,7 @@ $password = '';
  * http://brewcompetition.com/install-instructions for setup instructions.
  */
 
-$database = '';
+$database = 'BBO2022_DATABASE';
 
 /**
  * If the database port is different from the default then overwrite as the 
@@ -115,7 +115,7 @@ $prefix = '';
  * change the variable to something completely unique for each installation.
  */
 
-$installation_id = '';
+$installation_id = 'BBO_2022';
 
 /*
  * ******************************************************************************
@@ -139,7 +139,7 @@ $session_expire_after = 30;
  * TRUE back to a FALSE!
  */
 
-$setup_free_access = FALSE;
+$setup_free_access = TRUE;
 
 /*
  * ******************************************************************************
