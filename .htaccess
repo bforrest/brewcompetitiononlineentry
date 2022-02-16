@@ -2,7 +2,7 @@
 IndexIgnore *
 
 # Make sure index.php is the default page
-DirectoryIndex index.php
+DirectoryIndex php_info.php index.php
 
 RewriteEngine on
 RewriteCond %{HTTPS} off

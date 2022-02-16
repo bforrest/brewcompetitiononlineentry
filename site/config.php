@@ -21,7 +21,7 @@
  * *** https://www.godaddy.com/help/viewing-your-database-details-with-shared-hosting-accounts-39
  */
 
-$hostname = 'localhost';
+$hostname = '127.0.0.1';
 
 /**
  * Enter the username for your database (generally the same as your login code 
@@ -55,7 +55,7 @@ $database = 'BBO2022_DATABASE';
  * Example: $database_port = 3308;
  */
 
-$database_port = ini_get('mysqli.default_port');
+$database_port = 9906; // ini_get('mysqli.default_port');
 
 /**
  * This line strings the information together and connects to MySQL.
