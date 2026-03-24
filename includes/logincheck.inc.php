@@ -1,17 +1,15 @@
 <?php
 ob_start();
-require (CLASSES.'phpass/PasswordHash.php');
 
 $section = "default";
 if (isset($_GET['section'])) $section = sterilize($_GET['section']);
 
-header('Expires: Sat, 26 Jul 1997 05:00:00 GMT'); 
-header('Last-Modified: ' . gmdate( 'D, d M Y H:i:s' ) . ' GMT'); 
-header('Cache-Control: no-store, no-cache, must-revalidate'); 
-header('Cache-Control: post-check=0, pre-check=0', false); 
-header('Pragma: no-cache'); 
+header('Expires: Sat, 26 Jul 1997 05:00:00 GMT');
+header('Last-Modified: ' . gmdate( 'D, d M Y H:i:s' ) . ' GMT');
+header('Cache-Control: no-store, no-cache, must-revalidate');
+header('Cache-Control: post-check=0, pre-check=0', false);
+header('Pragma: no-cache');
 
-$hasher = new PasswordHash(8, false);
 $loginUsername = sterilize($_POST['loginUsername']);
 $entered_password = sterilize($_POST['loginPassword']);
 $location = $base_url."index.php?section=login";
@@ -25,51 +23,26 @@ if (strlen($entered_password) > 72) {
 	exit;
 }
 
-mysqli_real_escape_string($connection,$loginUsername);
-mysqli_real_escape_string($connection,$entered_password);
-$entered_password = md5($entered_password);
+$loginUsername = strtolower($loginUsername);
 
-/**
- * ONLY for 1.3.0.0 release; evaluate for deletion in future releases
- * Has to do with the hashing of passwords introduced in 1.3.0.0
- */
+$query_login = sprintf("SELECT * FROM %s WHERE user_name = '%s'", $prefix."users", $loginUsername);
+$login = mysqli_query($connection, $query_login) or die (mysqli_error($connection));
+$row_login = mysqli_fetch_assoc($login);
+$totalRows_login = mysqli_num_rows($login);
 
-if ($section == "update") {
-	
-	$loginUsername = strtolower($loginUsername);	
-	
-	$query_login = sprintf("SELECT * FROM %s WHERE user_name = '%s'",$prefix."users",$loginUsername);
-	$login = mysqli_query($connection,$query_login) or die (mysqli_error($connection));
-	$row_login = mysqli_fetch_assoc($login);
-	$totalRows_login = mysqli_num_rows($login);
-	
-	$stored_hash = $row_login['password'];
-	
-	$check = 0;
-	
-	if ($totalRows_login > 0) {
-		$check = $hasher->CheckPassword($entered_password, $stored_hash);
+$stored_hash = $row_login['password'];
+$check = 0;
+
+if ($totalRows_login > 0) {
+	if (password_verify($entered_password, $stored_hash)) {
+		$check = 1;
+	} elseif (strpos($stored_hash, '$2a$') === 0 && password_verify(md5($entered_password), $stored_hash)) {
+		// Legacy MD5-wrapped phpass bcrypt hash — transparently rehash on successful login.
+		// Remove this branch once all users have logged in post-migration (P1-1).
+		$new_hash = password_hash($entered_password, PASSWORD_BCRYPT);
+		mysqli_query($connection, sprintf("UPDATE %s SET password='%s' WHERE user_name='%s'", $prefix."users", mysqli_real_escape_string($connection, $new_hash), $loginUsername));
 		$check = 1;
 	}
-	
-	else $check = 0;
-	
-}
-
-if ($section != "update") {
-	
-	$loginUsername = strtolower($loginUsername);	
-	
-	$query_login = sprintf("SELECT * FROM %s WHERE user_name = '%s'", $prefix."users",$loginUsername);
-	$login = mysqli_query($connection,$query_login) or die (mysqli_error($connection));
-	$row_login = mysqli_fetch_assoc($login);
-	$totalRows_login = mysqli_num_rows($login);
-	
-	$stored_hash = $row_login['password'];
-	$check = 0;
-	
-	if ($totalRows_login > 0) $check = $hasher->CheckPassword($entered_password, $stored_hash);
-
 }
 
 /**
