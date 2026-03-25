@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(composer --version)",
+      "Bash(composer install:*)"
+    ]
+  }
+}

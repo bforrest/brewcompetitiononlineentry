@@ -2,13 +2,23 @@
 require('paths.php');
 require(INCLUDES.'url_variables.inc.php');
 require(LIB.'common.lib.php');
+require(LIB.'security.lib.php');
 
 // Force download of uploaded scoresheet PDF
 // Discourages random viewing of scoresheets by inputting direct URL
 if ((isset($_SESSION['loginUsername'])) && ($section == "pdf-download")) {
-	header("Content-disposition: attachment; filename=$id.pdf");
+
+	$resolved_base = realpath(USER_DOCS);
+	$resolved_file = realpath(USER_DOCS . $id . '.pdf');
+
+	if ($resolved_base === false || $resolved_file === false || !is_path_within_dir($resolved_file, $resolved_base)) {
+		http_response_code(403);
+		exit;
+	}
+
+	header("Content-disposition: attachment; filename=" . basename($resolved_file));
 	header("Content-type: application/pdf");
-	readfile(USER_DOCS."$id.pdf");
+	readfile($resolved_file);
 }
 
 // Upload Function
