@@ -7,9 +7,15 @@
 
 ob_start();
 error_reporting(E_ALL ^ E_NOTICE);
-ini_set('display_errors', '1');
 
 require ('../paths.php');
+
+if (defined('DEBUG') && DEBUG) {
+	ini_set('display_errors', '1');
+} else {
+	ini_set('display_errors', '0');
+	ini_set('log_errors', '1');
+}
 require (INCLUDES.'url_variables.inc.php');
 require (INCLUDES.'styles.inc.php');
 include (INCLUDES.'scrubber.inc.php');
