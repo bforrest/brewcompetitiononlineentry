@@ -4116,7 +4116,6 @@ function convert_to_ba() {
 		$ba_category_sort = $row_ba_random['brewStyleGroup'];
 
 		$updateSQL = sprintf("UPDATE %s SET brewCategory='%s', brewCategorySort='%s', brewSubCategory='%s', brewStyle='%s', brewMead1='%s', brewMead2='%s', brewMead3='%s', brewInfo='%s' WHERE id=%s;",$prefix."brewing",$ba_category,$ba_category_sort,$ba_sub_category,$ba_style,$ba_carb,$ba_sweetness,$ba_strength,$brew_info,$row_check['id']);
-		mysqli_real_escape_string($connection,$updateSQL);
 		$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 
 		//$return .= $updateSQL."<br>";
@@ -4130,7 +4129,6 @@ function convert_to_ba() {
 	$_SESSION['prefsStyleSet'] = "BA";
 
 	$updateSQL = sprintf("UPDATE %s SET brewStyleActive='Y' WHERE brewStyleVersion='BA';",$prefix."brewing");
-	mysqli_real_escape_string($connection,$updateSQL);
 	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 
 	return $return;
@@ -4173,7 +4171,6 @@ function convert_to_pro() {
 		else {
 			$update = FALSE;
 			$updateSQL = sprintf("UPDATE %s SET brewerBreweryName='%s' WHERE id=%s;",$prefix."brewer",$value,$row_check['id']);
-			mysqli_real_escape_string($connection,$updateSQL);
 			$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 		}
 
@@ -4274,7 +4271,6 @@ function remove_sensitive_data() {
 						 userQuestion='Randomly generated.',
 						 userQuestionAnswer='%s'
 						 WHERE id='%s'",  $prefix."users", $user_name, $random, $row_check_user['id']);
-			mysqli_real_escape_string($connection,$updateSQL);
 			$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 			$user_array[] = $row_check_user['id'];
 			}
@@ -4329,7 +4325,6 @@ function remove_sensitive_data() {
 							 brewerJudgeID='A0000',
 							 brewerClubs='%s'
 							 WHERE id='%s'", $prefix."brewer", $first_name, $last_name, $user_name, $club_name, $row_check_brewer['id']);
-						mysqli_real_escape_string($connection,$updateSQL);
 						$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 					}
 

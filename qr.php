@@ -71,7 +71,6 @@ if ($action == "password-check") {
 
 		else {
 
-			mysqli_real_escape_string($connection,$password);
 			$password = md5($password);
 
 			// Check user input against DB

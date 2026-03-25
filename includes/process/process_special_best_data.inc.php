@@ -65,7 +65,6 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 											GetSQLValueString($sbd_comments, "text")
 										   	);
 
-						mysqli_real_escape_string($connection,$insertSQL);
 						$result = mysqli_query($connection,$insertSQL) or die (mysqli_error($connection));
 						// echo $updateSQL."<br>";
 
@@ -143,7 +142,6 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 											GetSQLValueString($sbd_comments, "text"),
 											GetSQLValueString($id, "int"));
 
-						mysqli_real_escape_string($connection,$updateSQL);
 						$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 						// echo $updateSQL."<br>";
 
@@ -173,7 +171,6 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 										GetSQLValueString($sbd_comments, "text")
 										);
 
-						mysqli_real_escape_string($connection,$insertSQL);
 						$result = mysqli_query($connection,$insertSQL) or die (mysqli_error($connection));
 						// echo $updateSQL."<br>";
 

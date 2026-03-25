@@ -315,15 +315,14 @@ if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) &
 
 				$style_type_limits = explode(",",sterilize($_POST['style_type_entry_limits']));
 
-				foreach ($style_type_limits as $value) {
-					
-					$entry_limit = sterilize($_POST['styleTypeEntryLimit-'.$value]);
-				 	$sql = sprintf("UPDATE %s SET styleTypeEntryLimit='%s' WHERE id='%s';", $prefix."style_types", blank_to_null($entry_limit), $value);
-					mysqli_select_db($connection,$database);
-					mysqli_real_escape_string($connection,$sql);
-					$result = mysqli_query($connection,$sql);
-					if (!$result) $errors = TRUE;
-					
+				$style_types_table = $prefix."style_types";
+				if ($stmt = mysqli_prepare($connection, "UPDATE $style_types_table SET styleTypeEntryLimit=? WHERE id=?")) {
+					foreach ($style_type_limits as $value) {
+						$entry_limit = blank_to_null(sterilize($_POST['styleTypeEntryLimit-'.$value]));
+						mysqli_stmt_bind_param($stmt, 'ss', $entry_limit, $value);
+						if (!mysqli_stmt_execute($stmt)) $errors = TRUE;
+					}
+					mysqli_stmt_close($stmt);
 				}
 
 			}

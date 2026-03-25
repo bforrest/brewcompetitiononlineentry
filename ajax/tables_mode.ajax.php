@@ -40,7 +40,6 @@ if (($session_active) && ($_SESSION['userLevel'] <= 2)) {
 		if (!check_update("assignPlanning", $prefix."judging_assignments")) {
 			$sql = sprintf("ALTER TABLE `%s` ADD `assignPlanning` TINYINT(1) NULL;",$prefix."judging_assignments");
 			mysqli_select_db($connection,$database);
-			mysqli_real_escape_string($connection,$sql);
 			$result = mysqli_query($connection,$sql);
 			if (!$result) $error_count += 1;
 		}
@@ -50,7 +49,6 @@ if (($session_active) && ($_SESSION['userLevel'] <= 2)) {
 		if (!check_update("flightPlanning", $prefix."judging_flights")) {
 			$sql = sprintf("ALTER TABLE `%s` ADD `flightPlanning` TINYINT(1) NULL;",$prefix."judging_flights");
 			mysqli_select_db($connection,$database);
-			mysqli_real_escape_string($connection,$sql);
 			$result = mysqli_query($connection,$sql);
 			if (!$result) $error_count += 1;
 		}
@@ -60,7 +58,6 @@ if (($session_active) && ($_SESSION['userLevel'] <= 2)) {
 		if (!check_update("jPrefsTablePlanning", $prefix."judging_preferences")) {
 			$sql = sprintf("ALTER TABLE `%s` ADD `jPrefsTablePlanning` TINYINT(1) NULL;",$prefix."judging_preferences");
 			mysqli_select_db($connection,$database);
-			mysqli_real_escape_string($connection,$sql);
 			$result = mysqli_query($connection,$sql);
 			if (!$result) $error_count += 1;
 		}

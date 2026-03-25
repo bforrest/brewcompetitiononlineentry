@@ -111,7 +111,6 @@ if ($section == "step0") {
 
 		$sql = sprintf("ALTER DATABASE `%s` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",$database);
 		mysqli_select_db($connection,$database);
-		mysqli_real_escape_string($connection,$sql);
 		$result = mysqli_query($connection,$sql) or die (mysqli_error($connection));
 
 	}

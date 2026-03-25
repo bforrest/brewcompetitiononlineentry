@@ -63,7 +63,6 @@ function check_mysql_data_type($column_name, $table_name) {
 	$type = 0;
 	
 	$sql = sprintf("SELECT `%s` FROM `%s` LIMIT 1",$column_name,$table_name);
-	mysqli_real_escape_string($connection,$sql);
 	$result = mysqli_query($connection, $sql);
 	
     if ($result) {

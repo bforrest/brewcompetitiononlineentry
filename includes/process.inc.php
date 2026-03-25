@@ -261,9 +261,11 @@ if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER
 		$contestEntryFeePassword = simpleDecrypt($row_contest_info1['contestEntryFeePassword'], $secretKey, $nacl);
 
 		if (sterilize($_POST['brewerDiscount']) == $contestEntryFeePassword) {
-			$updateSQL = sprintf("UPDATE $brewer_db_table SET brewerDiscount='%s' WHERE uid='%s'", "Y", $id);
-			mysqli_real_escape_string($connection,$updateSQL);
-			$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
+			if ($stmt = mysqli_prepare($connection, "UPDATE $brewer_db_table SET brewerDiscount='Y' WHERE uid=?")) {
+				mysqli_stmt_bind_param($stmt, 's', $id);
+				mysqli_stmt_execute($stmt);
+				mysqli_stmt_close($stmt);
+			}
 			$redirect_go_to = sprintf("Location: %s", $base_url."index.php?section=list&bid=".$id."&msg=15");
 		}
 
@@ -280,7 +282,6 @@ if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER
 			include (INCLUDES.'convert/convert_bjcp_2015.inc.php');
 
 			$updateSQL = sprintf("UPDATE %s SET prefsStyleSet='%s' WHERE id='%s'",$prefix."preferences","BJCP2015","1");
-			mysqli_real_escape_string($connection,$updateSQL);
 			$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 
 		}
@@ -290,7 +291,6 @@ if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER
 			include (INCLUDES.'convert/convert_bjcp_2021.inc.php');
 
 			$updateSQL = sprintf("UPDATE %s SET prefsStyleSet='%s' WHERE id='%s'",$prefix."preferences","BJCP2021","1");
-			mysqli_real_escape_string($connection,$updateSQL);
 			$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 
 		}
@@ -300,7 +300,6 @@ if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER
 			include (INCLUDES.'convert/convert_bjcp_2025.inc.php');
 
 			$updateSQL = sprintf("UPDATE %s SET prefsStyleSet='%s' WHERE id='%s'",$prefix."preferences","BJCP2025","1");
-			mysqli_real_escape_string($connection,$updateSQL);
 			$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 
 		}
@@ -332,30 +331,25 @@ if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER
 	elseif ($action == "publish") {
 
 		$update = sprintf("UPDATE %s SET prefsDisplayWinners='%s', prefsWinnerDelay='%s' WHERE id='%s'",$prefix."preferences","Y",time(),"1");
-		mysqli_real_escape_string($connection,$update);
 		$result = mysqli_query($connection,$update) or die (mysqli_error($connection));
 
 		if ($_SESSION['contestRegistrationDeadline'] > time()) {
 			$update = sprintf("UPDATE %s SET contestRegistrationDeadline='%s' WHERE id='%s'",$prefix."contest_info",time(),"1");
-			mysqli_real_escape_string($connection,$update);
 			$result = mysqli_query($connection,$update) or die (mysqli_error($connection));
 		}
 
 		if ($_SESSION['contestEntryDeadline'] > time()) {
 			$update = sprintf("UPDATE %s SET contestEntryDeadline='%s' WHERE id='%s'",$prefix."contest_info",time(),"1");
-			mysqli_real_escape_string($connection,$update);
 			$result = mysqli_query($connection,$update) or die (mysqli_error($connection));
 		}
 
 		if ($_SESSION['contestJudgeDeadline'] > time()) {
 			$update = sprintf("UPDATE %s SET contestJudgeDeadline='%s' WHERE id='%s'",$prefix."contest_info",time(),"1");
-			mysqli_real_escape_string($connection,$update);
 			$result = mysqli_query($connection,$update) or die (mysqli_error($connection));
 		}
 
 		if ($_SESSION['jPrefsJudgingClosed'] > time()) {
 			$update = sprintf("UPDATE %s SET jPrefsJudgingClosed='%s' WHERE id='%s'",$prefix."judging_preferences",time(),"1");
-			mysqli_real_escape_string($connection,$update);
 			$result = mysqli_query($connection,$update) or die (mysqli_error($connection));
 		}
 
@@ -371,7 +365,6 @@ if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER
 				if ($row_judging_locations['judgingDate'] > time()) {
 
 					$update = sprintf("UPDATE %s SET judgingDate='%s' WHERE id='%s'",$prefix."judging_locations",time(),$row_judging_locations['id']);
-					mysqli_real_escape_string($connection,$update);
 					$result = mysqli_query($connection,$update) or die (mysqli_error($connection));
 
 				}
@@ -381,7 +374,6 @@ if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER
 		}
 
 		$update = sprintf("UPDATE %s SET judgingDateEnd='%s' WHERE judgingLocType='1'",$prefix."judging_locations",time());
-		mysqli_real_escape_string($connection,$update);
 		$result = mysqli_query($connection,$update) or die (mysqli_error($connection));
 
 		if (session_status() === PHP_SESSION_NONE) {

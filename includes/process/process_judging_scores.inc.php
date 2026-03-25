@@ -13,9 +13,11 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 	if (($action == "add") || ($action == "edit")) {
 
 		// First, wipe out all previously recorded scores for the table
-		$deleteSQL = sprintf("DELETE FROM %s WHERE scoreTable='%s'", $judging_scores_db_table, $id);
-		mysqli_real_escape_string($connection,$deleteSQL);
-		$result = mysqli_query($connection,$deleteSQL) or die (mysqli_error($connection));
+		if ($stmt = mysqli_prepare($connection, "DELETE FROM $judging_scores_db_table WHERE scoreTable=?")) {
+			mysqli_stmt_bind_param($stmt, 's', $id);
+			mysqli_stmt_execute($stmt);
+			mysqli_stmt_close($stmt);
+		}
 
 		$update_table = $prefix."judging_scores";
 		$db_conn->where ('scoreTable', $id);
