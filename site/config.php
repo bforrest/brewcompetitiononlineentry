@@ -209,4 +209,20 @@ $base_url .= $_SERVER['SERVER_NAME'].$sub_directory.'/';
 $server_root = $_SERVER['DOCUMENT_ROOT'];
 //$server_root = $_SERVER['SUBDOMAIN_DOCUMENT_ROOT'];
 
+/*
+ * ******************************************************************************
+ * Scoresheet URL encryption key.
+ * ******************************************************************************
+ * Define a stable, secret key used to obfuscate scoresheet filenames in URLs.
+ * Generate a unique value once per installation by running in a PHP shell:
+ *
+ *     echo base64_encode(random_bytes(32));
+ *
+ * Paste the output between the single quotes below and uncomment the line.
+ * Leaving this commented out causes a per-session fallback key to be used,
+ * which means scoresheet links break when a user's session expires.
+ */
+
+// define('SCORESHEET_ENCRYPTION_KEY', 'paste-your-base64-encoded-32-byte-key-here');
+
 ?>

@@ -307,8 +307,8 @@ $totalRows_entry_count = total_paid_received($go,0);
             $scoresheet_random_file_html_1 = $base_url.$scoresheet_random_file_relative_1;
             $scoresheet_link_1 .= "<a target=\"_blank\" class=\"hide-loader\" href=\"".$base_url."includes/output.inc.php?section=scoresheet";
 
-            $scoresheet_link_1 .= "&amp;scoresheetfilename=".urlencode(obfuscateURL($scoresheet_file_name_1,$_SESSION['encryption_key']));
-            $scoresheet_link_1 .= "&amp;randomfilename=".urlencode(obfuscateURL($random_file_name_1,$_SESSION['encryption_key']))."&amp;download=true";
+            $scoresheet_link_1 .= "&amp;scoresheetfilename=".urlencode(obfuscateURL($scoresheet_file_name_1,SCORESHEET_ENCRYPTION_KEY));
+            $scoresheet_link_1 .= "&amp;randomfilename=".urlencode(obfuscateURL($random_file_name_1,SCORESHEET_ENCRYPTION_KEY))."&amp;download=true";
 
             if ($dbTable != "default") $scoresheet_link_1 .= "&amp;view=".get_suffix($dbTable);
             $scoresheet_link_1 .= sprintf("\" data-toggle=\"tooltip\" title=\"%s '".$table_score_data[3]."'' (by Entry Number).\" data-download=\"true\">",$brewer_entries_text_006);
@@ -331,8 +331,8 @@ $totalRows_entry_count = total_paid_received($go,0);
 
             $scoresheet_link_2 .= "<a target=\"_blank\" class=\"hide-loader\" href=\"".$base_url."includes/output.inc.php?section=scoresheet";
 
-            $scoresheet_link_2 .= "&amp;scoresheetfilename=".urlencode(obfuscateURL($scoresheet_file_name_2,$_SESSION['encryption_key']));
-            $scoresheet_link_2 .= "&amp;randomfilename=".urlencode(obfuscateURL($random_file_name_2,$_SESSION['encryption_key']))."&amp;download=true";
+            $scoresheet_link_2 .= "&amp;scoresheetfilename=".urlencode(obfuscateURL($scoresheet_file_name_2,SCORESHEET_ENCRYPTION_KEY));
+            $scoresheet_link_2 .= "&amp;randomfilename=".urlencode(obfuscateURL($random_file_name_2,SCORESHEET_ENCRYPTION_KEY))."&amp;download=true";
             if ($dbTable != "default") $scoresheet_link_2 .= "&amp;view=".get_suffix($dbTable);
             $scoresheet_link_2 .= sprintf("\" data-toggle=\"tooltip\" title=\"%s '".$table_score_data[3]."' (by Judging Number).\" data-download=\"true\">",$brewer_entries_text_006);
             $scoresheet_link_2 .= "<span class=\"fa fa-lg fa-file-pdf-o\"></a>&nbsp;&nbsp;";

@@ -75,11 +75,9 @@ $bool = date("I");
 if ($bool == 1) $timezone_offset = number_format(($timezone_raw + 1.000),0);
 else $timezone_offset = number_format($timezone_raw,0);
 
-$process_allowed = FALSE;
-if (isset($_SERVER['HTTP_REFERER'])) {
-	$referrer = parse_url($_SERVER['HTTP_REFERER']);
-	if ((($referrer['host'] == $_SERVER['SERVER_NAME']) && (isset($_SESSION['prefs'.$prefix_session]))) || ($setup_free_access)) $process_allowed = TRUE;
-}
+// HTTP_REFERER is a forgeable client header and must not be used as an
+// authentication or authorization gate. Access is controlled exclusively
+// by the session check and the CSRF token validation below.
 
 if ((isset($_SESSION['prefsSEF'])) && ($_SESSION['prefsSEF'] == "Y")) $sef = TRUE;
 
@@ -120,7 +118,7 @@ if (($request_method === "POST") && (!in_array($section,$bypass_token))) {
 		$token_hash = TRUE;
 	}
 
-	if (($posted === '') || (!$token_hash) || (!$process_allowed)) {
+	if (($posted === '') || (!$token_hash)) {
 	    session_unset();
 	    session_destroy();
 	    session_write_close();
@@ -133,7 +131,7 @@ if (($request_method === "POST") && (!in_array($section,$bypass_token))) {
 
 }
 
-if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER_NAME'])) && ((isset($_SESSION['prefs'.$prefix_session])) || ($setup_free_access))) {
+if ((isset($_SESSION['prefs'.$prefix_session])) || ($setup_free_access)) {
 
 	$archive_db_table = $prefix."archive";
 	$brewer_db_table = $prefix."brewer";
@@ -186,12 +184,14 @@ if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER
 
 	}
 
-	if 		(strstr($_SERVER['HTTP_REFERER'], $base_url."list"))  		$deleteGoTo = $base_url."index.php?section=list&msg=5";
-	elseif 	(strstr($_SERVER['HTTP_REFERER'], $base_url."rules")) 		$deleteGoTo = $base_url."index.php?section=rules&msg=5";
-	elseif 	(strstr($_SERVER['HTTP_REFERER'], $base_url."volunteers")) 	$deleteGoTo = $base_url."index.php?section=volunteers&msg=5";
-	elseif 	(strstr($_SERVER['HTTP_REFERER'], $base_url."sponsors")) 	$deleteGoTo = $base_url."index.php?section=sponsors&msg=5";
-	elseif 	(strstr($_SERVER['HTTP_REFERER'], $base_url."pay")) 		$deleteGoTo = $base_url."index.php?section=pay&msg=5";
-	else $deleteGoTo = clean_up_url($_SERVER['HTTP_REFERER'])."&msg=5";
+	$http_referer = $_SERVER['HTTP_REFERER'] ?? '';
+	if 		(strstr($http_referer, $base_url."list"))  		$deleteGoTo = $base_url."index.php?section=list&msg=5";
+	elseif 	(strstr($http_referer, $base_url."rules")) 		$deleteGoTo = $base_url."index.php?section=rules&msg=5";
+	elseif 	(strstr($http_referer, $base_url."volunteers")) 	$deleteGoTo = $base_url."index.php?section=volunteers&msg=5";
+	elseif 	(strstr($http_referer, $base_url."sponsors")) 	$deleteGoTo = $base_url."index.php?section=sponsors&msg=5";
+	elseif 	(strstr($http_referer, $base_url."pay")) 		$deleteGoTo = $base_url."index.php?section=pay&msg=5";
+	elseif  ($http_referer !== '')						$deleteGoTo = clean_up_url($http_referer)."&msg=5";
+	else $deleteGoTo = $base_url."index.php?msg=5";
 
 	// --------------------------- Various Actions ------------------------------- //
 

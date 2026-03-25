@@ -301,8 +301,8 @@ if ($totalRows_log > 0) {
 
 				if (($scoresheet) && (!empty($scoresheet_file_name))) {
 					$scoresheet_link .= "<a target=\"_blank\" class=\"hide-loader\" href=\"".$base_url."includes/output.inc.php?section=scoresheet";
-					$scoresheet_link .= "&amp;scoresheetfilename=".urlencode(obfuscateURL($scoresheet_file_name,$_SESSION['encryption_key']));
-					$scoresheet_link .= "&amp;randomfilename=".urlencode(obfuscateURL($random_file_name,$_SESSION['encryption_key']))."&amp;download=true";
+					$scoresheet_link .= "&amp;scoresheetfilename=".urlencode(obfuscateURL($scoresheet_file_name,SCORESHEET_ENCRYPTION_KEY));
+					$scoresheet_link .= "&amp;randomfilename=".urlencode(obfuscateURL($random_file_name,SCORESHEET_ENCRYPTION_KEY))."&amp;download=true";
 					$scoresheet_link .= sprintf("\" data-bs-toggle=\"tooltip\" title=\"%s &ldquo;".$entry_name."&rdquo;.\" data-download=\"true\">",$brewer_entries_text_006);
 					$scoresheet_link .= "<span class=\"fa fa-lg fa-file-pdf me-1\"></a>&nbsp;&nbsp;";
 				}

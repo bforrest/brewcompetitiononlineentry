@@ -621,8 +621,15 @@ $db_version = $connection -> server_info;
 $db_maria = FALSE;
 if (strpos(strtolower($db_version), "mariadb") !== false) $db_maria = TRUE;
 
-// Generate a unique encryption key on each page load.
-if ((!isset($_SESSION['encryption_key'])) || (empty($_SESSION['encryption_key']))) $_SESSION['encryption_key'] = base64_encode(openssl_random_pseudo_bytes(32));
+// Ensure SCORESHEET_ENCRYPTION_KEY is defined for obfuscateURL()/deobfuscateURL().
+// If site/config.php defines the constant, that persistent value is used and scoresheet
+// links survive session expiry. Otherwise fall back to a per-session key (legacy behaviour).
+if (!defined('SCORESHEET_ENCRYPTION_KEY')) {
+    if ((!isset($_SESSION['encryption_key'])) || (empty($_SESSION['encryption_key']))) {
+        $_SESSION['encryption_key'] = base64_encode(openssl_random_pseudo_bytes(32));
+    }
+    define('SCORESHEET_ENCRYPTION_KEY', $_SESSION['encryption_key']);
+}
 
 /**
  * Failsafe for selected styles.

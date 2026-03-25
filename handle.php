@@ -25,8 +25,8 @@ elseif ((isset($_SESSION['loginUsername'])) && ($_SESSION['userLevel'] == 0) && 
 
 	// Allowable file mime types and extensions for images
 	if (($action == "default") || ($action == "html")) {	
-		$file_mimes_allowed = array('image/jpeg','image/jpg','image/gif','image/png','image/webp','image/svg+xml');
-		$file_extensions_allowed  = array('.jpeg','.jpg','.png','.gif','.webp','.svg');
+		$file_mimes_allowed = array('image/jpeg','image/jpg','image/gif','image/png','image/webp');
+		$file_extensions_allowed  = array('.jpeg','.jpg','.png','.gif','.webp');
 	}
 
 	// Allowable file and mime types for documents (PDF only)

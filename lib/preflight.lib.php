@@ -1,5 +1,6 @@
 <?php
 include (LIB.'update.lib.php');
+require_once (LIB.'security.lib.php');
 
 $update_required = FALSE;
 $setup_success = FALSE;
@@ -13,24 +14,24 @@ $recently_updated = FALSE;
 if (check_setup($prefix."system",$database)) {
 	
 	$query_system = sprintf("SELECT * FROM `%s` WHERE id='1'",$prefix."system");
-	$system = mysqli_query($connection,$query_system) or die (mysqli_error($connection));
+	$system = db_query($connection, $query_system);
 	$row_system = mysqli_fetch_assoc($system);
-	
+
 	if ($row_system['version'] != $current_version) {
 		unset($_SESSION['session_set_'.$prefix_session]);
 		unset($_SESSION['currentVersion']);
 	}
-	
+
 	if ((HOSTED) && ($row_system['setup_last_step'] == 8)) $hosted_setup = TRUE;
 	$check_setup = TRUE;
 
 }
 
 if (check_setup($prefix."bcoem_sys",$database)) {
-	
+
 	$system_name_change = TRUE;
 	$query_system = sprintf("SELECT * FROM `%s` WHERE id='1'",$prefix."bcoem_sys");
-	$system = mysqli_query($connection,$query_system) or die (mysqli_error($connection));
+	$system = db_query($connection, $query_system);
 	$row_system = mysqli_fetch_assoc($system);
 	
 	if ($row_system['version'] != $current_version) {
@@ -81,7 +82,7 @@ if ((!isset($_SESSION['currentVersion'])) || ((isset($_SESSION['currentVersion']
 
 			if ($row_system['setup_last_step'] == 1) {
 				$query_user = sprintf("SELECT user_name FROM %s WHERE id='1'",$prefix."users");
-				$user = mysqli_query($connection,$query_user) or die (mysqli_error($connection));
+				$user = db_query($connection, $query_user);
 				$row_user = mysqli_fetch_assoc($user);
 				$setup_relocate .= "&go=".$row_user['user_name'];
 			}
@@ -144,7 +145,7 @@ else $setup_success = TRUE;
 
 if ((!$system_name_change) && (check_setup($prefix."system",$database))) {
 	$query_sys = sprintf("RENAME TABLE `%s` TO `%s`",$prefix."system",$prefix."bcoem_sys");
-	$sys = mysqli_query($connection,$query_sys) or die (mysqli_error($connection));
+	$sys = db_query($connection, $query_sys);
 	$system_name_change = TRUE;
 }
 

@@ -128,3 +128,20 @@ Options +ExecCGI +Includes +IncludesNOEXEC +SymLinksIfOwnerMatch -Indexes
 <FilesMatch "\.(css|js)$">
 Header set Cache-Control "max-age=3600"
 </FilesMatch>
+
+# Security response headers
+<IfModule mod_headers.c>
+    # Prevent MIME-type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+    # Deny framing by other origins (clickjacking defence)
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Limit Referer leakage to same-origin requests only
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Content Security Policy
+    # 'unsafe-inline' is required while inline <script>/<style> tags exist in templates.
+    # Tighten by introducing nonces/hashes in a future sprint.
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; frame-src https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'"
+</IfModule>

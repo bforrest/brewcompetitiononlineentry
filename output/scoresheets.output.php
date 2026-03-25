@@ -29,7 +29,7 @@ if (isset($_SESSION['loginUsername'])) {
 
 		// Decode the file names
 		$get_real_file_name = urldecode($_GET['scoresheetfilename']);
-		$scoresheet_file_name = deobfuscateURL($get_real_file_name,$_SESSION['encryption_key']);
+		$scoresheet_file_name = deobfuscateURL($get_real_file_name,SCORESHEET_ENCRYPTION_KEY);
 
 		// Get the directory name from URL if present
 		if ($view == "default") $scoresheetfile = USER_DOCS.$scoresheet_file_name;
@@ -37,7 +37,7 @@ if (isset($_SESSION['loginUsername'])) {
 
 		// Decrypt the filename
 		$get_random_file_name = urldecode($_GET['randomfilename']);
-		$random_file_name = deobfuscateURL($get_random_file_name,$_SESSION['encryption_key']);
+		$random_file_name = deobfuscateURL($get_random_file_name,SCORESHEET_ENCRYPTION_KEY);
 		$scoresheet_random_file_relative = "user_temp/".$random_file_name;
 		$scoresheet_random_file = USER_TEMP.$random_file_name;
 
