@@ -246,31 +246,227 @@ And SVGs are served with Content-Disposition: attachment rather than inline
 
 ---
 
-### P2-3 · Migrate All SQL Queries to Parameterized Statements
+### P2-3a · Parameterize User, Session & Brewer Queries
 
 **As a** developer,
-**I want** all database queries throughout the application to use parameterized prepared statements via the existing `MysqliDb` class,
-**so that** SQL injection is eliminated structurally across the entire data access layer.
+**I want** all SQL queries that touch user accounts and session data to use parameterized prepared statements,
+**so that** SQL injection is eliminated structurally in the most sensitive data access paths.
 
 **Acceptance Criteria:**
 
 ```
-Given any includes/db/ or includes/process/ file
+Given any query in the listed files that uses a user-supplied or session-derived value
 When reviewed by a developer
-Then all SELECT, INSERT, UPDATE, and DELETE statements use MysqliDb's parameterized API
-And no raw sprintf() or string concatenation builds query strings with user-supplied values
+Then the query uses a prepared statement with mysqli_stmt_bind_param() or MysqliDb's parameterized API
+And no raw sprintf() or string concatenation builds query strings with those values
 
-Given a user submits any form with a SQL metacharacter (' " ; --)
-When the form data is processed
-Then the character is treated as literal data, not SQL syntax
-And the database operation completes normally with the literal value stored
-
-Given the migration to parameterized statements is complete
-When a static analysis tool (sqlmap, or PHPCS with security rules) scans the codebase
-Then zero injection-vulnerable query construction patterns are reported
+Given a SQL metacharacter (' " ; --) appears in a login name, email, or session field
+When the query executes
+Then it is treated as literal data, not SQL syntax
 ```
 
-**Files:** All `includes/db/` and `includes/process/` files
+**Files:** `includes/db/common.db.php`, `includes/db/brewer.db.php`, `includes/db/entry_info.db.php`
+
+---
+
+### P2-3b · Parameterize Entry Queries
+
+**As a** developer,
+**I want** all SQL queries that read and filter competition entries to use parameterized prepared statements,
+**so that** entry listing and style-search pages cannot be exploited via injected category or brewer IDs.
+
+**Acceptance Criteria:**
+
+```
+Given any query in the listed files that uses a user-supplied or URL-derived value
+When reviewed
+Then the query uses a prepared statement
+And no raw string interpolation of external values exists in the SQL
+
+Given a malformed category value is submitted
+When the query executes
+Then the value is treated as literal data
+```
+
+**Files:** `includes/db/entries.db.php`, `includes/db/entries_by_style.db.php`, `includes/db/entries_by_substyle.db.php`
+
+---
+
+### P2-3c · Parameterize Judging Data Queries
+
+**As a** developer,
+**I want** all SQL queries that read judging scores, flights, tables, and assignments to use parameterized prepared statements,
+**so that** the results-reporting path cannot be exploited via injected table or entry identifiers.
+
+**Acceptance Criteria:**
+
+```
+Given any query in the listed files that includes a table ID, entry ID, or flight identifier
+When reviewed
+Then the query uses a prepared statement
+And no raw sprintf() or string concatenation inserts those values into SQL
+
+Given the migration is complete
+When the listed files are searched for sprintf() calls that embed external variables in SQL
+Then zero such instances remain
+```
+
+**Files:** `includes/db/admin_judging_flights.db.php`, `includes/db/admin_judging_scores.db.php`, `includes/db/admin_judging_scores_bos.db.php`, `includes/db/admin_judging_assign.db.php`, `includes/db/admin_judging_tables.db.php`, `includes/db/judging_locations.db.php`, `includes/db/scores.db.php`, `includes/db/score_count.db.php`, `includes/db/scores_bestbrewer.db.php`
+
+---
+
+### P2-3d · Parameterize Admin & Participant Queries
+
+**As a** developer,
+**I want** all SQL queries used in admin participant management screens to use parameterized prepared statements,
+**so that** administrator-facing pages are not exempt from injection defences.
+
+**Acceptance Criteria:**
+
+```
+Given any query in the listed files that filters by user ID, name, or email
+When reviewed
+Then a prepared statement is used for all external values
+
+Given the migration is complete
+When the listed files are searched for raw string interpolation in SQL
+Then zero such instances remain
+```
+
+**Files:** `includes/db/admin_common.db.php`, `includes/db/admin_make_admin.db.php`, `includes/db/admin_participants.db.php`, `includes/db/admin_entry_count_by_style.db.php`
+
+---
+
+### P2-3e · Parameterize Output & Report Queries
+
+**As a** developer,
+**I want** all SQL queries that back PDF reports, pull sheets, export downloads, and label generation to use parameterized prepared statements,
+**so that** report generation endpoints cannot be exploited via injected sort or filter parameters.
+
+**Acceptance Criteria:**
+
+```
+Given any query in the listed files that uses a URL parameter, sort key, or session value
+When reviewed
+Then the query uses a prepared statement
+
+Given the migration is complete
+When the listed files are searched for raw string interpolation in SQL
+Then zero such instances remain
+```
+
+**Files:** `includes/db/output_assignments.db.php`, `includes/db/output_bos_mat.db.php`, `includes/db/output_email_export.db.php`, `includes/db/output_entries_export.db.php`, `includes/db/output_entries_export_extend.db.php`, `includes/db/output_entries_export_winner.db.php`, `includes/db/output_entry.db.php`, `includes/db/output_labels.db.php`, `includes/db/output_labels_awards.db.php`, `includes/db/output_participant_summary.db.php`, `includes/db/output_participants_export.db.php`, `includes/db/output_post_judge.db.php`, `includes/db/output_post_judge_inventory.db.php`, `includes/db/output_pullsheets.db.php`, `includes/db/output_pullsheets_bos.db.php`, `includes/db/output_pullsheets_bos_entries.db.php`, `includes/db/output_pullsheets_entries.db.php`, `includes/db/output_pullsheets_mini_bos.db.php`, `includes/db/output_pullsheets_queued.db.php`, `includes/db/output_results.db.php`, `includes/db/output_results_download_bos.db.php`, `includes/db/output_results_download_sbd.db.php`, `includes/db/output_sorting.db.php`, `includes/db/output_staff_points.db.php`, `includes/db/output_table_cards.db.php`
+
+---
+
+### P2-3f · Parameterize Content & Config Queries
+
+**As a** developer,
+**I want** all SQL queries used for site content and configuration tables to use parameterized prepared statements,
+**so that** every data access layer path is consistently protected.
+
+**Acceptance Criteria:**
+
+```
+Given any query in the listed files that includes an external or user-derived value
+When reviewed
+Then a prepared statement is used
+
+Given the migration is complete
+When the listed files are searched for raw string interpolation in SQL
+Then zero such instances remain
+```
+
+**Files:** `includes/db/archive.db.php`, `includes/db/contacts.db.php`, `includes/db/dropoff.db.php`, `includes/db/mods.db.php`, `includes/db/nhc_regions.db.php`, `includes/db/organizations.db.php`, `includes/db/payments.db.php`, `includes/db/setup.db.php`, `includes/db/sponsors.db.php`, `includes/db/stewarding.db.php`, `includes/db/styles.db.php`, `includes/db/styles_special.db.php`, `includes/db/update.db.php`, `includes/db/winners.db.php`, `includes/db/winners_category.db.php`, `includes/db/winners_subcategory.db.php`
+
+---
+
+### P2-3g · Parameterize User Account Process Files
+
+**As a** developer,
+**I want** all SQL in user registration, profile update, password reset, and brewer info process files to use parameterized prepared statements,
+**so that** the highest-risk form processors cannot be exploited via injected credentials or profile fields.
+
+**Acceptance Criteria:**
+
+```
+Given any INSERT or UPDATE in the listed files that uses POST data
+When reviewed
+Then a prepared statement with bind_param() is used for all POST-derived values
+And no raw sprintf() or string concatenation inserts POST values into SQL
+
+Given a SQL metacharacter is submitted in any registration or profile field
+When the query executes
+Then it is stored as literal data without altering query structure
+```
+
+**Files:** `includes/process/process_users.inc.php`, `includes/process/process_users_register.inc.php`, `includes/process/process_users_setup.inc.php`, `includes/process/process_brewer.inc.php`, `includes/process/process_brewer_info.inc.php`, `includes/process/process_forgot_password.inc.php`
+
+---
+
+### P2-3h · Parameterize Entry & Archive Process Files
+
+**As a** developer,
+**I want** all SQL in entry submission, BeerXML import, and archive process files to use parameterized prepared statements,
+**so that** entry creation and bulk-import paths are protected against injection.
+
+**Acceptance Criteria:**
+
+```
+Given any INSERT, UPDATE, or DELETE in the listed files that uses POST or file-derived data
+When reviewed
+Then a prepared statement is used for all external values
+
+Given BeerXML import data containing SQL metacharacters
+When the import runs
+Then all field values are stored as literal data
+```
+
+**Files:** `includes/process/process_brewing.inc.php`, `includes/process/process_beerxml.inc.php`, `includes/process/process_archive.inc.php`, `includes/process/process_archive_hosted.inc.php`, `includes/process/process_delete.inc.php`
+
+---
+
+### P2-3i · Parameterize Judging Process Files
+
+**As a** developer,
+**I want** all SQL in judging assignment, flight, score, and table process files to use parameterized prepared statements,
+**so that** the judging workflow cannot be manipulated via injected IDs or scores.
+
+**Acceptance Criteria:**
+
+```
+Given any INSERT, UPDATE, or DELETE in the listed files that uses POST or GET data
+When reviewed
+Then a prepared statement is used for all external values
+
+Given a malformed table ID or score value is submitted
+When the query executes
+Then it is treated as literal data and the database record is unaffected
+```
+
+**Files:** `includes/process/process_judging_assignments.inc.php`, `includes/process/process_judging_flight_check.inc.php`, `includes/process/process_judging_flights.inc.php`, `includes/process/process_judging_locations.inc.php`, `includes/process/process_judging_preferences.inc.php`, `includes/process/process_judging_scores.inc.php`, `includes/process/process_judging_scores_bos.inc.php`, `includes/process/process_judging_tables.inc.php`
+
+---
+
+### P2-3j · Parameterize Admin & Config Process Files
+
+**As a** developer,
+**I want** all SQL in competition configuration, contact, payment, sponsor, style, and special-best process files to use parameterized prepared statements,
+**so that** administrative form processors are consistently protected.
+
+**Acceptance Criteria:**
+
+```
+Given any INSERT, UPDATE, or DELETE in the listed files that uses POST data
+When reviewed
+Then a prepared statement is used for all POST-derived values
+
+Given the migration is complete
+When all listed files are searched for raw string interpolation in SQL
+Then zero such instances remain
+```
+
+**Files:** `includes/process/process_barcode_check_in.inc.php`, `includes/process/process_comp_info.inc.php`, `includes/process/process_contacts.inc.php`, `includes/process/process_dates.inc.php`, `includes/process/process_drop_off.inc.php`, `includes/process/process_email.inc.php`, `includes/process/process_mods.inc.php`, `includes/process/process_paypal.inc.php`, `includes/process/process_prefs.inc.php`, `includes/process/process_special_best.inc.php`, `includes/process/process_special_best_data.inc.php`, `includes/process/process_special_best_info.inc.php`, `includes/process/process_sponsors.inc.php`, `includes/process/process_style_types.inc.php`, `includes/process/process_styles.inc.php`
 
 ---
 
