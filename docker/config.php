@@ -23,11 +23,11 @@ $brewing = $connection;
 $prefix          = '';
 $installation_id = 'docker';
 $session_expire_after = 30;
-$setup_free_access = FALSE;
+$setup_free_access = filter_var(getenv('SETUP_FREE_ACCESS') ?: 'false', FILTER_VALIDATE_BOOLEAN);
 $sub_directory   = '';
 
 $base_url = 'http://';
 if (is_https()) $base_url = 'https://';
-$base_url .= $_SERVER['SERVER_NAME'] . $sub_directory . '/';
+$base_url .= $_SERVER['HTTP_HOST'] . $sub_directory . '/';
 
 $server_root = $_SERVER['DOCUMENT_ROOT'];
