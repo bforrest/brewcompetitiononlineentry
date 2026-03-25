@@ -98,6 +98,9 @@ if ($check == 1) {
 		mysqli_stmt_close($stmt_update_brewer);
 	}
 	
+	// Rotate the session ID to invalidate any pre-login session (session fixation defence)
+	session_regenerate_id(true);
+
 	// Register the session variable
 	$_SESSION['loginUsername'] = $loginUsername;
 	
