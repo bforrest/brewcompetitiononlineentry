@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BCOE&M — Code Hotspot Analysis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 28px 40px 20px;
+    border-bottom: 1px solid #1e2533;
+  }
+  header h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #f0f4f8;
+    letter-spacing: -0.01em;
+  }
+  header p {
+    font-size: 0.82rem;
+    color: #6b7a96;
+    margin-top: 5px;
+    max-width: 700px;
+    line-height: 1.5;
+  }
+
+  .layout {
+    display: flex;
+    height: calc(100vh - 100px);
+  }
+
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    padding: 20px;
+    border-right: 1px solid #1e2533;
+    overflow-y: auto;
+  }
+
+  .sidebar h2 {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #6b7a96;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+
+  .filter-group {
+    margin-bottom: 24px;
+  }
+
+  .filter-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: #a8b4c8;
+    cursor: pointer;
+    padding: 4px 0;
+    transition: color 0.15s;
+  }
+  .filter-group label:hover { color: #e2e8f0; }
+
+  .color-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .filter-group input[type="checkbox"] {
+    display: none;
+  }
+  .filter-group input[type="checkbox"]:checked + .color-dot {
+    box-shadow: 0 0 0 2px #0f1117, 0 0 0 3px currentColor;
+  }
+
+  .slider-row {
+    margin-bottom: 14px;
+  }
+  .slider-row label {
+    font-size: 0.78rem;
+    color: #6b7a96;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .slider-row label span { color: #a8b4c8; }
+  input[type="range"] {
+    width: 100%;
+    accent-color: #5a8dee;
+  }
+
+  .top-list {
+    margin-top: 0;
+  }
+  .top-item {
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+    margin-bottom: 2px;
+  }
+  .top-item:hover { background: #1a2235; }
+  .top-item.active { background: #1e2d4a; }
+  .top-item-rank {
+    font-size: 0.65rem;
+    color: #4a5a78;
+    font-weight: 600;
+    width: 18px;
+    display: inline-block;
+  }
+  .top-item-name {
+    font-size: 0.78rem;
+    color: #a8b4c8;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+  }
+  .top-item-score {
+    font-size: 0.68rem;
+    color: #4a5a78;
+    margin-top: 1px;
+  }
+
+  .chart-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  svg { width: 100%; height: 100%; }
+
+  .axis text { fill: #4a5a78; font-size: 11px; }
+  .axis path, .axis line { stroke: #1e2533; }
+  .axis-label { fill: #6b7a96; font-size: 12px; }
+  .grid line { stroke: #1a2235; stroke-dasharray: 3,3; }
+
+  .bubble {
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .bubble:hover { opacity: 1 !important; }
+
+  .label-text {
+    font-size: 10px;
+    fill: #c8d4e8;
+    pointer-events: none;
+    font-family: "SF Mono", "Fira Code", monospace;
+  }
+
+  .tooltip {
+    position: absolute;
+    background: #1a2235;
+    border: 1px solid #2a3a55;
+    border-radius: 8px;
+    padding: 12px 14px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.12s;
+    max-width: 280px;
+    z-index: 10;
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip-path {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.78rem;
+    color: #7aa2f7;
+    margin-bottom: 8px;
+    word-break: break-all;
+  }
+  .tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.76rem;
+    color: #6b7a96;
+    margin-bottom: 3px;
+  }
+  .tooltip-row span:last-child { color: #c8d4e8; font-weight: 500; }
+  .tooltip-hotspot {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #2a3a55;
+    font-size: 0.78rem;
+    color: #6b7a96;
+  }
+  .tooltip-hotspot strong { font-size: 1rem; }
+
+  .legend {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(15,17,23,0.85);
+    border: 1px solid #1e2533;
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .legend h4 {
+    font-size: 0.68rem;
+    color: #6b7a96;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 8px;
+  }
+  .legend-gradient {
+    width: 160px; height: 10px;
+    border-radius: 5px;
+    background: linear-gradient(to right, #1a4a8a, #5a8dee, #f6c90e, #ff6b35, #e63946);
+    margin-bottom: 4px;
+  }
+  .legend-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: #4a5a78;
+  }
+  .legend-size {
+    margin-top: 10px;
+    font-size: 0.68rem;
+    color: #4a5a78;
+  }
+
+  .zone-label {
+    font-size: 10px;
+    fill: #2a3a55;
+    font-style: italic;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BCOE&amp;M — Code Hotspot Analysis</h1>
+  <p>Bubble position = change frequency (X) × cyclomatic complexity (Y). Bubble size = lines of code.
+  Color = hotspot score (blue → red). Files in the upper-right are the highest-risk targets for refactoring.</p>
+</header>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="filter-group">
+      <h2>Filter by Layer</h2>
+      <div id="layer-filters"></div>
+    </div>
+    <div class="filter-group">
+      <h2>Show Top N</h2>
+      <div class="slider-row">
+        <label>Visible files <span id="n-label">80</span></label>
+        <input type="range" id="n-slider" min="10" max="387" value="80" step="5">
+      </div>
+    </div>
+    <div class="filter-group">
+      <h2>Top Hotspots</h2>
+      <div class="top-list" id="top-list"></div>
+    </div>
+  </div>
+
+  <div class="chart-area" id="chart-area">
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+</div>
+
+<script>
+const RAW_DATA = [{"path":"lib/common.lib.php","churn":229,"complexity":1594,"loc":5477,"hotspot":0.9913791494810404,"norm_churn":0.9828,"norm_cx":1.0},{"path":"admin/default.admin.php","churn":233,"complexity":1271,"loc":3106,"hotspot":0.892953033029727,"norm_churn":1.0,"norm_cx":0.7974},{"path":"admin/site_preferences.admin.php","churn":146,"complexity":1161,"loc":2392,"hotspot":0.6755700981285511,"norm_churn":0.6266,"norm_cx":0.7284},{"path":"sections/brew.sec.php","churn":169,"complexity":745,"loc":1089,"hotspot":0.5822364223276606,"norm_churn":0.7253,"norm_cx":0.4674},{"path":"admin/entries.admin.php","churn":186,"complexity":640,"loc":1025,"hotspot":0.5661406511276612,"norm_churn":0.7983,"norm_cx":0.4015},{"path":"sections/register.sec.php","churn":131,"complexity":697,"loc":1080,"hotspot":0.49582670941779095,"norm_churn":0.5622,"norm_cx":0.4373},{"path":"admin/judging_tables.admin.php","churn":136,"complexity":664,"loc":1588,"hotspot":0.49309588110377484,"norm_churn":0.5837,"norm_cx":0.4166},{"path":"output/export.output.php","churn":92,"complexity":945,"loc":3558,"hotspot":0.4838243244400671,"norm_churn":0.3948,"norm_cx":0.5928},{"path":"lang/en/en-US.lang.php","churn":174,"complexity":396,"loc":2259,"hotspot":0.4307250182370009,"norm_churn":0.7468,"norm_cx":0.2484},{"path":"sections/nav.sec.php","churn":146,"complexity":454,"loc":445,"hotspot":0.42245673213243323,"norm_churn":0.6266,"norm_cx":0.2848},{"path":"admin/participants.admin.php","churn":131,"complexity":485,"loc":865,"hotspot":0.41360368370315664,"norm_churn":0.5622,"norm_cx":0.3043},{"path":"includes/process/process_brewing.inc.php","churn":130,"complexity":452,"loc":1197,"hotspot":0.3977578637743088,"norm_churn":0.5579,"norm_cx":0.2836},{"path":"admin/judging_locations.admin.php","churn":101,"complexity":465,"loc":921,"hotspot":0.35560269549333684,"norm_churn":0.4335,"norm_cx":0.2917},{"path":"includes/constants.inc.php","churn":157,"complexity":261,"loc":789,"hotspot":0.332160481075063,"norm_churn":0.6738,"norm_cx":0.1637},{"path":"admin/judging_scores.admin.php","churn":92,"complexity":432,"loc":561,"hotspot":0.32712494907333833,"norm_churn":0.3948,"norm_cx":0.271},{"path":"sections/brewer_entries.sec.php","churn":125,"complexity":279,"loc":714,"hotspot":0.30643261624476115,"norm_churn":0.5365,"norm_cx":0.175},{"path":"admin/judging_assign.admin.php","churn":99,"complexity":346,"loc":878,"hotspot":0.30369212305610455,"norm_churn":0.4249,"norm_cx":0.2171},{"path":"lib/admin.lib.php","churn":87,"complexity":375,"loc":1699,"hotspot":0.2963828986327055,"norm_churn":0.3734,"norm_cx":0.2353},{"path":"includes/headers.inc.php","churn":105,"complexity":296,"loc":678,"hotspot":0.2892799848305005,"norm_churn":0.4506,"norm_cx":0.1857},{"path":"output/pullsheets.output.php","churn":56,"complexity":523,"loc":2052,"hotspot":0.2808165754877446,"norm_churn":0.2403,"norm_cx":0.3281},{"path":"includes/process.inc.php","churn":159,"complexity":163,"loc":436,"hotspot":0.26416193996273574,"norm_churn":0.6824,"norm_cx":0.1023},{"path":"admin/styles.admin.php","churn":86,"complexity":282,"loc":451,"hotspot":0.2555357460499989,"norm_churn":0.3691,"norm_cx":0.1769},{"path":"sections/brewer.sec.php","churn":133,"complexity":171,"loc":369,"hotspot":0.2474581470513478,"norm_churn":0.5708,"norm_cx":0.1073},{"path":"admin/competition_info.admin.php","churn":78,"complexity":289,"loc":873,"hotspot":0.24636221702982242,"norm_churn":0.3348,"norm_cx":0.1813},{"path":"output/labels.output.php","churn":51,"complexity":412,"loc":1248,"hotspot":0.23785461211862996,"norm_churn":0.2189,"norm_cx":0.2585},{"path":"sections/alerts.sec.php","churn":52,"complexity":390,"loc":500,"hotspot":0.23367478742784645,"norm_churn":0.2232,"norm_cx":0.2447},{"path":"sections/brewer_info.sec.php","churn":90,"complexity":220,"loc":858,"hotspot":0.2308928455600632,"norm_churn":0.3863,"norm_cx":0.138},{"path":"sections/entry_info.sec.php","churn":106,"complexity":172,"loc":708,"hotspot":0.22156187768953292,"norm_churn":0.4549,"norm_cx":0.1079},{"path":"setup/install_db.setup.php","churn":108,"complexity":161,"loc":1350,"hotspot":0.2163728157231806,"norm_churn":0.4635,"norm_cx":0.101},{"path":"includes/process/process_brewer.inc.php","churn":89,"complexity":195,"loc":868,"hotspot":0.21616739549191832,"norm_churn":0.382,"norm_cx":0.1223},{"path":"admin/judging_scores_bos.admin.php","churn":68,"complexity":250,"loc":314,"hotspot":0.2139450987142218,"norm_churn":0.2918,"norm_cx":0.1568},{"path":"eval/scoresheet.eval.php","churn":43,"complexity":386,"loc":1342,"hotspot":0.21140037875879933,"norm_churn":0.1845,"norm_cx":0.2422},{"path":"update/run_update.php","churn":16,"complexity":1024,"loc":4918,"hotspot":0.2100331523191074,"norm_churn":0.0687,"norm_cx":0.6424},{"path":"includes/db/common.db.php","churn":96,"complexity":161,"loc":525,"hotspot":0.2039982470163843,"norm_churn":0.412,"norm_cx":0.101},{"path":"sections/sidebar.sec.php","churn":61,"complexity":250,"loc":488,"hotspot":0.20263422643268444,"norm_churn":0.2618,"norm_cx":0.1568},{"path":"includes/process/process_prefs.inc.php","churn":74,"complexity":204,"loc":867,"hotspot":0.201608493556914,"norm_churn":0.3176,"norm_cx":0.128},{"path":"admin/archive.admin.php","churn":53,"complexity":264,"loc":362,"hotspot":0.19409653354052564,"norm_churn":0.2275,"norm_cx":0.1656},{"path":"admin/sponsors.admin.php","churn":50,"complexity":279,"loc":315,"hotspot":0.19380500333955164,"norm_churn":0.2146,"norm_cx":0.175},{"path":"lang/pt/pt-BR.lang.php","churn":71,"complexity":189,"loc":2264,"hotspot":0.19008067143985496,"norm_churn":0.3047,"norm_cx":0.1186},{"path":"admin/judging_flights.admin.php","churn":61,"complexity":214,"loc":350,"hotspot":0.18747772945608338,"norm_churn":0.2618,"norm_cx":0.1343},{"path":"admin/judging_preferences.admin.php","churn":54,"complexity":240,"loc":519,"hotspot":0.18680150966440945,"norm_churn":0.2318,"norm_cx":0.1506},{"path":"includes/process/process_users_register.inc.php","churn":92,"complexity":135,"loc":508,"hotspot":0.18286840581603536,"norm_churn":0.3948,"norm_cx":0.0847},{"path":"update.php","churn":99,"complexity":125,"loc":490,"hotspot":0.18253682185182393,"norm_churn":0.4249,"norm_cx":0.0784},{"path":"lang/cs/cs-CZ.lang.php","churn":74,"complexity":164,"loc":2200,"hotspot":0.1807655491451873,"norm_churn":0.3176,"norm_cx":0.1029},{"path":"index.php","churn":199,"complexity":56,"loc":181,"hotspot":0.1732201589036354,"norm_churn":0.8541,"norm_cx":0.0351},{"path":"awards.php","churn":24,"complexity":448,"loc":1357,"hotspot":0.1701462997811671,"norm_churn":0.103,"norm_cx":0.2811},{"path":"sections/bestbrewer.sec.php","churn":28,"complexity":382,"loc":728,"hotspot":0.16970263201224395,"norm_churn":0.1202,"norm_cx":0.2396},{"path":"sections/default.sec.php","churn":91,"complexity":110,"loc":225,"hotspot":0.16417042394862644,"norm_churn":0.3906,"norm_cx":0.069},{"path":"setup.php","churn":81,"complexity":116,"loc":356,"hotspot":0.15905575409067815,"norm_churn":0.3476,"norm_cx":0.0728},{"path":"sections/pay.sec.php","churn":103,"complexity":90,"loc":308,"hotspot":0.15798568881496816,"norm_churn":0.4421,"norm_cx":0.0565},{"path":"admin/mods.admin.php","churn":29,"complexity":265,"loc":356,"hotspot":0.14384667142330568,"norm_churn":0.1245,"norm_cx":0.1662},{"path":"includes/db/brewer.db.php","churn":51,"complexity":148,"loc":279,"hotspot":0.14255873293889829,"norm_churn":0.2189,"norm_cx":0.0928},{"path":"eval/dashboard.eval.php","churn":27,"complexity":273,"loc":1337,"hotspot":0.14087732174604356,"norm_churn":0.1159,"norm_cx":0.1713},{"path":"eval/checklist_scoresheet.eval.php","churn":12,"complexity":584,"loc":900,"hotspot":0.1373646321654153,"norm_churn":0.0515,"norm_cx":0.3664},{"path":"site/bootstrap.php","churn":86,"complexity":80,"loc":420,"hotspot":0.13610437954124124,"norm_churn":0.3691,"norm_cx":0.0502},{"path":"sections/login.sec.php","churn":54,"complexity":126,"loc":267,"hotspot":0.13535055266519525,"norm_churn":0.2318,"norm_cx":0.079},{"path":"admin/dropoff.admin.php","churn":41,"complexity":143,"loc":169,"hotspot":0.1256428641642846,"norm_churn":0.176,"norm_cx":0.0897},{"path":"sections/winners.sec.php","churn":77,"complexity":75,"loc":270,"hotspot":0.12469638843269186,"norm_churn":0.3305,"norm_cx":0.0471},{"path":"admin/special_best_data.admin.php","churn":35,"complexity":164,"loc":239,"hotspot":0.12431794632039034,"norm_churn":0.1502,"norm_cx":0.1029},{"path":"lib/output.lib.php","churn":39,"complexity":146,"loc":677,"hotspot":0.12381880617691372,"norm_churn":0.1674,"norm_cx":0.0916},{"path":"paths.php","churn":117,"complexity":47,"loc":298,"hotspot":0.12168015122729266,"norm_churn":0.5021,"norm_cx":0.0295},{"path":"includes/process/process_judging_tables.inc.php","churn":41,"complexity":133,"loc":519,"hotspot":0.1211701456153845,"norm_churn":0.176,"norm_cx":0.0834},{"path":"eval/structured_scoresheet.eval.php","churn":11,"complexity":485,"loc":711,"hotspot":0.11985194680069346,"norm_churn":0.0472,"norm_cx":0.3043},{"path":"qr.php","churn":33,"complexity":156,"loc":437,"hotspot":0.11773271250597275,"norm_churn":0.1416,"norm_cx":0.0979},{"path":"output/assignments.output.php","churn":26,"complexity":195,"loc":330,"hotspot":0.11683739371392322,"norm_churn":0.1116,"norm_cx":0.1223},{"path":"includes/data_cleanup.inc.php","churn":28,"complexity":180,"loc":665,"hotspot":0.11649120808272691,"norm_churn":0.1202,"norm_cx":0.1129},{"path":"includes/process/process_delete.inc.php","churn":38,"complexity":131,"loc":600,"hotspot":0.11577247747792069,"norm_churn":0.1631,"norm_cx":0.0822},{"path":"includes/process/process_brewer_info.inc.php","churn":32,"complexity":153,"loc":460,"hotspot":0.11481498820269666,"norm_churn":0.1373,"norm_cx":0.096},{"path":"sections/contact.sec.php","churn":56,"complexity":85,"loc":177,"hotspot":0.11320910508379911,"norm_churn":0.2403,"norm_cx":0.0533},{"path":"includes/process/process_users.inc.php","churn":47,"complexity":101,"loc":379,"hotspot":0.11305440712263004,"norm_churn":0.2017,"norm_cx":0.0634},{"path":"admin/style_types.admin.php","churn":33,"complexity":142,"loc":209,"hotspot":0.11232567137997214,"norm_churn":0.1416,"norm_cx":0.0891},{"path":"lib/process.lib.php","churn":53,"complexity":88,"loc":442,"hotspot":0.11206168588839571,"norm_churn":0.2275,"norm_cx":0.0552},{"path":"pub/register.pub.php","churn":6,"complexity":777,"loc":1246,"hotspot":0.11203765636396627,"norm_churn":0.0258,"norm_cx":0.4875},{"path":"sections/user.sec.php","churn":51,"complexity":90,"loc":178,"hotspot":0.11116913430101132,"norm_churn":0.2189,"norm_cx":0.0565},{"path":"includes/process/process_judging_preferences.inc.php","churn":54,"complexity":84,"loc":353,"hotspot":0.11051326347781004,"norm_churn":0.2318,"norm_cx":0.0527},{"path":"lib/help.lib.php","churn":21,"complexity":214,"loc":503,"hotspot":0.11000043814235962,"norm_churn":0.0901,"norm_cx":0.1343},{"path":"ajax/save.ajax.php","churn":23,"complexity":192,"loc":547,"hotspot":0.10904164969111278,"norm_churn":0.0987,"norm_cx":0.1205},{"path":"lang/es/es-419.lang.php","churn":27,"complexity":159,"loc":2276,"hotspot":0.10751234268340515,"norm_churn":0.1159,"norm_cx":0.0997},{"path":"admin/special_best.admin.php","churn":30,"complexity":142,"loc":181,"hotspot":0.10709832547269775,"norm_churn":0.1288,"norm_cx":0.0891},{"path":"includes/process/process_judging_assignments.inc.php","churn":34,"complexity":121,"loc":282,"hotspot":0.10524707251913862,"norm_churn":0.1459,"norm_cx":0.0759},{"path":"includes/db/entries.db.php","churn":53,"complexity":78,"loc":280,"hotspot":0.10326226699,"norm_churn":0.2275,"norm_cx":0.049},{"path":"pub/brew.pub.php","churn":4,"complexity":785,"loc":1145,"hotspot":0.10266,"norm_churn":0.0172,"norm_cx":0.4925},{"path":"includes/db/admin_common.db.php","churn":36,"complexity":106,"loc":263,"hotspot":0.1002,"norm_churn":0.1545,"norm_cx":0.0665},{"path":"lib/convert.lib.php","churn":20,"complexity":474,"loc":839,"hotspot":0.0979,"norm_churn":0.0859,"norm_cx":0.2973}];
+
+// --- Layer config ---
+const LAYERS = [
+  { key: 'admin',    label: 'admin/',    color: '#e63946', match: p => p.startsWith('admin/') },
+  { key: 'sections', label: 'sections/', color: '#ff9f1c', match: p => p.startsWith('sections/') },
+  { key: 'lib',      label: 'lib/',      color: '#7aa2f7', match: p => p.startsWith('lib/') },
+  { key: 'includes', label: 'includes/', color: '#9b59b6', match: p => p.startsWith('includes/') },
+  { key: 'output',   label: 'output/',   color: '#2ecc71', match: p => p.startsWith('output/') },
+  { key: 'eval',     label: 'eval/',     color: '#1abc9c', match: p => p.startsWith('eval/') },
+  { key: 'pub',      label: 'pub/',      color: '#f39c12', match: p => p.startsWith('pub/') },
+  { key: 'lang',     label: 'lang/',     color: '#95a5a6', match: p => p.startsWith('lang/') },
+  { key: 'other',    label: 'other',     color: '#5a8dee', match: p => true },
+];
+
+function getLayer(path) {
+  return LAYERS.find(l => l.match(path)) || LAYERS[LAYERS.length-1];
+}
+
+// State
+let activeN = 80;
+let activeFilters = new Set(LAYERS.map(l => l.key));
+let highlightedPath = null;
+
+// Build sidebar filters
+const filterContainer = document.getElementById('layer-filters');
+LAYERS.forEach(layer => {
+  const wrapper = document.createElement('label');
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = true;
+  cb.addEventListener('change', () => {
+    if (cb.checked) activeFilters.add(layer.key);
+    else activeFilters.delete(layer.key);
+    render();
+  });
+  const dot = document.createElement('span');
+  dot.className = 'color-dot';
+  dot.style.background = layer.color;
+  const txt = document.createTextNode(layer.label);
+  wrapper.appendChild(cb);
+  wrapper.appendChild(dot);
+  wrapper.appendChild(txt);
+  filterContainer.appendChild(wrapper);
+});
+
+// Slider
+const slider = document.getElementById('n-slider');
+const nLabel = document.getElementById('n-label');
+slider.addEventListener('input', () => {
+  activeN = +slider.value;
+  nLabel.textContent = activeN;
+  render();
+});
+
+// Top list
+function buildTopList() {
+  const container = document.getElementById('top-list');
+  container.innerHTML = '';
+  const top15 = RAW_DATA.slice(0, 15);
+  top15.forEach((d, i) => {
+    const item = document.createElement('div');
+    item.className = 'top-item' + (highlightedPath === d.path ? ' active' : '');
+    item.dataset.path = d.path;
+    item.innerHTML = `
+      <span class="top-item-rank">#${i+1}</span>
+      <span class="top-item-name">${d.path}</span>
+      <div class="top-item-score">score ${d.hotspot.toFixed(3)} · ${d.churn} commits · ${d.loc} LOC</div>
+    `;
+    item.addEventListener('click', () => {
+      highlightedPath = highlightedPath === d.path ? null : d.path;
+      buildTopList();
+      render();
+    });
+    container.appendChild(item);
+  });
+}
+
+// --- D3 Chart ---
+const chartArea = document.getElementById('chart-area');
+const tooltip = document.getElementById('tooltip');
+const svg = d3.select('#chart-area').append('svg');
+
+const margin = { top: 30, right: 30, bottom: 60, left: 70 };
+
+function render() {
+  const W = chartArea.clientWidth;
+  const H = chartArea.clientHeight;
+  const w = W - margin.left - margin.right;
+  const h = H - margin.top - margin.bottom;
+
+  svg.attr('width', W).attr('height', H);
+  svg.selectAll('*').remove();
+
+  const visibleData = RAW_DATA
+    .slice(0, activeN)
+    .filter(d => activeFilters.has(getLayer(d.path).key));
+
+  const xMax = d3.max(visibleData, d => d.churn) * 1.08;
+  const yMax = d3.max(visibleData, d => d.complexity) * 1.1;
+
+  const xScale = d3.scaleLinear().domain([0, xMax]).range([0, w]).nice();
+  const yScale = d3.scaleLinear().domain([0, yMax]).range([h, 0]).nice();
+  const rScale = d3.scaleSqrt()
+    .domain([0, d3.max(visibleData, d => d.loc)])
+    .range([4, 38]);
+
+  const colorScale = d3.scaleSequential()
+    .domain([0, 1])
+    .interpolator(d3.interpolateRgbBasis(['#1a4a8a','#5a8dee','#f6c90e','#ff6b35','#e63946']));
+
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  // Grid
+  const xGrid = g.append('g').attr('class', 'grid').attr('transform', `translate(0,${h})`);
+  xGrid.call(d3.axisBottom(xScale).tickSize(-h).tickFormat(''));
+  const yGrid = g.append('g').attr('class', 'grid');
+  yGrid.call(d3.axisLeft(yScale).tickSize(-w).tickFormat(''));
+
+  // Quadrant zone labels
+  const midX = xScale(xMax * 0.5);
+  const midY = yScale(yMax * 0.5);
+  g.append('text').attr('class','zone-label').attr('x', midX * 0.3).attr('y', midY * 0.5)
+    .text('STABLE — low risk');
+  g.append('text').attr('class','zone-label').attr('x', midX * 1.5).attr('y', midY * 0.5)
+    .text('COMPLEX & CHURNING → highest risk');
+  g.append('text').attr('class','zone-label').attr('x', midX * 0.2).attr('y', midY * 1.6)
+    .text('RARELY CHANGED');
+  g.append('text').attr('class','zone-label').attr('x', midX * 1.4).attr('y', h - 8)
+    .text('FREQUENTLY CHANGED, SIMPLE');
+
+  // Quadrant dividers
+  g.append('line').attr('x1', midX).attr('x2', midX).attr('y1', 0).attr('y2', h)
+    .attr('stroke', '#1e2d4a').attr('stroke-dasharray', '6,4');
+  g.append('line').attr('x1', 0).attr('x2', w).attr('y1', midY).attr('y2', midY)
+    .attr('stroke', '#1e2d4a').attr('stroke-dasharray', '6,4');
+
+  // Axes
+  g.append('g').attr('class','axis').attr('transform', `translate(0,${h})`).call(d3.axisBottom(xScale).ticks(8));
+  g.append('g').attr('class','axis').call(d3.axisLeft(yScale).ticks(8));
+
+  // Axis labels
+  g.append('text').attr('class','axis-label')
+    .attr('x', w / 2).attr('y', h + 48).attr('text-anchor', 'middle')
+    .text('Change Frequency (commits touching file)');
+  g.append('text').attr('class','axis-label')
+    .attr('transform', 'rotate(-90)')
+    .attr('x', -h / 2).attr('y', -54).attr('text-anchor', 'middle')
+    .text('Cyclomatic Complexity (decision points)');
+
+  // Sort so smaller bubbles render on top
+  const sorted = [...visibleData].sort((a, b) => b.loc - a.loc);
+
+  // Bubbles
+  const circles = g.selectAll('.bubble')
+    .data(sorted, d => d.path)
+    .enter().append('circle')
+    .attr('class', 'bubble')
+    .attr('cx', d => xScale(d.churn))
+    .attr('cy', d => yScale(d.complexity))
+    .attr('r', d => rScale(d.loc))
+    .attr('fill', d => colorScale(d.hotspot))
+    .attr('fill-opacity', d => highlightedPath ? (d.path === highlightedPath ? 0.92 : 0.12) : 0.78)
+    .attr('stroke', d => highlightedPath === d.path ? '#fff' : 'rgba(255,255,255,0.1)')
+    .attr('stroke-width', d => highlightedPath === d.path ? 2 : 0.5)
+    .on('mouseover', function(event, d) {
+      d3.select(this).attr('fill-opacity', 1).attr('stroke', '#fff').attr('stroke-width', 2);
+      showTooltip(event, d);
+    })
+    .on('mousemove', function(event, d) {
+      moveTooltip(event);
+    })
+    .on('mouseout', function(event, d) {
+      d3.select(this)
+        .attr('fill-opacity', highlightedPath ? (d.path === highlightedPath ? 0.92 : 0.12) : 0.78)
+        .attr('stroke', highlightedPath === d.path ? '#fff' : 'rgba(255,255,255,0.1)')
+        .attr('stroke-width', highlightedPath === d.path ? 2 : 0.5);
+      hideTooltip();
+    })
+    .on('click', function(event, d) {
+      highlightedPath = highlightedPath === d.path ? null : d.path;
+      buildTopList();
+      render();
+    });
+
+  // Labels for top 12 hotspots
+  const labelData = visibleData
+    .slice()
+    .sort((a,b) => b.hotspot - a.hotspot)
+    .slice(0, 12);
+
+  g.selectAll('.label-text')
+    .data(labelData, d => d.path)
+    .enter().append('text')
+    .attr('class', 'label-text')
+    .attr('x', d => xScale(d.churn) + rScale(d.loc) + 4)
+    .attr('y', d => yScale(d.complexity) + 3)
+    .attr('opacity', d => highlightedPath ? (d.path === highlightedPath ? 1 : 0.2) : 0.85)
+    .text(d => d.path.split('/').pop().replace('.php',''));
+}
+
+function showTooltip(event, d) {
+  const rank = RAW_DATA.indexOf(d) + 1;
+  const hotPct = Math.round(d.hotspot * 100);
+  tooltip.innerHTML = `
+    <div class="tooltip-path">${d.path}</div>
+    <div class="tooltip-row"><span>Commits (churn)</span><span>${d.churn}</span></div>
+    <div class="tooltip-row"><span>Complexity score</span><span>${d.complexity}</span></div>
+    <div class="tooltip-row"><span>Lines of code</span><span>${d.loc.toLocaleString()}</span></div>
+    <div class="tooltip-hotspot">
+      Hotspot score: <strong style="color:${d.hotspot > 0.5 ? '#e63946' : d.hotspot > 0.25 ? '#ff9f1c' : '#5a8dee'}">${hotPct}%</strong>
+      &nbsp;·&nbsp; Rank #${rank} of ${RAW_DATA.length}
+    </div>
+  `;
+  moveTooltip(event);
+  tooltip.classList.add('visible');
+}
+
+function moveTooltip(event) {
+  const rect = chartArea.getBoundingClientRect();
+  let x = event.clientX - rect.left + 14;
+  let y = event.clientY - rect.top - 10;
+  if (x + 290 > chartArea.clientWidth) x -= 300;
+  if (y + 160 > chartArea.clientHeight) y -= 160;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+}
+
+function hideTooltip() {
+  tooltip.classList.remove('visible');
+}
+
+// Legend
+const legendEl = document.createElement('div');
+legendEl.className = 'legend';
+legendEl.innerHTML = `
+  <h4>Hotspot Score</h4>
+  <div class="legend-gradient"></div>
+  <div class="legend-labels"><span>Low</span><span>High</span></div>
+  <div class="legend-size">● Bubble size = Lines of Code</div>
+`;
+chartArea.appendChild(legendEl);
+
+// Init
+buildTopList();
+render();
+window.addEventListener('resize', render);
+</script>
+</body>
+</html>

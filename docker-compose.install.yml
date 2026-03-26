@@ -1,0 +1,14 @@
+# Fresh-install override.
+# Enables the setup wizard by setting SETUP_FREE_ACCESS=true.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.install.yml up
+#
+# To start from a completely clean DB (wipe existing data first):
+#   docker compose down -v
+#   docker compose -f docker-compose.yml -f docker-compose.install.yml up
+
+services:
+  web:
+    environment:
+      SETUP_FREE_ACCESS: "true"

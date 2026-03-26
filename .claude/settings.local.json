@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(composer --version)",
-      "Bash(composer install:*)"
+      "Bash(composer install:*)",
+      "Bash(grep -v \"^classes$\\\\|^\\\\.git$\")"
     ]
   }
 }
