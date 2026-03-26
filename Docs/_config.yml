@@ -1,3 +1,4 @@
 theme: jekyll-theme-primer
 title: BCOEM Developer Docs
 description: Technical documentation for Brew Competition Online Entry & Management
+baseurl: /brewcompetitiononlineentry
