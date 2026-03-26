@@ -7,6 +7,8 @@ libraries/*
 sso/*
 .sftp-upload-on-change.json
 .github/*
+!.github/workflows/
+!.github/workflows/*
 includes/brewerydb/*
 js_includes/autosave.js
 *.zip
