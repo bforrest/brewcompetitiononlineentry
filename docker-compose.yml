@@ -1,0 +1,42 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      # Override site/config.php with Docker-specific DB settings
+      - ./docker/config.php:/var/www/html/site/config.php:ro
+      # Override .htaccess to disable the HTTPS redirect for local dev
+      - ./docker/.htaccess:/var/www/html/.htaccess:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_USER: bcoem
+      DB_PASSWORD: bcoem_password
+      DB_NAME: bcoem
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: bcoem
+      MYSQL_USER: bcoem
+      MYSQL_PASSWORD: bcoem_password
+    volumes:
+      - bcoem_db:/var/lib/mysql
+      # Load the baseline schema on first run (only applied when data volume is empty)
+      - ./sql/bcoem_baseline_3.0.X.sql:/docker-entrypoint-initdb.d/01-baseline.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-ubcoem", "-pbcoem_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    ports:
+      - "3306:3306"
+
+volumes:
+  bcoem_db:
