@@ -25,8 +25,10 @@ if (strlen($entered_password) > 72) {
 
 $loginUsername = strtolower($loginUsername);
 
-$query_login = sprintf("SELECT * FROM %s WHERE user_name = '%s'", $prefix."users", $loginUsername);
-$login = mysqli_query($connection, $query_login) or die (mysqli_error($connection));
+$stmt_login = mysqli_prepare($connection, sprintf("SELECT * FROM %s WHERE user_name = ?", $prefix."users"));
+mysqli_stmt_bind_param($stmt_login, "s", $loginUsername);
+mysqli_stmt_execute($stmt_login);
+$login = mysqli_stmt_get_result($stmt_login);
 $row_login = mysqli_fetch_assoc($login);
 $totalRows_login = mysqli_num_rows($login);
 
@@ -40,7 +42,9 @@ if ($totalRows_login > 0) {
 		// Legacy MD5-wrapped phpass bcrypt hash — transparently rehash on successful login.
 		// Remove this branch once all users have logged in post-migration (P1-1).
 		$new_hash = password_hash($entered_password, PASSWORD_BCRYPT);
-		mysqli_query($connection, sprintf("UPDATE %s SET password='%s' WHERE user_name='%s'", $prefix."users", mysqli_real_escape_string($connection, $new_hash), $loginUsername));
+		$stmt_rehash = mysqli_prepare($connection, sprintf("UPDATE %s SET password=? WHERE user_name=?", $prefix."users"));
+		mysqli_stmt_bind_param($stmt_rehash, "ss", $new_hash, $loginUsername);
+		mysqli_stmt_execute($stmt_rehash);
 		$check = 1;
 	}
 }
@@ -53,14 +57,14 @@ if ($totalRows_login > 0) {
 if ($check == 1) {
 	
 	// Register the loginUsername but first update the db record to make sure the the user name is stored as all lowercase.
-	$updateSQL = sprintf("UPDATE %s SET user_name='%s' WHERE id='%s'",$prefix."users",$loginUsername, $row_login['id']);
-	mysqli_real_escape_string($connection,$updateSQL);
-	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
+	$stmt_update_user = mysqli_prepare($connection, sprintf("UPDATE %s SET user_name=? WHERE id=?", $prefix."users"));
+	mysqli_stmt_bind_param($stmt_update_user, "si", $loginUsername, $row_login['id']);
+	mysqli_stmt_execute($stmt_update_user);
 
 	// Convert email address in the user's accociated record in the "brewer" table
-	$updateSQL = sprintf("UPDATE %s SET brewerEmail='%s' WHERE uid='%s'",$prefix."brewer",$loginUsername, $row_login['id']);
-	mysqli_real_escape_string($connection,$updateSQL);
-	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
+	$stmt_update_brewer = mysqli_prepare($connection, sprintf("UPDATE %s SET brewerEmail=? WHERE uid=?", $prefix."brewer"));
+	mysqli_stmt_bind_param($stmt_update_brewer, "si", $loginUsername, $row_login['id']);
+	mysqli_stmt_execute($stmt_update_brewer);
 	
 	// Register the session variable
 	$_SESSION['loginUsername'] = $loginUsername;
