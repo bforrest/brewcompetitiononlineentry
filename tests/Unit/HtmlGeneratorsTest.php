@@ -184,18 +184,39 @@ class HtmlGeneratorsTest extends TestCase
     }
 
     // ── designations() ───────────────────────────────────────
+    // Takes a comma-separated STRING of rank designations, not an array.
+    // Returns HTML lines for any designation that differs from $display.
 
-    public function test_designations_method1_certified(): void
+    public function test_designations_returns_string(): void
     {
-        // Display method for judge designations shown in judging assignments
-        $judge = ['judgeCertified' => 'Certified'];
-        $result = designations($judge, 1);
+        // $judge_array is a comma-delimited string; $display is what to exclude
+        $result = designations("Certified,National", "Certified");
         $this->assertIsString($result);
     }
 
+    public function test_designations_excludes_display_value(): void
+    {
+        $result = designations("Certified,National", "Certified");
+        // "Certified" is the $display value and should be excluded
+        $this->assertStringNotContainsString(">Certified<", $result);
+        $this->assertStringContainsString("National", $result);
+    }
+
+    public function test_designations_empty_string_returns_br_tag(): void
+    {
+        // explode(",","") returns [""], so the loop runs once with $rank2="".
+        // "" != "Certified" is true → $return .= "<br />" → returns "<br />".
+        // There is no empty-string guard in the function.
+        $result = designations("", "Certified");
+        $this->assertSame("<br />", $result);
+    }
+
     // ── GetSQLValueString() ──────────────────────────────────
-    // Not a pure function (wraps mysqli_real_escape_string) but we can
-    // test the logic branches that don't need a DB connection.
+    // Characterization notes:
+    //   "int"    → returns PHP int via intval()
+    //   "double" → returns SQL-quoted string e.g. '3.14'  (NOT a float)
+    //   "defined"→ returns the raw defined/not-defined value (NO extra quoting)
+    //   "text"   → requires DB connection (mysqli_real_escape_string); skip here
 
     public function test_get_sql_value_string_type_int_casts_to_int(): void
     {
@@ -203,21 +224,29 @@ class HtmlGeneratorsTest extends TestCase
         $this->assertSame(42, $result);
     }
 
-    public function test_get_sql_value_string_type_double_casts(): void
+    public function test_get_sql_value_string_type_int_empty_returns_null_string(): void
     {
+        $result = GetSQLValueString("", "int");
+        $this->assertSame("NULL", $result);
+    }
+
+    public function test_get_sql_value_string_type_double_returns_quoted_string(): void
+    {
+        // double type wraps in single quotes → "'3.14'" not the float 3.14
         $result = GetSQLValueString("3.14xyz", "double");
-        $this->assertSame(3.14, $result);
+        $this->assertSame("'3.14'", $result);
     }
 
     public function test_get_sql_value_string_type_defined_with_value(): void
     {
+        // "defined" returns the raw $theDefinedValue — no extra quoting added
         $result = GetSQLValueString("yes", "defined", "YES", "NO");
-        $this->assertSame("'YES'", $result);
+        $this->assertSame("YES", $result);
     }
 
     public function test_get_sql_value_string_type_defined_without_value(): void
     {
         $result = GetSQLValueString("", "defined", "YES", "NO");
-        $this->assertSame("'NO'", $result);
+        $this->assertSame("NO", $result);
     }
 }

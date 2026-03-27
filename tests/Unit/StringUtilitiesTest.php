@@ -16,7 +16,9 @@ class StringUtilitiesTest extends TestCase
 
     public function test_in_string_not_found(): void
     {
-        $this->assertFalse(in_string("Hello World", "Goodbye"));
+        // in_string() has no else-branch: returns TRUE when found, NULL when not.
+        // There is no explicit "return FALSE" path.
+        $this->assertNull(in_string("Hello World", "Goodbye"));
     }
 
     public function test_in_string_empty_needle(): void
@@ -32,8 +34,8 @@ class StringUtilitiesTest extends TestCase
 
     public function test_in_string_case_sensitive(): void
     {
-        // in_string uses strpos which is case-sensitive
-        $this->assertFalse(in_string("Hello World", "hello"));
+        // in_string uses strpos (case-sensitive). No match → returns NULL (not false).
+        $this->assertNull(in_string("Hello World", "hello"));
     }
 
     // ── normalizeClubs() ─────────────────────────────────────
@@ -131,12 +133,14 @@ class StringUtilitiesTest extends TestCase
 
     public function test_remove_accents_converts_umlaut(): void
     {
-        $this->assertSame("Uber", remove_accents("Über"));
+        // The function maps Ü to "Ue" (German transliteration convention), not bare "U"
+        $this->assertSame("Ueber", remove_accents("Über"));
     }
 
     public function test_remove_accents_converts_ae_ligature(): void
     {
-        $this->assertSame("AE", remove_accents("Æ"));
+        // Æ maps to "Ae" in the character table (not "AE")
+        $this->assertSame("Ae", remove_accents("Æ"));
     }
 
     public function test_remove_accents_mixed_string(): void
@@ -154,7 +158,8 @@ class StringUtilitiesTest extends TestCase
 
     public function test_scrub_filename_removes_ampersand(): void
     {
-        $this->assertSame("foo bar", scrub_filename("foo&bar"));
+        // scrub_filename replaces & with "" (empty string), NOT a space
+        $this->assertSame("foobar", scrub_filename("foo&bar"));
     }
 
     public function test_scrub_filename_removes_question_mark(): void
@@ -281,27 +286,38 @@ class StringUtilitiesTest extends TestCase
     }
 
     // ── search_array() ───────────────────────────────────────
+    // CHARACTERIZATION NOTES:
+    //   • Returns an ARRAY OF ALL MATCHING ROWS (not the row itself).
+    //     e.g. one match → [['id'=>2,'name'=>'Bob']], not ['id'=>2,'name'=>'Bob']
+    //   • $result is never initialised before the loop, so when nothing
+    //     matches the function returns NULL (undefined variable), not false.
 
     public function test_search_array_finds_value(): void
     {
         $arr = [['id' => 1, 'name' => 'Alice'], ['id' => 2, 'name' => 'Bob']];
         $result = search_array($arr, 'name', 'Bob');
-        $this->assertSame(['id' => 2, 'name' => 'Bob'], $result);
+        // Returns array-of-matches, so the matched row is wrapped in another array
+        $this->assertSame([['id' => 2, 'name' => 'Bob']], $result);
     }
 
-    public function test_search_array_returns_false_when_not_found(): void
+    public function test_search_array_returns_null_when_not_found(): void
     {
+        // No match → $result never initialised → returns NULL (not false)
         $arr = [['id' => 1, 'name' => 'Alice']];
         $result = search_array($arr, 'name', 'Charlie');
-        $this->assertFalse($result);
+        $this->assertNull($result);
     }
 
-    public function test_search_array_empty_array(): void
+    public function test_search_array_empty_array_returns_null(): void
     {
-        $this->assertFalse(search_array([], 'name', 'Alice'));
+        $this->assertNull(search_array([], 'name', 'Alice'));
     }
 
     // ── display_array_content() ──────────────────────────────
+    // Valid method values: "1" (no separator), "2" (", "), "3" (",").
+    // Any other value → no separator appended.
+    // Note: the trailing rtrim calls all operate on $a (the raw string),
+    // not on $b, which is a bug but characterizes current behavior.
 
     public function test_display_array_content_method_empty_string_joins(): void
     {
@@ -309,9 +325,20 @@ class StringUtilitiesTest extends TestCase
         $this->assertSame('abc', $result);
     }
 
-    public function test_display_array_content_method_comma_joins(): void
+    public function test_display_array_content_method3_comma_joins(): void
     {
-        $result = display_array_content(['x', 'y'], ',');
+        // Method "3" adds "," between elements; trailing "," is rtrimed by the last rtrim($a,",") call
+        $result = display_array_content(['x', 'y'], '3');
         $this->assertSame('x,y', $result);
+    }
+
+    public function test_display_array_content_method2_trailing_separator_not_trimmed(): void
+    {
+        // Method "2" adds ", " after each element. Due to a bug where
+        // each rtrim line re-reads $a (not $b), the last rtrim($a, ",")
+        // is the only one that counts. Since "a, b, " ends in " " (space),
+        // not a comma, the trailing ", " is NOT stripped.
+        $result = display_array_content(['a', 'b'], '2');
+        $this->assertSame('a, b, ', $result);
     }
 }
