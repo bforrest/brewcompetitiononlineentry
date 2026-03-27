@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BCOE&M — Characterization Test Plan</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f8f9fb; color: #1a202c;
+    line-height: 1.7; max-width: 960px; margin: 0 auto; padding: 40px 24px;
+  }
+  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px; color: #0f172a; }
+  .subtitle { color: #64748b; font-size: 0.9rem; margin-bottom: 32px; }
+  h2 {
+    font-size: 1.15rem; font-weight: 600; color: #0f172a;
+    margin-top: 40px; margin-bottom: 16px; padding-bottom: 8px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  h3 { font-size: 1rem; font-weight: 600; color: #334155; margin-top: 28px; margin-bottom: 10px; }
+  p { margin-bottom: 14px; color: #334155; }
+  .callout {
+    background: #eff6ff; border-left: 4px solid #3b82f6; padding: 14px 18px;
+    border-radius: 0 8px 8px 0; margin: 20px 0; font-size: 0.9rem;
+  }
+  .callout.warn { background: #fef3c7; border-left-color: #f59e0b; }
+  .callout.success { background: #ecfdf5; border-left-color: #10b981; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  code {
+    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    font-size: 0.85em; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;
+  }
+  pre {
+    background: #1e293b; color: #e2e8f0; padding: 18px 20px;
+    border-radius: 8px; overflow-x: auto; font-size: 0.82rem;
+    line-height: 1.6; margin: 14px 0 20px;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  .comment { color: #64748b; }
+  .keyword { color: #7dd3fc; }
+  .string { color: #86efac; }
+  .func { color: #fbbf24; }
+  table {
+    width: 100%; border-collapse: collapse; margin: 14px 0 20px; font-size: 0.88rem;
+  }
+  th { background: #f1f5f9; text-align: left; font-weight: 600; color: #334155; }
+  th, td { padding: 10px 14px; border: 1px solid #e2e8f0; }
+  td code { font-size: 0.82em; }
+  .tier-badge {
+    display: inline-block; font-size: 0.68rem; font-weight: 700;
+    padding: 2px 8px; border-radius: 10px; text-transform: uppercase;
+    letter-spacing: 0.04em; vertical-align: middle;
+  }
+  .tier-1 { background: #dcfce7; color: #166534; }
+  .tier-2 { background: #fef3c7; color: #92400e; }
+  .tier-3 { background: #fce7f3; color: #9d174d; }
+  .phase { counter-reset: step; }
+  .step { margin-bottom: 24px; }
+  .step-head {
+    font-weight: 600; color: #0f172a; font-size: 0.95rem; margin-bottom: 6px;
+  }
+  .step-head::before {
+    counter-increment: step; content: counter(step);
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%; background: #3b82f6;
+    color: #fff; font-size: 0.72rem; margin-right: 8px; vertical-align: middle;
+  }
+  .toc { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px 24px; margin: 24px 0; }
+  .toc h4 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: #94a3b8; margin-bottom: 10px; }
+  .toc a { display: block; color: #3b82f6; text-decoration: none; font-size: 0.9rem; padding: 3px 0; }
+  .toc a:hover { text-decoration: underline; }
+  .fn-list { font-size: 0.85rem; }
+  .fn-list td:first-child { white-space: nowrap; font-family: "SF Mono", monospace; font-size: 0.82rem; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<h1>Characterization Test Plan</h1>
+<p class="subtitle">Safely reducing complexity in <code>lib/common.lib.php</code> and <code>admin/default.admin.php</code></p>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <a href="#philosophy">1. What Are Characterization Tests?</a>
+  <a href="#infrastructure">2. Bootstrapping PHPUnit Into the Project</a>
+  <a href="#tier1">3. Tier 1 — Pure Functions (No DB, No Side Effects)</a>
+  <a href="#tier2">4. Tier 2 — Database-Dependent Functions With Seams</a>
+  <a href="#tier3">5. Tier 3 — Approval Tests for default.admin.php</a>
+  <a href="#sequence">6. Recommended Sequence</a>
+</div>
+
+<h2 id="philosophy">1. What Are Characterization Tests?</h2>
+
+<p>A characterization test doesn't assert what the code <em>should</em> do — it records what the code <em>currently does</em>. The goal is to create a safety net: if you refactor a function and the test still passes, you know you haven't changed any observable behavior. If the test fails, the diff tells you exactly what shifted.</p>
+
+<p>This matters enormously for <code>common.lib.php</code> specifically. It has 108 functions, 5,477 lines, and has been touched in 229 commits — any change without tests risks a silent regression that could affect fee calculations, judging scores, or registration flows across the entire application.</p>
+
+<div class="callout">
+  <strong>The golden rule of characterization testing</strong>
+  Run the existing code with known inputs, capture the output, and hard-code that output as the expected value. You are <em>not</em> deciding whether the output is "correct" — you're documenting what it <em>is</em>.
+</div>
+
+<h2 id="infrastructure">2. Bootstrapping PHPUnit Into the Project</h2>
+
+<p>The project currently has no test infrastructure — no <code>composer.json</code>, no <code>tests/</code> directory, no autoloading. Here's the minimal bootstrap needed.</p>
+
+<h3>Install Composer and PHPUnit</h3>
+<pre><code><span class="comment"># From the project root</span>
+composer init --no-interaction --name="bcoe/brewcompetitiononlineentry"
+composer require --dev phpunit/phpunit ^10
+mkdir -p tests/Unit tests/Integration tests/Approval</code></pre>
+
+<h3>Create a test bootstrap that loads the project's constants</h3>
+<pre><code><span class="comment">// tests/bootstrap.php</span>
+<span class="keyword">&lt;?php</span>
+
+<span class="comment">// Define path constants the same way paths.php does,
+// but pointing at the real project root.</span>
+<span class="keyword">define</span>(<span class="string">'ROOT'</span>, <span class="func">dirname</span>(__DIR__) . DIRECTORY_SEPARATOR);
+<span class="keyword">define</span>(<span class="string">'CONFIG'</span>, ROOT . <span class="string">'site'</span> . DIRECTORY_SEPARATOR);
+<span class="keyword">define</span>(<span class="string">'INCLUDES'</span>, ROOT . <span class="string">'includes'</span> . DIRECTORY_SEPARATOR);
+<span class="keyword">define</span>(<span class="string">'LIB'</span>, ROOT . <span class="string">'lib'</span> . DIRECTORY_SEPARATOR);
+<span class="keyword">define</span>(<span class="string">'DB'</span>, INCLUDES . <span class="string">'db'</span> . DIRECTORY_SEPARATOR);
+<span class="keyword">define</span>(<span class="string">'CLASSES'</span>, ROOT . <span class="string">'classes'</span> . DIRECTORY_SEPARATOR);
+<span class="keyword">define</span>(<span class="string">'LANG'</span>, ROOT . <span class="string">'lang'</span> . DIRECTORY_SEPARATOR);
+
+<span class="comment">// Stub out only what's needed to load common.lib.php
+// without triggering a full application bootstrap.</span>
+<span class="keyword">if</span> (!<span class="func">defined</span>(<span class="string">'HOSTED'</span>)) <span class="keyword">define</span>(<span class="string">'HOSTED'</span>, <span class="keyword">FALSE</span>);
+<span class="keyword">if</span> (!<span class="func">defined</span>(<span class="string">'NHC'</span>))    <span class="keyword">define</span>(<span class="string">'NHC'</span>, <span class="keyword">FALSE</span>);
+
+<span class="comment">// Start a session so $_SESSION references don't fatal</span>
+<span class="keyword">if</span> (<span class="func">session_status</span>() === PHP_SESSION_NONE) {
+    <span class="func">session_start</span>();
+}</code></pre>
+
+<h3>Configure phpunit.xml</h3>
+<pre><code><span class="comment">&lt;!-- phpunit.xml in project root --&gt;</span>
+&lt;phpunit bootstrap="tests/bootstrap.php"&gt;
+  &lt;testsuites&gt;
+    &lt;testsuite name="Unit"&gt;
+      &lt;directory&gt;tests/Unit&lt;/directory&gt;
+    &lt;/testsuite&gt;
+    &lt;testsuite name="Integration"&gt;
+      &lt;directory&gt;tests/Integration&lt;/directory&gt;
+    &lt;/testsuite&gt;
+    &lt;testsuite name="Approval"&gt;
+      &lt;directory&gt;tests/Approval&lt;/directory&gt;
+    &lt;/testsuite&gt;
+  &lt;/testsuites&gt;
+&lt;/phpunit&gt;</code></pre>
+
+<hr>
+
+<h2 id="tier1">3. Tier 1 — Pure Functions (No DB, No Side Effects)</h2>
+<p><span class="tier-badge tier-1">Easiest — Start Here</span></p>
+
+<p>These 25+ functions take inputs and return outputs with no database calls, no session reads, and no HTML side effects. They can be tested immediately with zero mocking. Each test captures current behavior as the baseline.</p>
+
+<h3>Conversion &amp; Formatting Functions</h3>
+
+<table class="fn-list">
+<tr><th>Function</th><th>What It Does</th><th>Characterization Test Approach</th></tr>
+<tr><td><code>temp_convert($temp, $t)</code></td>
+    <td>Celsius ↔ Fahrenheit</td>
+    <td>Record outputs for 0, 32, 100, 212, -40 in both directions. Note: the "F" branch actually converts F→C (the comment and code disagree — this is exactly the kind of bug characterization tests catch).</td></tr>
+<tr><td><code>weight_convert($weight, $w)</code></td>
+    <td>kg↔lb, g↔oz</td>
+    <td>Record outputs for each of the 4 conversion paths with round numbers (1, 10, 100).</td></tr>
+<tr><td><code>volume_convert($volume, $v)</code></td>
+    <td>liters↔gallons, ml↔oz</td>
+    <td>Same approach. 4 paths × 3-4 values each.</td></tr>
+<tr><td><code>addOrdinalNumberSuffix($num)</code></td>
+    <td>1→"1st", 2→"2nd", etc.</td>
+    <td>Test the tricky cases: 1-4, 11-13 (should all be "th"), 21-23, non-numeric input.</td></tr>
+<tr><td><code>currency_info($input, $method)</code></td>
+    <td>Maps currency codes to symbols/ISO codes</td>
+    <td>Method 1: record return for each of the 28 currencies. Method 2: capture the full array.</td></tr>
+<tr><td><code>random_generator($digits, $method)</code></td>
+    <td>Random string/number</td>
+    <td>Assert length and character set rather than exact output.</td></tr>
+<tr><td><code>format_phone_us($phone)</code></td>
+    <td>US phone formatting</td>
+    <td>Test with 10-digit, 11-digit, letters, and edge cases.</td></tr>
+<tr><td><code>number_pad($number, $n)</code></td>
+    <td>Zero-padding</td>
+    <td>Capture: <code>number_pad(5, 4)</code> → "0005", etc.</td></tr>
+<tr><td><code>readable_number($a)</code></td>
+    <td>999→"999", 1500→"1.5K"</td>
+    <td>Test boundaries: 999, 1000, 999999, 1000000.</td></tr>
+</table>
+
+<h3>String &amp; Security Utilities</h3>
+<table class="fn-list">
+<tr><th>Function</th><th>Characterization Test Approach</th></tr>
+<tr><td><code>in_string($haystack, $needle)</code></td>
+    <td>Boolean checks with present/absent substrings.</td></tr>
+<tr><td><code>remove_accents($string)</code></td>
+    <td>Capture output for "café", "naïve", "Ölbrauer", empty string.</td></tr>
+<tr><td><code>truncate_string($string, $limit)</code></td>
+    <td>Short string (under limit), exact limit, over limit.</td></tr>
+<tr><td><code>clean_up_text($text)</code></td>
+    <td>Record current behavior with whitespace, special chars, HTML entities.</td></tr>
+<tr><td><code>normalizeClubs($string)</code></td>
+    <td>Capture normalization rules with mixed-case, punctuation inputs.</td></tr>
+<tr><td><code>obfuscateURL / deobfuscateURL</code></td>
+    <td>Round-trip test: <code>deobfuscate(obfuscate(x)) === x</code> for several URLs.</td></tr>
+<tr><td><code>simpleEncrypt / simpleDecrypt</code></td>
+    <td>Same round-trip pattern with known key/salt pairs.</td></tr>
+<tr><td><code>verify_token($token, $time)</code></td>
+    <td>Test with valid token, expired token, malformed token.</td></tr>
+<tr><td><code>is_html($string)</code></td>
+    <td>Test with plain text, HTML fragment, edge cases like "&lt;br&gt;".</td></tr>
+<tr><td><code>check_exension($file_ext)</code></td>
+    <td>Record return for jpg, png, gif, pdf, exe, empty.</td></tr>
+<tr><td><code>clean_filename / scrub_filename</code></td>
+    <td>Test with spaces, unicode, path traversal attempts ("../../").</td></tr>
+</table>
+
+<h3>Scoring &amp; Logic Functions</h3>
+<table class="fn-list">
+<tr><th>Function</th><th>Characterization Test Approach</th></tr>
+<tr><td><code>bjcp_rank($rank, $method)</code></td>
+    <td>Capture output for each rank value (Non-BJCP through Grand Master) in both methods. Pure lookup — no DB.</td></tr>
+<tr><td><code>srm_color($srm, $method)</code></td>
+    <td>Capture color values for SRM range 1-40+.</td></tr>
+<tr><td><code>display_place($place, $method)</code></td>
+    <td>Record 1st through 5th, HM, and edge cases for each method.</td></tr>
+<tr><td><code>place_heirarchy($place)</code></td>
+    <td>Record ordering values for each place.</td></tr>
+<tr><td><code>open_or_closed($now, $date1, $date2)</code></td>
+    <td>Test with timestamps: before window, during window, after window.</td></tr>
+<tr><td><code>open_limit($total, $limit, $open)</code></td>
+    <td>Test under limit, at limit, over limit, null limit.</td></tr>
+<tr><td><code>tiebreak_rule($rule)</code></td>
+    <td>Capture return for each known rule string.</td></tr>
+<tr><td><code>check_special_ingredients($style, $version)</code></td>
+    <td>Capture boolean return for styles that do/don't require specials.</td></tr>
+</table>
+
+<h3>Example Test File</h3>
+<pre><code><span class="comment">// tests/Unit/ConversionFunctionsTest.php</span>
+<span class="keyword">&lt;?php</span>
+<span class="keyword">use</span> PHPUnit\Framework\TestCase;
+
+<span class="comment">// Load just the functions we need</span>
+<span class="keyword">require_once</span> __DIR__ . <span class="string">'/../../lib/common.lib.php'</span>;
+
+<span class="keyword">class</span> ConversionFunctionsTest <span class="keyword">extends</span> TestCase
+{
+    <span class="comment">/**
+     * Characterization: temp_convert with "F" flag
+     * actually converts Fahrenheit → Celsius
+     * (despite the inline comment claiming otherwise).
+     */</span>
+    <span class="keyword">public function</span> <span class="func">test_temp_convert_F_flag_converts_fahrenheit_to_celsius</span>(): void
+    {
+        <span class="comment">// Capture current behavior — do NOT "fix" values</span>
+        $this-><span class="func">assertSame</span>(0.0,   <span class="func">temp_convert</span>(32, <span class="string">"F"</span>));
+        $this-><span class="func">assertSame</span>(100.0, <span class="func">temp_convert</span>(212, <span class="string">"F"</span>));
+        $this-><span class="func">assertSame</span>(-17.8, <span class="func">temp_convert</span>(0, <span class="string">"F"</span>));
+        $this-><span class="func">assertSame</span>(-40.0, <span class="func">temp_convert</span>(-40, <span class="string">"F"</span>));
+    }
+
+    <span class="keyword">public function</span> <span class="func">test_temp_convert_C_flag</span>(): void
+    {
+        $this-><span class="func">assertSame</span>(0.0,   <span class="func">temp_convert</span>(32, <span class="string">"C"</span>));
+        $this-><span class="func">assertSame</span>(100.0, <span class="func">temp_convert</span>(212, <span class="string">"C"</span>));
+    }
+
+    <span class="keyword">public function</span> <span class="func">test_weight_convert_all_paths</span>(): void
+    {
+        $this-><span class="func">assertSame</span>(2.2,   <span class="func">weight_convert</span>(1, <span class="string">"pounds"</span>));
+        $this-><span class="func">assertSame</span>(0.04,  <span class="func">weight_convert</span>(1, <span class="string">"ounces"</span>));
+        $this-><span class="func">assertSame</span>(28.35, <span class="func">weight_convert</span>(1, <span class="string">"grams"</span>));
+        $this-><span class="func">assertSame</span>(0.45,  <span class="func">weight_convert</span>(1, <span class="string">"kilograms"</span>));
+    }
+
+    <span class="keyword">public function</span> <span class="func">test_addOrdinalNumberSuffix</span>(): void
+    {
+        $this-><span class="func">assertSame</span>(<span class="string">"1st"</span>,  <span class="func">addOrdinalNumberSuffix</span>(1));
+        $this-><span class="func">assertSame</span>(<span class="string">"2nd"</span>,  <span class="func">addOrdinalNumberSuffix</span>(2));
+        $this-><span class="func">assertSame</span>(<span class="string">"3rd"</span>,  <span class="func">addOrdinalNumberSuffix</span>(3));
+        $this-><span class="func">assertSame</span>(<span class="string">"11th"</span>, <span class="func">addOrdinalNumberSuffix</span>(11));
+        $this-><span class="func">assertSame</span>(<span class="string">"12th"</span>, <span class="func">addOrdinalNumberSuffix</span>(12));
+        $this-><span class="func">assertSame</span>(<span class="string">"13th"</span>, <span class="func">addOrdinalNumberSuffix</span>(13));
+        $this-><span class="func">assertSame</span>(<span class="string">"21st"</span>, <span class="func">addOrdinalNumberSuffix</span>(21));
+        <span class="comment">// Non-numeric passthrough</span>
+        $this-><span class="func">assertSame</span>(<span class="string">"abc"</span>, <span class="func">addOrdinalNumberSuffix</span>(<span class="string">"abc"</span>));
+    }
+
+    <span class="keyword">public function</span> <span class="func">test_currency_info_method_1_usd</span>(): void
+    {
+        $this-><span class="func">assertSame</span>(<span class="string">"$^USD"</span>, <span class="func">currency_info</span>(<span class="string">"$"</span>, 1));
+    }
+
+    <span class="keyword">public function</span> <span class="func">test_currency_info_method_1_euro</span>(): void
+    {
+        $this-><span class="func">assertSame</span>(<span class="string">"&amp;euro;^EUR"</span>, <span class="func">currency_info</span>(<span class="string">"euro"</span>, 1));
+    }
+
+    <span class="keyword">public function</span> <span class="func">test_obfuscate_deobfuscate_roundtrip</span>(): void
+    {
+        $key = <span class="string">"test-secret-key"</span>;
+        $url = <span class="string">"https://example.com/admin?id=42&amp;section=brew"</span>;
+        $this-><span class="func">assertSame</span>($url, <span class="func">deobfuscateURL</span>(<span class="func">obfuscateURL</span>($url, $key), $key));
+    }
+}</code></pre>
+
+<div class="callout success">
+  <strong>Why start here</strong>
+  These 25+ functions represent roughly 1,800 lines of <code>common.lib.php</code>. Once they're under test, you can extract them into focused files (<code>lib/conversion.lib.php</code>, <code>lib/security.lib.php</code>, etc.) with complete confidence that nothing breaks.
+</div>
+
+<hr>
+
+<h2 id="tier2">4. Tier 2 — Database-Dependent Functions With Seams</h2>
+<p><span class="tier-badge tier-2">Medium — Requires Test Database</span></p>
+
+<p>54 functions in <code>common.lib.php</code> make direct <code>mysqli_query()</code> calls. They can't be unit-tested without a database. The approach is to create a disposable test database, seed it with known data, and record what the functions return.</p>
+
+<h3>Test Database Setup</h3>
+<pre><code><span class="comment">// tests/Integration/DatabaseTestCase.php</span>
+<span class="keyword">&lt;?php</span>
+<span class="keyword">use</span> PHPUnit\Framework\TestCase;
+
+<span class="keyword">abstract class</span> DatabaseTestCase <span class="keyword">extends</span> TestCase
+{
+    <span class="keyword">protected static</span> $connection;
+    <span class="keyword">protected static</span> $prefix = <span class="string">"test_"</span>;
+
+    <span class="keyword">public static function</span> <span class="func">setUpBeforeClass</span>(): void
+    {
+        <span class="comment">// Connect to a test database (NEVER production)</span>
+        self::$connection = <span class="func">mysqli_connect</span>(
+            <span class="string">'localhost'</span>, <span class="string">'test_user'</span>, <span class="string">'test_pass'</span>, <span class="string">'bcoem_test'</span>
+        );
+
+        <span class="comment">// Load the schema from the install script</span>
+        $schema = <span class="func">file_get_contents</span>(ROOT . <span class="string">'setup/install_db.setup.php'</span>);
+        <span class="comment">// ... or use a SQL dump</span>
+
+        <span class="comment">// Make $connection available globally
+        // (this is how common.lib.php expects it)</span>
+        $GLOBALS[<span class="string">'connection'</span>] = self::$connection;
+        $GLOBALS[<span class="string">'prefix'</span>] = self::$prefix;
+        $GLOBALS[<span class="string">'database'</span>] = <span class="string">'bcoem_test'</span>;
+    }
+
+    <span class="keyword">protected function</span> <span class="func">setUp</span>(): void
+    {
+        <span class="comment">// Wrap each test in a transaction and roll back</span>
+        <span class="func">mysqli_begin_transaction</span>(self::$connection);
+    }
+
+    <span class="keyword">protected function</span> <span class="func">tearDown</span>(): void
+    {
+        <span class="func">mysqli_rollback</span>(self::$connection);
+    }
+}</code></pre>
+
+<h3>Priority Functions to Characterize</h3>
+
+<table class="fn-list">
+<tr><th>Function</th><th>Lines</th><th>Why It's High Priority</th><th>Seed Data Needed</th></tr>
+<tr>
+  <td><code>total_fees()</code></td><td>~180</td>
+  <td>Most complex fee calculation in the system. 9 parameters, nested discount/cap logic. Called from <code>pay.sec.php</code>, <code>constants.inc.php</code>, and <code>admin_common.db.php</code>.</td>
+  <td>2-3 users, 5-10 entries each, brewer discount flags, varied fee tiers.</td>
+</tr>
+<tr>
+  <td><code>total_fees_paid()</code></td><td>~300</td>
+  <td>Parallel to <code>total_fees()</code> but for paid entries only. Same branching complexity.</td>
+  <td>Same seed + payment flags.</td>
+</tr>
+<tr>
+  <td><code>style_convert()</code></td><td>~450</td>
+  <td>The largest single function. 7 different <code>$type</code> modes producing different output formats. Used across 8+ files.</td>
+  <td>Style tables with BJCP and BA entries.</td>
+</tr>
+<tr>
+  <td><code>get_table_info()</code></td><td>~306</td>
+  <td>6 different <code>$method</code> modes. Returns caret-delimited strings that callers <code>explode()</code>. Failure here breaks exports, pullsheets, and assignments.</td>
+  <td>Judging tables, flights, scores, locations.</td>
+</tr>
+<tr>
+  <td><code>data_integrity_check()</code></td><td>~170</td>
+  <td>Purges orphan records. If this misidentifies a record as orphaned, real data disappears.</td>
+  <td>Valid records + intentional orphans to verify detection.</td>
+</tr>
+<tr>
+  <td><code>best_brewer_points()</code></td><td>~107</td>
+  <td>Complex scoring algorithm with 7 tiebreaker rules and 2 methods. Note: it calls <code>total_paid_received()</code> internally, so it needs DB.</td>
+  <td>Scores, places, point configurations.</td>
+</tr>
+<tr>
+  <td><code>brewer_info($uid)</code></td><td>~50</td>
+  <td>Returns caret-delimited string. Callers index into the exploded array by position. If field order shifts, downstream breaks silently.</td>
+  <td>1-2 brewer records with full field set.</td>
+</tr>
+</table>
+
+<h3>Example Test</h3>
+<pre><code><span class="comment">// tests/Integration/TotalFeesTest.php</span>
+<span class="keyword">&lt;?php</span>
+<span class="keyword">class</span> TotalFeesTest <span class="keyword">extends</span> DatabaseTestCase
+{
+    <span class="keyword">public function</span> <span class="func">test_total_fees_no_discount_single_user</span>(): void
+    {
+        <span class="comment">// Seed: 1 user with 3 entries at $8/each, no discounts</span>
+        $this-><span class="func">seedUser</span>(<span class="string">'user1'</span>, 3, brewerDiscount: <span class="string">'N'</span>);
+
+        $result = <span class="func">total_fees</span>(
+            entry_fee: 8.00,
+            entry_fee_discount: 0,
+            entry_discount: <span class="string">'N'</span>,
+            entry_discount_number: 0,
+            cap_no: 0,
+            special_discount_number: <span class="string">''</span>,
+            bid: <span class="string">'default'</span>,
+            filter: <span class="string">'default'</span>,
+            comp_id: 1
+        );
+
+        <span class="comment">// Record what it ACTUALLY returns — don't assume 24.00</span>
+        $this-><span class="func">assertSame</span>(24.00, $result);
+    }
+
+    <span class="keyword">public function</span> <span class="func">test_total_fees_with_volume_discount</span>(): void
+    {
+        <span class="comment">// Seed: 1 user with 5 entries, discount kicks in after 3</span>
+        $this-><span class="func">seedUser</span>(<span class="string">'user2'</span>, 5, brewerDiscount: <span class="string">'N'</span>);
+
+        $result = <span class="func">total_fees</span>(
+            entry_fee: 8.00,
+            entry_fee_discount: 6.00,
+            entry_discount: <span class="string">'Y'</span>,
+            entry_discount_number: 3,
+            cap_no: 0,
+            special_discount_number: <span class="string">''</span>,
+            bid: <span class="string">'default'</span>,
+            filter: <span class="string">'default'</span>,
+            comp_id: 1
+        );
+
+        <span class="comment">// 3 × $8 + 2 × $6 = $36 — but verify against actual output</span>
+        $this-><span class="func">assertSame</span>(36.00, $result);
+    }
+
+    <span class="keyword">public function</span> <span class="func">test_total_fees_with_cap</span>(): void
+    {
+        <span class="comment">// Seed: fees that exceed the cap</span>
+        $this-><span class="func">seedUser</span>(<span class="string">'user3'</span>, 10, brewerDiscount: <span class="string">'N'</span>);
+
+        $result = <span class="func">total_fees</span>(8.00, 0, <span class="string">'N'</span>, 0, 50, <span class="string">''</span>, <span class="string">'default'</span>, <span class="string">'default'</span>, 1);
+
+        <span class="comment">// 10 × $8 = $80, capped at $50</span>
+        $this-><span class="func">assertSame</span>(50.00, $result);
+    }
+}</code></pre>
+
+<div class="callout warn">
+  <strong>Critical: the caret-delimited return values</strong>
+  Several functions (<code>brewer_info()</code>, <code>get_table_info()</code>, <code>currency_info()</code>) return data as caret-delimited strings that callers <code>explode("^", ...)</code> and index by position. Your characterization tests must capture the <em>exact</em> string, including field order. If a refactor reorders the fields, the test must fail.
+</div>
+
+<hr>
+
+<h2 id="tier3">5. Tier 3 — Approval Tests for default.admin.php</h2>
+<p><span class="tier-badge tier-3">Hardest — HTML Snapshot Testing</span></p>
+
+<p><code>admin/default.admin.php</code> is a 3,106-line procedural script that produces HTML. It has no functions to call — it's a single rendering pass driven by session state and recordsets. You can't unit-test it. The technique here is <strong>approval testing</strong>: capture the full HTML output under known conditions and compare it on each run.</p>
+
+<h3>How Approval Testing Works</h3>
+
+<div class="phase">
+<div class="step">
+  <div class="step-head">Set up known state</div>
+  <p>Seed a test database, populate <code>$_SESSION</code> with a fixed set of values, and define all the global variables the file expects (<code>$base_url</code>, <code>$go</code>, <code>$judging_started</code>, etc.).</p>
+</div>
+<div class="step">
+  <div class="step-head">Capture output with output buffering</div>
+<pre><code><span class="func">ob_start</span>();
+<span class="keyword">include</span> ROOT . <span class="string">'admin/default.admin.php'</span>;
+$html = <span class="func">ob_get_clean</span>();
+
+<span class="comment">// Strip volatile parts (timestamps, CSRF tokens)</span>
+$html = <span class="func">preg_replace</span>(<span class="string">'/\?t=\d+/'</span>, <span class="string">'?t=TIMESTAMP'</span>, $html);
+
+<span class="comment">// Save as the "approved" baseline</span>
+<span class="func">file_put_contents</span>(<span class="string">'tests/Approval/default_admin_full.approved.html'</span>, $html);</code></pre>
+</div>
+<div class="step">
+  <div class="step-head">On future runs, compare against the baseline</div>
+<pre><code>$this-><span class="func">assertStringEqualsFile</span>(
+    <span class="string">'tests/Approval/default_admin_full.approved.html'</span>,
+    $html
+);</code></pre>
+  <p>If the output changes, the test fails and the diff shows you exactly what shifted.</p>
+</div>
+</div>
+
+<h3>Test Scenarios for default.admin.php</h3>
+
+<p>The file has distinct rendering paths based on session state. Each path needs its own approval snapshot:</p>
+
+<table>
+<tr><th>Scenario</th><th>Session State</th><th>What Renders Differently</th></tr>
+<tr>
+  <td>Full admin, pre-judging</td>
+  <td><code>userLevel=0</code>, <code>judging_started=false</code></td>
+  <td>All accordion sections visible, no results links, no scoring panel</td>
+</tr>
+<tr>
+  <td>Full admin, judging in progress</td>
+  <td><code>userLevel=0</code>, <code>judging_started=true</code>, winner delay in future</td>
+  <td>"Judging in Progress" banner, scoring panel visible</td>
+</tr>
+<tr>
+  <td>Full admin, post-judging</td>
+  <td><code>userLevel=0</code>, <code>judging_past=true</code>, winner delay passed</td>
+  <td>Results links active, Best Brewer/Club sections</td>
+</tr>
+<tr>
+  <td>Limited admin</td>
+  <td><code>userLevel=1</code></td>
+  <td>Only Entries &amp; Participants section — everything else hidden</td>
+</tr>
+<tr>
+  <td>Planning mode vs Competition mode</td>
+  <td><code>jPrefsTablePlanning=0</code> vs <code>=1</code></td>
+  <td>Different mode indicator and toggle button</td>
+</tr>
+<tr>
+  <td>PayPal IPN enabled</td>
+  <td><code>prefsPaypalIPN=1</code></td>
+  <td>"Entries &amp; Payments" instead of "Entries &amp; Participants"</td>
+</tr>
+<tr>
+  <td>Evaluations enabled</td>
+  <td><code>prefsEval=1</code></td>
+  <td>Evaluation-related alerts and scoring options</td>
+</tr>
+</table>
+
+<div class="callout">
+  <strong>Approval tests protect against layout regressions</strong>
+  You don't need to understand every line of <code>default.admin.php</code> to refactor it safely. Once you have 4-5 approved snapshots covering the major branches, you can start extracting sections into partials (<code>admin/_scoring_panel.php</code>, <code>admin/_reports_accordion.php</code>, etc.) and the approval tests will catch any rendering change.
+</div>
+
+<hr>
+
+<h2 id="sequence">6. Recommended Sequence</h2>
+
+<h3>Phase 1: Immediate wins (1-2 days)</h3>
+<p>Install PHPUnit. Write characterization tests for the ~25 pure functions in Tier 1. This covers ~1,800 lines and gives you a safe extraction path for splitting <code>common.lib.php</code> into focused files.</p>
+
+<h3>Phase 2: Fee &amp; scoring safety net (3-5 days)</h3>
+<p>Set up a test database. Write integration tests for <code>total_fees()</code>, <code>total_fees_paid()</code>, <code>best_brewer_points()</code>, and <code>brewer_info()</code>. These are the highest-risk functions — they handle money and competitive results.</p>
+
+<h3>Phase 3: The big rendering functions (1 week)</h3>
+<p>Characterize <code>style_convert()</code> (7 modes), <code>get_table_info()</code> (6 modes), and <code>data_integrity_check()</code>. These are the longest functions and the ones most likely to contain subtle conditional bugs.</p>
+
+<h3>Phase 4: Admin dashboard approval tests (3-5 days)</h3>
+<p>Build the approval test harness for <code>default.admin.php</code>. Create 4-5 scenario snapshots. Once these pass, you can begin extracting sections of the 3,106-line file into smaller partials.</p>
+
+<h3>Phase 5: Ongoing extraction</h3>
+<p>With the safety net in place, begin the actual refactoring: extract pure functions into dedicated files, wrap database calls in repository classes, separate HTML from logic in the section files. Each extraction should be a small commit that passes all existing characterization tests.</p>
+
+<div class="callout success">
+  <strong>The end goal</strong>
+  You're not trying to achieve 100% code coverage. You're trying to put enough characterization tests around the two most dangerous files (combined: 8,583 lines, 2,865 decision points, 462 commits of churn) that you can safely break them apart without breaking the application. 60-70% coverage of these two files is worth more than 90% coverage of everything else.
+</div>
+
+<hr>
+<p style="color:#94a3b8; font-size:0.78rem; text-align:center; margin-top:40px;">
+  Generated from Code Hotspot Analysis · BCOE&amp;M · March 2026
+</p>
+
+</body>
+</html>

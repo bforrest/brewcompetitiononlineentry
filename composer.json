@@ -1,0 +1,14 @@
+{
+    "name": "bcoem/brewcompetitiononlineentry",
+    "description": "Brew Competition Online Entry & Management",
+    "type": "project",
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload": {
+        "files": []
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
