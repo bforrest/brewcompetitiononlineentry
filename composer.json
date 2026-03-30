@@ -8,6 +8,12 @@
     "autoload": {
         "files": []
     },
+    "autoload-dev": {
+        "psr-4": {
+            "BCOEM\\Tests\\Integration\\": "tests/Integration/",
+            "BCOEM\\Tests\\Unit\\": "tests/Unit/"
+        }
+    },
     "config": {
         "sort-packages": true
     }
