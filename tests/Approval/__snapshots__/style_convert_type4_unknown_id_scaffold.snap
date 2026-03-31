@@ -1,0 +1,32 @@
+<a href="#" data-target="#s-99999" data-toggle="modal" data-tooltip="true" title="">99999</a>|
+				<!-- Modal -->
+				<div class="modal fade" id="s-99999" tabindex="-1" role="dialog" aria-labelledby="99999Label">
+				  <div class="modal-dialog modal-lg" role="document">
+					<div class="modal-content">
+					  <div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title" id="Label">BJCP 2021 : </h4>
+					  </div>
+					  <div class="modal-body"><p></p>
+			<table class="table table-bordered table-striped">
+			<tr>
+				<th class="dataLabel data bdr1B">OG</th>
+				<th class="dataLabel data bdr1B">FG</th>
+				<th class="dataLabel data bdr1B">ABV</th>
+				<th class="dataLabel data bdr1B">Bitterness</th>
+				<th class="dataLabel data bdr1B">Color</th>
+			</tr>
+			<tr>
+				<td nowrap>Varies</td>
+				<td nowrap>Varies</td>
+				<td nowrap>Varies</td>
+				<td nowrap>Varies</td>
+				<td>Varies</td>
+			</tr>
+			</table></div>
+					  <div class="modal-footer">
+						<button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
+					  </div>
+					</div>
+				  </div>
+				</div>

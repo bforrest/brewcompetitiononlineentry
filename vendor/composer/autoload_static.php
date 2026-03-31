@@ -24,6 +24,7 @@ class ComposerStaticInit464381340c938bc31e9cba52d4127279
         array (
             'BCOEM\\Tests\\Unit\\' => 17,
             'BCOEM\\Tests\\Integration\\' => 24,
+            'BCOEM\\Tests\\Approval\\' => 21,
         ),
     );
 
@@ -43,6 +44,10 @@ class ComposerStaticInit464381340c938bc31e9cba52d4127279
         'BCOEM\\Tests\\Integration\\' => 
         array (
             0 => __DIR__ . '/../..' . '/tests/Integration',
+        ),
+        'BCOEM\\Tests\\Approval\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/tests/Approval',
         ),
     );
 

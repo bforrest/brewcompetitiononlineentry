@@ -1,0 +1,8 @@
+Mead         → 3
+Cider        → 2
+Mixed        → 1
+Ale          → 1
+Lager        → 1
+Beer         → Beer
+(empty)      → 
+Custom       → Custom

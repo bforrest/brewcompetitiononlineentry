@@ -10,6 +10,7 @@
     },
     "autoload-dev": {
         "psr-4": {
+            "BCOEM\\Tests\\Approval\\": "tests/Approval/",
             "BCOEM\\Tests\\Integration\\": "tests/Integration/",
             "BCOEM\\Tests\\Unit\\": "tests/Unit/"
         }

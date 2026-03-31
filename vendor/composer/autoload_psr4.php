@@ -10,4 +10,5 @@ return array(
     'DeepCopy\\' => array($vendorDir . '/myclabs/deep-copy/src/DeepCopy'),
     'BCOEM\\Tests\\Unit\\' => array($baseDir . '/tests/Unit'),
     'BCOEM\\Tests\\Integration\\' => array($baseDir . '/tests/Integration'),
+    'BCOEM\\Tests\\Approval\\' => array($baseDir . '/tests/Approval'),
 );

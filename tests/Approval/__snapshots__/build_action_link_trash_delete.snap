@@ -1,0 +1,1 @@
+<a class="hide-loader" href="https://homebrew.example.com/includes/process.inc.php?section=entries&amp;go=delete&amp;dbTable=brewing&amp;action=delete&amp;id=13" data-toggle="tooltip" data-placement="top" title="Delete entry" data-confirm="Are you sure you want to delete this entry?"><span class="fa fa-lg fa-trash-o"></span></a>
