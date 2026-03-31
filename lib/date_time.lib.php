@@ -47,8 +47,8 @@ function get_timezone($offset) {
 				'13.000' => 'Pacific/Tongatapu',
     );
 
-	$timezone = $timezones[$offset];
-	
+	$timezone = $timezones[$offset] ?? null;
+
 	return $timezone;
 
 }

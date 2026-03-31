@@ -46,14 +46,15 @@ function search_array($array, $key, $value) {
     // RecursiveIteratorIterator used to iterate through recursive iterators 
     $it = new RecursiveIteratorIterator($arrIt); 
    
-    foreach ($it as $sub) { 
-        // Current active sub iterator 
-        $subArray = $it->getSubIterator(); 
-        if ($subArray[$key] === $value) { 
-            $result[] = iterator_to_array($subArray); 
-         } 
-    } 
-    return $result; 
+    $result = null;
+    foreach ($it as $sub) {
+        // Current active sub iterator
+        $subArray = $it->getSubIterator();
+        if ($subArray[$key] === $value) {
+            $result[] = iterator_to_array($subArray);
+         }
+    }
+    return $result;
 }
 
 function in_string($haystack,$needle) {
@@ -1582,12 +1583,12 @@ function style_convert($number,$type,$base_url="",$archive="") {
 			$query_style = sprintf("SELECT * FROM %s WHERE id='%s'",$styles_db_table,$value);
 			$style = mysqli_query($connection,$query_style) or die (mysqli_error($connection));
 			$row_style = mysqli_fetch_assoc($style);
-			$trimmed = ltrim($row_style['brewStyleGroup'],"0");
+			$trimmed = ltrim(($row_style['brewStyleGroup'] ?? ''),"0");
 
-			if ($row_style['brewStyleOwn'] == "custom") $styleSet = "Custom"; 
+			if (($row_style['brewStyleOwn'] ?? '') == "custom") $styleSet = "Custom";
 			else $styleSet = $_SESSION['style_set_short_name'];
 
-			$info = str_replace($replacement1,$replacement2,"<p>".$row_style['brewStyleInfo']."</p>");
+			$info = str_replace($replacement1,$replacement2,"<p>".($row_style['brewStyleInfo'] ?? '')."</p>");
 
 			if (!empty($row_style['brewStyleComEx'])) $info .= str_replace($replacement1,$replacement2,"<p>Commercial Examples: ".$row_style['brewStyleComEx']."</p>");
 			if (!empty($row_style['brewStyleEntry'])) $info .= str_replace($replacement1,$replacement2,"<p>Entry Instructions: ".$row_style['brewStyleEntry']."</p>");
@@ -1666,7 +1667,7 @@ function style_convert($number,$type,$base_url="",$archive="") {
 			}
 
 			else {
-				$style_convert_1[] = "<a href=\"#\" data-target=\"#s-".$value."\" data-toggle=\"modal\" data-tooltip=\"true\" title=\"".$row_style['brewStyle']."\">".$value."</a>";
+				$style_convert_1[] = "<a href=\"#\" data-target=\"#s-".$value."\" data-toggle=\"modal\" data-tooltip=\"true\" title=\"".($row_style['brewStyle'] ?? '')."\">".$value."</a>";
 				$style_modal[] = "
 				<!-- Modal -->
 				<div class=\"modal fade\" id=\"s-".$value."\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"".$value."Label\">
@@ -1674,7 +1675,7 @@ function style_convert($number,$type,$base_url="",$archive="") {
 					<div class=\"modal-content\">
 					  <div class=\"modal-header\">
 						<button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"".$label_close."\"><span aria-hidden=\"true\">&times;</span></button>
-						<h4 class=\"modal-title\" id=\"".$trimmed.$row_style['brewStyleNum']."Label\">".$styleSet." ".$trimmed.$row_style['brewStyleNum'].": ".$row_style['brewStyle']."</h4>
+						<h4 class=\"modal-title\" id=\"".$trimmed.($row_style['brewStyleNum'] ?? '')."Label\">".$styleSet." ".$trimmed.($row_style['brewStyleNum'] ?? '').": ".($row_style['brewStyle'] ?? '')."</h4>
 					  </div>
 					  <div class=\"modal-body\">".$info."</div>
 					  <div class=\"modal-footer\">
@@ -2490,27 +2491,27 @@ function brewer_info($uid,$filter="default") {
 	if (($_SESSION['prefsProEdition'] == 1) && (!empty($row_brewer_info['brewerBreweryInfo']))) $ttb = json_decode($row_brewer_info['brewerBreweryInfo'],true);
 
 	$r = "";
-	$r .= $row_brewer_info['brewerFirstName']."^"; 		// 0
-	$r .= $row_brewer_info['brewerLastName']."^"; 		// 1
-	$r .= $row_brewer_info['brewerPhone1']."^"; 		// 2
+	$r .= ($row_brewer_info['brewerFirstName'] ?? '')."^"; 		// 0
+	$r .= ($row_brewer_info['brewerLastName']  ?? '')."^"; 		// 1
+	$r .= ($row_brewer_info['brewerPhone1']    ?? '')."^"; 		// 2
 	if (isset($row_brewer_info['brewerJudgeRank'])) {
 		if (($row_brewer_info['brewerJudgeMead'] == "Y") && ($row_brewer_info['brewerJudgeRank'] == "Non-BJCP")) $r .= "Non-BJCP Beer^";
 		else $r .= $row_brewer_info['brewerJudgeRank']."^";
 	}
 	else $r .= "Non-BJCP^"; 							// 3
 	if (isset($row_brewer_info['brewerJudgeID'])) $r .= $row_brewer_info['brewerJudgeID']."^"; else $r .= "&nbsp;^"; // 4
-	$r .= $row_brewer_info['brewerMHP']."^"; // 5 deprecated 2.1.14; changed to MHP for 3.0.0
-	$r .= $row_brewer_info['brewerEmail']."^";			// 6
-	$r .= $row_brewer_info['uid']."^";					// 7
+	$r .= ($row_brewer_info['brewerMHP']   ?? '')."^"; // 5 deprecated 2.1.14; changed to MHP for 3.0.0
+	$r .= ($row_brewer_info['brewerEmail'] ?? '')."^";			// 6
+	$r .= ($row_brewer_info['uid']         ?? '')."^";			// 7
 	if (isset($row_brewer_info['brewerClubs'])) $r .= $row_brewer_info['brewerClubs']."^"; else $r .= "&nbsp;^"; // 8
 	if (isset($row_brewer_info['brewerDiscount'])) $r .= $row_brewer_info['brewerDiscount']."^"; else $r .= "&nbsp;^"; // 9
-	$r .= $row_brewer_info['brewerAddress']."^";		// 10
-	$r .= $row_brewer_info['brewerCity']."^";			// 11
-	$r .= $row_brewer_info['brewerState']."^";			// 12
-	$r .= $row_brewer_info['brewerZip']."^";			// 13
-	$r .= $row_brewer_info['brewerCountry']."^";		// 14
-	if ($_SESSION['prefsProEdition'] == 1) $r .= $row_brewer_info['brewerBreweryName']."^"; else $r .= "&nbsp;^"; // 15
-	if ($row_brewer_info['brewerJudgeMead'] == "Y") $r .= "Certified Mead Judge"; else $r .= "&nbsp;^"; // 16
+	$r .= ($row_brewer_info['brewerAddress'] ?? '')."^";		// 10
+	$r .= ($row_brewer_info['brewerCity']    ?? '')."^";		// 11
+	$r .= ($row_brewer_info['brewerState']   ?? '')."^";		// 12
+	$r .= ($row_brewer_info['brewerZip']     ?? '')."^";		// 13
+	$r .= ($row_brewer_info['brewerCountry'] ?? '')."^";		// 14
+	if ($_SESSION['prefsProEdition'] == 1) $r .= ($row_brewer_info['brewerBreweryName'] ?? '')."^"; else $r .= "&nbsp;^"; // 15
+	if (($row_brewer_info['brewerJudgeMead'] ?? '') == "Y") $r .= "Certified Mead Judge"; else $r .= "&nbsp;^"; // 16
 	if (($_SESSION['prefsProEdition'] == 1) && (isset($ttb['TTB'])) && (!empty($ttb['TTB']))) $r .= $ttb['TTB']."^"; else $r .= "&nbsp;^";// 17
 	if (($_SESSION['prefsProEdition'] == 1) && (isset($ttb['Production'])) && (!empty($ttb['Production']))) $r .= $ttb['Production']."^"; else $r .= "&nbsp;^";// 17
 	return $r;
@@ -2690,7 +2691,13 @@ function entry_info($id) {
 	$query_entry_info = sprintf("SELECT brewName,brewCategory,brewCategorySort,brewSubCategory,brewStyle,brewCoBrewer,brewJudgingNumber FROM %s WHERE id='%s'", $prefix."brewing", $id);
 	$entry_info = mysqli_query($connection,$query_entry_info) or die (mysqli_error($connection));
 	$row_entry_info = mysqli_fetch_assoc($entry_info);
-	$r = $row_entry_info['brewName']."^".$row_entry_info['brewCategorySort']."^".$row_entry_info['brewSubCategory']."^".$row_entry_info['brewStyle']."^".$row_entry_info['brewCoBrewer']."^".$row_entry_info['brewCategory']."^".$row_entry_info['brewJudgingNumber'];
+	$r = ($row_entry_info['brewName']          ?? '')."^".
+	     ($row_entry_info['brewCategorySort']  ?? '')."^".
+	     ($row_entry_info['brewSubCategory']   ?? '')."^".
+	     ($row_entry_info['brewStyle']         ?? '')."^".
+	     ($row_entry_info['brewCoBrewer']      ?? '')."^".
+	     ($row_entry_info['brewCategory']      ?? '')."^".
+	     ($row_entry_info['brewJudgingNumber'] ?? '');
 	return $r;
 }
 
@@ -3142,7 +3149,7 @@ function readable_number($a){
 		}
 	}
 
-	if ($a > 100){
+	if ($a >= 100){
 		$b = floor($a/100);
 		$a -= 100 * $b;
 		$out .= readable_number($b).' hundred'.(($a)?' and ':' ');

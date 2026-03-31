@@ -130,13 +130,7 @@ class OrdinalAndNumberFunctionsTest extends TestCase
         $this->assertSame("minus one", readable_number(-1));
     }
 
-    // NOTE: readable_number() has two off-by-one bugs for exact round values:
-    //
-    //   • Exactly 100: hundreds branch uses strict ($a > 100), so 100 falls
-    //     through to the tens branch. $bits_b[$b-1] with $b=10 reads $bits_b[9]
-    //     which is undefined (array has 9 elements, indexes 0–8).
-    //     PHP 8 warning; output is a bare ' ' (space).
-    //     — Values 101–999 work correctly (101 > 100 is true).
+    // NOTE: readable_number() has one remaining off-by-one bug for exact round values:
     //
     //   • Exactly 1000: the for-loop condition is ($a > $p) with $p=1000,
     //     so exactly 1000 is NOT caught by the thousands branch.
@@ -144,13 +138,12 @@ class OrdinalAndNumberFunctionsTest extends TestCase
     //     producing "ten hundred " instead of "one thousand".
     //     — Values 1001+ work correctly (1001 > 1000 is true).
     //
-    // Tests below document the ACTUAL behavior so a refactor cannot
-    // silently change it without a test failure.
+    // Tests below document behavior so a refactor cannot silently change it.
 
-    public function test_readable_number_100_actual_buggy_output(): void
+    public function test_readable_number_100_returns_one_hundred(): void
     {
-        // Bug: ($a > 100) should be ($a >= 100). Actual output is ' '.
-        $this->assertSame(' ', readable_number(100));
+        // Fixed: ($a > 100) corrected to ($a >= 100) so 100 hits the hundreds branch.
+        $this->assertSame('one hundred ', readable_number(100));
     }
 
     public function test_readable_number_101_works_correctly(): void
