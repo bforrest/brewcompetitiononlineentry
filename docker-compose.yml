@@ -19,18 +19,18 @@ services:
       DB_NAME: bcoem
 
   db:
-    image: mysql:8.0
+    image: mariadb:11
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: bcoem
-      MYSQL_USER: bcoem
-      MYSQL_PASSWORD: bcoem_password
+      MARIADB_ROOT_PASSWORD: root_password
+      MARIADB_DATABASE: bcoem
+      MARIADB_USER: bcoem
+      MARIADB_PASSWORD: bcoem_password
     volumes:
       - bcoem_db:/var/lib/mysql
       # Load the baseline schema on first run (only applied when data volume is empty)
       - ./sql/bcoem_baseline_3.0.X.sql:/docker-entrypoint-initdb.d/01-baseline.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-ubcoem", "-pbcoem_password"]
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
       timeout: 5s
       retries: 10

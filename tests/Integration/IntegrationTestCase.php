@@ -2,22 +2,20 @@
 /**
  * IntegrationTestCase — base class for all Tier-2 (DB) tests.
  *
- * Isolation strategy: explicit DELETE by inserted row ID.
+ * Isolation strategy: transaction rollback.
  *
- * All BCOEM tables use the MyISAM storage engine, which silently ignores
- * BEGIN/ROLLBACK statements.  The original transaction-rollback approach
- * appeared to work but actually committed every INSERT, causing test data to
- * accumulate across runs (leading to incorrect row counts and stale tokens).
+ * All BCOEM tables now use the InnoDB storage engine (converted from MyISAM
+ * in the baseline SQL schema).  InnoDB supports full ACID transactions, so
+ * each test runs inside a single transaction that is rolled back in tearDown()
+ * — no data ever commits to disk, and baseline schema data is untouched between
+ * runs.
  *
- * This base class now:
- *   1. Tracks every row id returned by insert() in $insertedIds.
- *   2. Deletes those rows in tearDown() using a dependency-safe order.
- *   3. Runs a one-time "orphan sweep" in setUpBeforeClass() to remove any
- *      leftover rows from prior test runs (identified by the @test.example
- *      email-address convention).
+ * A one-time orphan sweep in setUpBeforeClass() removes any leftover rows from
+ * runs that pre-date the InnoDB migration (when MyISAM silently ignored
+ * rollbacks and data accumulated).
  *
  * Prerequisites:
- *   - Docker MySQL container running:  docker-compose up -d db
+ *   - Docker MariaDB container running:  docker-compose up -d db
  *   - Env vars (defaults match docker-compose.yml):
  *       BCOEM_DB_HOST       = 127.0.0.1   (NOT 'db' — we're outside Docker)
  *       BCOEM_DB_USER       = bcoem
@@ -51,20 +49,11 @@ abstract class IntegrationTestCase extends TestCase
     /** Table prefix, e.g. 'baseline_'. */
     protected static string $pfx;
 
-    /**
-     * Tracks rows inserted during each test, keyed by un-prefixed table name.
-     * Used for manual DELETE cleanup in tearDown() because MyISAM silently
-     * ignores transactions — begin/rollback have no effect on MyISAM tables.
-     *
-     * @var array<string, list<int>>
-     */
-    private array $insertedIds = [];
-
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
     /**
      * Open the DB connection once for the whole test class, then sweep out
-     * any leftover test rows from prior runs before the first test executes.
+     * any leftover test rows from runs that pre-date the InnoDB migration.
      */
     public static function setUpBeforeClass(): void
     {
@@ -78,10 +67,15 @@ abstract class IntegrationTestCase extends TestCase
         self::$db  = $db;
         self::$pfx = $pfx;
 
-        // PHP 8.1+ throws mysqli_sql_exception on connection failure.
-        // Catch it and skip the whole class rather than erroring.
+        // PHP 8.1+ throws mysqli_sql_exception on connection failure, but the
+        // extension also emits a PHP Warning before throwing — which PHPUnit
+        // counts as a test warning.  The @ suppresses that C-level warning;
+        // connect_error / the caught exception still detect real failures.
         try {
-            self::$conn = new mysqli($host, $user, $pass, $db, $port);
+            self::$conn = @new mysqli($host, $user, $pass, $db, $port);
+            if (self::$conn->connect_error) {
+                throw new \mysqli_sql_exception(self::$conn->connect_error);
+            }
             mysqli_set_charset(self::$conn, 'utf8mb4');
         } catch (\mysqli_sql_exception $e) {
             self::markTestSkipped(
@@ -91,14 +85,13 @@ abstract class IntegrationTestCase extends TestCase
             );
         }
 
-        // ── Orphan sweep ──────────────────────────────────────────────────────
-        // Remove any leftover rows from previous test runs.  All test users
-        // use @test.example addresses; all test judging data uses known names.
+        // One-time sweep: remove leftover rows from pre-InnoDB runs where
+        // MyISAM ignored rollbacks and test data accumulated.
         self::sweepOrphanTestData();
     }
 
     /**
-     * Delete all rows that match our test-data conventions.
+     * Delete any rows matching our test-data conventions.
      * Called once per class before any tests run.
      */
     private static function sweepOrphanTestData(): void
@@ -106,7 +99,6 @@ abstract class IntegrationTestCase extends TestCase
         $conn = self::$conn;
         $pfx  = self::$pfx;
 
-        // Collect test-user ids (needed to cascade-delete brewing/brewer rows)
         $result = $conn->query(
             "SELECT id FROM `{$pfx}users` WHERE user_name LIKE '%@test.example'"
         );
@@ -124,7 +116,6 @@ abstract class IntegrationTestCase extends TestCase
             $conn->query("DELETE FROM `{$pfx}users`   WHERE id  IN ({$ids})");
         }
 
-        // Judging test data — identified by the names used in GetTableInfoTest
         $conn->query(
             "DELETE FROM `{$pfx}judging_tables`
              WHERE tableName IN ('IPA Table','Stout Table')"
@@ -145,15 +136,13 @@ abstract class IntegrationTestCase extends TestCase
 
     /**
      * Before each test: seed the PHP globals that library functions expect,
-     * set minimal session defaults, and reset the insert-tracking array.
+     * set minimal session defaults, and open a transaction for rollback isolation.
      */
     protected function setUp(): void
     {
-        $this->insertedIds = [];
-
         // Expose connection + DB metadata as PHP globals so library functions
         // that call require(CONFIG.'config.php') find an existing connection
-        // and skip opening a new one (the guard in config.php handles this).
+        // and skip opening a new one.
         $GLOBALS['connection'] = self::$conn;
         $GLOBALS['database']   = self::$db;
         $GLOBALS['prefix']     = self::$pfx;
@@ -165,43 +154,20 @@ abstract class IntegrationTestCase extends TestCase
         $_SESSION['prefsProEdition']        = $_SESSION['prefsProEdition']        ?? 0;
         $_SESSION['prefsSEF']               = $_SESSION['prefsSEF']               ?? '';
         $_SESSION['style_set_category_end'] = $_SESSION['style_set_category_end'] ?? 0;
+
+        // Begin transaction — rolled back in tearDown() so no test data commits
+        self::$conn->begin_transaction();
     }
 
     /**
-     * After each test: DELETE every row that this test inserted, in an order
-     * that respects logical dependencies (children before parents).
-     * Also cleans up PHP globals to prevent bleed-over into unit tests when
-     * both suites run in the same process.
+     * After each test: roll back the transaction (discards all inserts/updates
+     * made during the test), then clean up PHP globals.
      */
     protected function tearDown(): void
     {
-        // Dependency-safe deletion order: rows that reference other tables first
-        $deletionOrder = [
-            'brewing',           // references users (brewBrewerID)
-            'brewer',            // references users (uid)
-            'judging_tables',    // references judging_locations (tableLocation)
-            'judging_locations',
-            'users',
-        ];
-
-        foreach ($deletionOrder as $table) {
-            if (!empty($this->insertedIds[$table])) {
-                $fullTable = self::$pfx . $table;
-                $ids       = implode(',', $this->insertedIds[$table]);
-                self::$conn->query("DELETE FROM `{$fullTable}` WHERE id IN ({$ids})");
-            }
+        if (isset(self::$conn) && !self::$conn->connect_error) {
+            self::$conn->rollback();
         }
-
-        // Also delete any tables that were inserted but not in the list above
-        foreach ($this->insertedIds as $table => $ids) {
-            if (!in_array($table, $deletionOrder, true) && $ids) {
-                $fullTable = self::$pfx . $table;
-                $idList    = implode(',', $ids);
-                self::$conn->query("DELETE FROM `{$fullTable}` WHERE id IN ({$idList})");
-            }
-        }
-
-        $this->insertedIds = [];
 
         // Remove globals so they don't bleed into Unit tests if suites are mixed
         unset($GLOBALS['connection'], $GLOBALS['database'], $GLOBALS['prefix'], $GLOBALS['brewing']);
@@ -210,8 +176,7 @@ abstract class IntegrationTestCase extends TestCase
     // ── Convenience helpers ────────────────────────────────────────────────────
 
     /**
-     * Insert a row into `{prefix}{table}`, record the new id for cleanup,
-     * and return the auto-increment id.
+     * Insert a row into `{prefix}{table}` and return the new auto-increment id.
      *
      * @param  string  $table  Table name WITHOUT prefix (e.g. 'users', 'brewer')
      * @param  array   $data   Associative column => value array
@@ -230,12 +195,7 @@ abstract class IntegrationTestCase extends TestCase
         if (!$result) {
             $this->fail("DB insert failed [{$fullTable}]: " . self::$conn->error . "\nSQL: {$sql}");
         }
-        $id = (int)self::$conn->insert_id;
-
-        // Track for tearDown() cleanup (MyISAM ignores transactions)
-        $this->insertedIds[$table][] = $id;
-
-        return $id;
+        return (int)self::$conn->insert_id;
     }
 
     /**

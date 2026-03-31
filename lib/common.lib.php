@@ -151,7 +151,7 @@ function build_form_action($base_url,$section,$go,$action,$filter,$id,$dbTable,$
 	return $return;
 }
 
-function build_public_url($section="default",$go="default",$action="default",$id="default",$sef,$base_url,$view="default") {
+function build_public_url($section="default",$go="default",$action="default",$id="default",$sef="",$base_url="",$view="default") {
 	
 	if ($_SESSION['prefsSEF'] == 'Y') {
 		$url = $base_url."";
@@ -383,7 +383,7 @@ function purge_entries($type, $interval) {
 
 // function to generate random number
 function random_generator($digits,$method){
-	srand ((double) microtime() * 10000000);
+	srand ((float) microtime() * 10000000);
 
 	//Array of alphabet
 	if ($method == "1") $input = array ("a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","t","d","y","u","b","w","x","y","z","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","0","1","2","3","4","5","6","7","8","9");
@@ -2395,8 +2395,8 @@ function bjcp_rank($rank,$method) {
 		switch($rank) {
 			case "None":
 			case "":
-			case "Novice";
-			case "Non-BJCP";
+			case "Novice":
+			case "Non-BJCP":
 			case "Experienced":
 			$return = "Non-BJCP Judge"; 
 			break;
@@ -4627,7 +4627,7 @@ function user_submitted_eval($uid,$eid) {
 
 }
 
-function eval_exits($eid="default",$method="default",$dbTable) {
+function eval_exits($eid="default",$method="default",$dbTable="") {
 
 	require(CONFIG.'config.php');
 	mysqli_select_db($connection,$database);
