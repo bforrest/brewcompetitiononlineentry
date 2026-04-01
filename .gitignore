@@ -16,6 +16,7 @@ js_includes/autosave.js
 update/char_set_update.php
 update/move_files.php
 .vscode/
+.claude/worktrees/
 lib/hosted.lib.php
 ajax/autosave.ajax.php
 css/anomalus.css
