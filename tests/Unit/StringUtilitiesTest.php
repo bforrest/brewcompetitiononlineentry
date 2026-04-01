@@ -16,9 +16,7 @@ class StringUtilitiesTest extends TestCase
 
     public function test_in_string_not_found(): void
     {
-        // in_string() has no else-branch: returns TRUE when found, NULL when not.
-        // There is no explicit "return FALSE" path.
-        $this->assertNull(in_string("Hello World", "Goodbye"));
+        $this->assertFalse(in_string("Hello World", "Goodbye"));
     }
 
     public function test_in_string_empty_needle(): void
@@ -34,8 +32,8 @@ class StringUtilitiesTest extends TestCase
 
     public function test_in_string_case_sensitive(): void
     {
-        // in_string uses strpos (case-sensitive). No match → returns NULL (not false).
-        $this->assertNull(in_string("Hello World", "hello"));
+        // in_string uses strpos (case-sensitive). No match → returns false.
+        $this->assertFalse(in_string("Hello World", "hello"));
     }
 
     // ── normalizeClubs() ─────────────────────────────────────
@@ -286,23 +284,18 @@ class StringUtilitiesTest extends TestCase
     }
 
     // ── search_array() ───────────────────────────────────────
-    // CHARACTERIZATION NOTES:
-    //   • Returns an ARRAY OF ALL MATCHING ROWS (not the row itself).
-    //     e.g. one match → [['id'=>2,'name'=>'Bob']], not ['id'=>2,'name'=>'Bob']
-    //   • $result is never initialised before the loop, so when nothing
-    //     matches the function returns NULL (undefined variable), not false.
+    // Returns the first matching row directly (not wrapped in an outer array).
+    // Returns null when no match is found.
 
     public function test_search_array_finds_value(): void
     {
         $arr = [['id' => 1, 'name' => 'Alice'], ['id' => 2, 'name' => 'Bob']];
         $result = search_array($arr, 'name', 'Bob');
-        // Returns array-of-matches, so the matched row is wrapped in another array
-        $this->assertSame([['id' => 2, 'name' => 'Bob']], $result);
+        $this->assertSame(['id' => 2, 'name' => 'Bob'], $result);
     }
 
     public function test_search_array_returns_null_when_not_found(): void
     {
-        // No match → $result never initialised → returns NULL (not false)
         $arr = [['id' => 1, 'name' => 'Alice']];
         $result = search_array($arr, 'name', 'Charlie');
         $this->assertNull($result);
@@ -316,8 +309,7 @@ class StringUtilitiesTest extends TestCase
     // ── display_array_content() ──────────────────────────────
     // Valid method values: "1" (no separator), "2" (", "), "3" (",").
     // Any other value → no separator appended.
-    // Note: the trailing rtrim calls all operate on $a (the raw string),
-    // not on $b, which is a bug but characterizes current behavior.
+    // Trailing separator is stripped via rtrim($a, ", ").
 
     public function test_display_array_content_method_empty_string_joins(): void
     {
@@ -332,13 +324,10 @@ class StringUtilitiesTest extends TestCase
         $this->assertSame('x,y', $result);
     }
 
-    public function test_display_array_content_method2_trailing_separator_not_trimmed(): void
+    public function test_display_array_content_method2_strips_trailing_separator(): void
     {
-        // Method "2" adds ", " after each element. Due to a bug where
-        // each rtrim line re-reads $a (not $b), the last rtrim($a, ",")
-        // is the only one that counts. Since "a, b, " ends in " " (space),
-        // not a comma, the trailing ", " is NOT stripped.
+        // Method "2" adds ", " after each element; trailing ", " is stripped by rtrim.
         $result = display_array_content(['a', 'b'], '2');
-        $this->assertSame('a, b, ', $result);
+        $this->assertSame('a, b', $result);
     }
 }

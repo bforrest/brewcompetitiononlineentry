@@ -114,44 +114,33 @@ class SecurityAndCryptoTest extends TestCase
     }
 
     // ── random_generator() ───────────────────────────────────
-    // CHARACTERIZATION NOTES — the function has significant quirks:
-    //
-    // Method "1" = ALPHANUMERIC (letters + digits from a large array)
-    // Method "2" = NUMERIC only (digits 0–9)
-    // Method "3" = single digit 0–4 (overwrites entire string each iteration!)
-    //
-    // LENGTH IS NOT EXACT: each loop iteration does two appends:
-    //   1) 50% chance: 1 char from $input
-    //   2) Always:     rand(1,10) as a string (1 or 2 chars since 10 → "10")
-    // So actual length ≈ $digits … 3×$digits and varies every call.
+    // Method "1" = alphanumeric, returns exactly $digits characters
+    // Method "2" = numeric only (digits 0–9), returns exactly $digits characters
+    // Method "3" = single digit 0–4 regardless of $digits (legacy behaviour)
 
     public function test_random_generator_method_1_is_alphanumeric_not_numeric(): void
     {
-        // Method "1" pulls from a letters+digits array → result contains letters
-        // → is_numeric() returns false
         $result = random_generator(10, 1);
         $this->assertIsString((string)$result);
-        $this->assertGreaterThanOrEqual(10, strlen((string)$result));
+        $this->assertSame(10, strlen((string)$result));
     }
 
-    public function test_random_generator_method_1_length_is_at_least_digits(): void
+    public function test_random_generator_method_1_length_is_exactly_digits(): void
     {
-        // Each iteration appends at least rand(1,10) → minimum 1 char/iter
         $result = random_generator(5, 1);
-        $this->assertGreaterThanOrEqual(5, strlen((string)$result));
+        $this->assertSame(5, strlen((string)$result));
     }
 
     public function test_random_generator_method_2_is_all_digits(): void
     {
-        // Method "2" sources from digits 0–9 AND rand(1,10) → all numeric chars
         $result = random_generator(8, 2);
         $this->assertMatchesRegularExpression('/^\d+$/', (string)$result);
     }
 
-    public function test_random_generator_method_2_length_at_least_digits(): void
+    public function test_random_generator_method_2_length_is_exactly_digits(): void
     {
         $result = random_generator(6, 2);
-        $this->assertGreaterThanOrEqual(6, strlen((string)$result));
+        $this->assertSame(6, strlen((string)$result));
     }
 
     public function test_random_generator_produces_different_values(): void

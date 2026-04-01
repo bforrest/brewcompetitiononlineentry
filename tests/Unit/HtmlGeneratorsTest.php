@@ -202,13 +202,11 @@ class HtmlGeneratorsTest extends TestCase
         $this->assertStringContainsString("National", $result);
     }
 
-    public function test_designations_empty_string_returns_br_tag(): void
+    public function test_designations_empty_string_returns_empty(): void
     {
-        // explode(",","") returns [""], so the loop runs once with $rank2="".
-        // "" != "Certified" is true → $return .= "<br />" → returns "<br />".
-        // There is no empty-string guard in the function.
+        // Empty-string guard added: trim($judge_array) === "" → return "" immediately.
         $result = designations("", "Certified");
-        $this->assertSame("<br />", $result);
+        $this->assertSame("", $result);
     }
 
     // ── GetSQLValueString() ──────────────────────────────────

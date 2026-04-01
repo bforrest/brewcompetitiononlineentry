@@ -51,7 +51,7 @@ class UrlAndNavigationTest extends TestCase
 
     public function test_build_public_url_sef_session_changes_format(): void
     {
-        // Characterization: the $sef param is ignored; only $_SESSION['prefsSEF'] matters.
+        // When $sef is falsy (false/""), $_SESSION['prefsSEF'] controls the format.
         $_SESSION['prefsSEF'] = 'Y';
         $sef = build_public_url("brew", "default", "default", "default", false, $this->base);
 

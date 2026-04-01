@@ -130,19 +130,12 @@ class OrdinalAndNumberFunctionsTest extends TestCase
         $this->assertSame("minus one", readable_number(-1));
     }
 
-    // NOTE: readable_number() has one remaining off-by-one bug for exact round values:
-    //
-    //   • Exactly 1000: the for-loop condition is ($a > $p) with $p=1000,
-    //     so exactly 1000 is NOT caught by the thousands branch.
-    //     It falls to the hundreds branch: readable_number(10)=>'ten',
-    //     producing "ten hundred " instead of "one thousand".
-    //     — Values 1001+ work correctly (1001 > 1000 is true).
-    //
-    // Tests below document behavior so a refactor cannot silently change it.
+    // Both off-by-one bugs are now fixed:
+    //   • ($a > 100)  → ($a >= 100)  so readable_number(100) = 'one hundred '
+    //   • ($a > $p)   → ($a >= $p)   so readable_number(1000) = 'one thousand'
 
     public function test_readable_number_100_returns_one_hundred(): void
     {
-        // Fixed: ($a > 100) corrected to ($a >= 100) so 100 hits the hundreds branch.
         $this->assertSame('one hundred ', readable_number(100));
     }
 
@@ -152,12 +145,10 @@ class OrdinalAndNumberFunctionsTest extends TestCase
         $this->assertSame('one hundred and one', readable_number(101));
     }
 
-    public function test_readable_number_1000_actual_buggy_output(): void
+    public function test_readable_number_1000_returns_one_thousand(): void
     {
-        // Bug: loop condition is ($a > $p) with $p=1000, so exactly 1000
-        // is NOT caught by the thousands branch; it falls through to the
-        // hundreds branch: readable_number(10)=>'ten', → 'ten hundred '
-        $this->assertSame('ten hundred ', readable_number(1000));
+        // Fixed: ($a > $p) corrected to ($a >= $p) so 1000 hits the thousands branch.
+        $this->assertSame('one thousand', readable_number(1000));
     }
 
     public function test_readable_number_1001_works_correctly(): void
