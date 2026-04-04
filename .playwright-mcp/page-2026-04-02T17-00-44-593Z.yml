@@ -1,0 +1,59 @@
+- generic [active] [ref=e1]:
+  - text: 
+  - navigation [ref=e2]:
+    - link "BCOE&M" [ref=e5] [cursor=pointer]:
+      - /url: http://www.brewingcompetitions.com
+  - alert [ref=e7]:
+    - button "Close" [ref=e8] [cursor=pointer]: ×
+    - generic [ref=e9]: 
+    - strong [ref=e10]: To begin setup and install, the necessary database tables need to be installed.
+    - text: These tables hold all of your competition data.
+  - generic [ref=e12]:
+    - generic [ref=e13]:
+      - 'heading "BCOE&M 3.0.2.0 Set Up: Install DB Tables and Data" [level=1] [ref=e15]'
+      - paragraph [ref=e16]: "Click the “Install DB Tables and Data” button below to install the database schema into the following database:"
+      - list [ref=e17]:
+        - listitem [ref=e18]: bcoem
+      - generic [ref=e19] [cursor=pointer]:
+        - generic [ref=e20]: 
+        - text: Install DB Tables and Data
+    - generic [ref=e22]:
+      - heading "Setup Status " [level=4] [ref=e24]:
+        - text: Setup Status
+        - generic [ref=e25]: 
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - strong [ref=e28]: Install DB Tables and Data
+          - generic [ref=e29]: 
+        - generic [ref=e30]:
+          - strong [ref=e31]: Create Admin User
+          - generic [ref=e32]: 
+        - generic [ref=e33]:
+          - strong [ref=e34]: Add Admin User Info
+          - generic [ref=e35]: 
+        - generic [ref=e36]:
+          - strong [ref=e37]: Set Website Preferences
+          - generic [ref=e38]: 
+        - generic [ref=e39]:
+          - strong [ref=e40]: Add Competition Info
+          - generic [ref=e41]: 
+        - generic [ref=e42]:
+          - strong [ref=e43]: Add Judging Locations
+          - generic [ref=e44]: 
+        - generic [ref=e45]:
+          - strong [ref=e46]: Add Drop-off Locations
+          - generic [ref=e47]: 
+        - generic [ref=e48]:
+          - strong [ref=e49]: Designate Accepted Styles
+          - generic [ref=e50]: 
+        - generic [ref=e51]:
+          - strong [ref=e52]: Set Judging Preferences
+          - generic [ref=e53]: 
+    - contentinfo:
+      - navigation [ref=e54]:
+        - paragraph [ref=e56]:
+          - link "BCOE&M" [ref=e57] [cursor=pointer]:
+            - /url: http://www.brewingcompetitions.com
+          - text: 3.0.2
+          - generic [ref=e58]: 
+          - text: 2009-2026

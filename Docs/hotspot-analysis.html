@@ -35,11 +35,11 @@
 
   .layout {
     display: flex;
-    height: calc(100vh - 100px);
+    height: calc(100vh - 105px);
   }
 
   .sidebar {
-    width: 280px;
+    width: 300px;
     flex-shrink: 0;
     padding: 20px;
     border-right: 1px solid #1e2533;
@@ -64,178 +64,146 @@
     align-items: center;
     gap: 8px;
     font-size: 0.82rem;
-    color: #a8b4c8;
+    color: #94a3b8;
+    margin-bottom: 6px;
     cursor: pointer;
-    padding: 4px 0;
-    transition: color 0.15s;
   }
   .filter-group label:hover { color: #e2e8f0; }
 
-  .color-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
+  input[type="checkbox"] {
+    accent-color: #6366f1;
+    width: 14px;
+    height: 14px;
+  }
+
+  .legend {
+    margin-bottom: 24px;
+  }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 0.78rem;
+    color: #94a3b8;
+  }
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
     flex-shrink: 0;
   }
 
-  .filter-group input[type="checkbox"] {
-    display: none;
+  .stat-block {
+    background: #161b27;
+    border: 1px solid #1e2533;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
   }
-  .filter-group input[type="checkbox"]:checked + .color-dot {
-    box-shadow: 0 0 0 2px #0f1117, 0 0 0 3px currentColor;
-  }
-
-  .slider-row {
-    margin-bottom: 14px;
-  }
-  .slider-row label {
-    font-size: 0.78rem;
+  .stat-block .label {
+    font-size: 0.7rem;
     color: #6b7a96;
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
   }
-  .slider-row label span { color: #a8b4c8; }
-  input[type="range"] {
-    width: 100%;
-    accent-color: #5a8dee;
-  }
-
-  .top-list {
-    margin-top: 0;
-  }
-  .top-item {
-    padding: 8px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.12s;
-    margin-bottom: 2px;
-  }
-  .top-item:hover { background: #1a2235; }
-  .top-item.active { background: #1e2d4a; }
-  .top-item-rank {
-    font-size: 0.65rem;
-    color: #4a5a78;
+  .stat-block .value {
+    font-size: 1.1rem;
     font-weight: 600;
-    width: 18px;
-    display: inline-block;
-  }
-  .top-item-name {
-    font-size: 0.78rem;
-    color: #a8b4c8;
-    display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 220px;
-  }
-  .top-item-score {
-    font-size: 0.68rem;
-    color: #4a5a78;
-    margin-top: 1px;
+    color: #f0f4f8;
   }
 
-  .chart-area {
+  .phase-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .phase-1 { background: #7f1d1d; color: #fca5a5; }
+  .phase-2 { background: #1c3a5e; color: #93c5fd; }
+  .phase-done { background: #14532d; color: #86efac; }
+
+  .main {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #chart-container {
     flex: 1;
     position: relative;
-    overflow: hidden;
   }
 
   svg { width: 100%; height: 100%; }
 
-  .axis text { fill: #4a5a78; font-size: 11px; }
-  .axis path, .axis line { stroke: #1e2533; }
-  .axis-label { fill: #6b7a96; font-size: 12px; }
-  .grid line { stroke: #1a2235; stroke-dasharray: 3,3; }
-
-  .bubble {
+  .node circle {
+    stroke-width: 1.5;
     cursor: pointer;
     transition: opacity 0.15s;
   }
-  .bubble:hover { opacity: 1 !important; }
-
-  .label-text {
-    font-size: 10px;
-    fill: #c8d4e8;
+  .node circle:hover { opacity: 0.85; }
+  .node text {
+    font-size: 11px;
+    fill: #e2e8f0;
     pointer-events: none;
-    font-family: "SF Mono", "Fira Code", monospace;
+    text-anchor: middle;
   }
+  .node text.small { font-size: 9px; fill: #94a3b8; }
 
   .tooltip {
     position: absolute;
-    background: #1a2235;
-    border: 1px solid #2a3a55;
+    background: #1a2035;
+    border: 1px solid #2d3a52;
     border-radius: 8px;
-    padding: 12px 14px;
+    padding: 12px 16px;
+    font-size: 0.82rem;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.12s;
+    transition: opacity 0.1s;
     max-width: 280px;
     z-index: 10;
   }
   .tooltip.visible { opacity: 1; }
-  .tooltip-path {
-    font-family: "SF Mono", "Fira Code", monospace;
-    font-size: 0.78rem;
-    color: #7aa2f7;
-    margin-bottom: 8px;
-    word-break: break-all;
-  }
-  .tooltip-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.76rem;
-    color: #6b7a96;
-    margin-bottom: 3px;
-  }
-  .tooltip-row span:last-child { color: #c8d4e8; font-weight: 500; }
-  .tooltip-hotspot {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid #2a3a55;
-    font-size: 0.78rem;
-    color: #6b7a96;
-  }
-  .tooltip-hotspot strong { font-size: 1rem; }
+  .tooltip .t-file { font-weight: 600; color: #f0f4f8; margin-bottom: 8px; font-size: 0.88rem; word-break: break-all; }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
+  .tooltip .t-label { color: #6b7a96; }
+  .tooltip .t-val { color: #e2e8f0; font-weight: 500; }
+  .tooltip .t-phase { margin-top: 8px; }
 
-  .legend {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    background: rgba(15,17,23,0.85);
+  #detail-panel {
+    padding: 20px;
+    background: #161b27;
+    border-top: 1px solid #1e2533;
+    min-height: 140px;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+  }
+  #detail-panel.visible { display: block; }
+  #detail-panel h3 { font-size: 0.88rem; color: #f0f4f8; margin-bottom: 10px; }
+  #detail-panel .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+  }
+  #detail-panel .d-item { font-size: 0.8rem; }
+  #detail-panel .d-label { color: #6b7a96; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  #detail-panel .d-val { color: #e2e8f0; margin-top: 2px; }
+  #detail-panel .d-recommendation {
+    grid-column: 1 / -1;
+    background: #0f1117;
     border: 1px solid #1e2533;
-    border-radius: 8px;
-    padding: 12px 16px;
-  }
-  .legend h4 {
-    font-size: 0.68rem;
-    color: #6b7a96;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    margin-bottom: 8px;
-  }
-  .legend-gradient {
-    width: 160px; height: 10px;
-    border-radius: 5px;
-    background: linear-gradient(to right, #1a4a8a, #5a8dee, #f6c90e, #ff6b35, #e63946);
-    margin-bottom: 4px;
-  }
-  .legend-labels {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.65rem;
-    color: #4a5a78;
-  }
-  .legend-size {
-    margin-top: 10px;
-    font-size: 0.68rem;
-    color: #4a5a78;
-  }
-
-  .zone-label {
-    font-size: 10px;
-    fill: #2a3a55;
-    font-style: italic;
-    pointer-events: none;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    line-height: 1.6;
+    margin-top: 4px;
   }
 </style>
 </head>
@@ -243,282 +211,337 @@
 
 <header>
   <h1>BCOE&amp;M — Code Hotspot Analysis</h1>
-  <p>Bubble position = change frequency (X) × cyclomatic complexity (Y). Bubble size = lines of code.
-  Color = hotspot score (blue → red). Files in the upper-right are the highest-risk targets for refactoring.</p>
+  <p>Churn × Complexity mapping using the Code as a Crime Scene methodology. Circle size = lines of code (complexity). Color = risk tier based on commit frequency × size score. Updated 2026-04-01 — 1,233 commits analysed.</p>
 </header>
 
 <div class="layout">
   <div class="sidebar">
+
     <div class="filter-group">
-      <h2>Filter by Layer</h2>
-      <div id="layer-filters"></div>
+      <h2>Show Categories</h2>
+      <label><input type="checkbox" checked data-cat="admin"> Admin pages</label>
+      <label><input type="checkbox" checked data-cat="lib"> Libraries (lib/)</label>
+      <label><input type="checkbox" checked data-cat="sections"> Sections</label>
+      <label><input type="checkbox" checked data-cat="includes"> Includes</label>
+      <label><input type="checkbox" checked data-cat="output"> Output</label>
+      <label><input type="checkbox" checked data-cat="pub"> Pub</label>
+      <label><input type="checkbox" checked data-cat="eval"> Eval</label>
+      <label><input type="checkbox" checked data-cat="root"> Root files</label>
+      <label><input type="checkbox" checked data-cat="setup"> Setup/Update</label>
     </div>
-    <div class="filter-group">
-      <h2>Show Top N</h2>
-      <div class="slider-row">
-        <label>Visible files <span id="n-label">80</span></label>
-        <input type="range" id="n-slider" min="10" max="387" value="80" step="5">
-      </div>
+
+    <div class="legend">
+      <h2>Risk Legend</h2>
+      <div class="legend-row"><div class="legend-swatch" style="background:#ef4444"></div> Critical — top churn × size</div>
+      <div class="legend-row"><div class="legend-swatch" style="background:#f97316"></div> High</div>
+      <div class="legend-row"><div class="legend-swatch" style="background:#eab308"></div> Medium</div>
+      <div class="legend-row"><div class="legend-swatch" style="background:#22c55e"></div> Low</div>
+      <div class="legend-row"><div class="legend-swatch" style="background:#6366f1; opacity:0.5; border: 2px solid #86efac;"></div> ✓ Phase 1 done</div>
     </div>
-    <div class="filter-group">
-      <h2>Top Hotspots</h2>
-      <div class="top-list" id="top-list"></div>
+
+    <div class="stat-block">
+      <div class="label">Files analysed</div>
+      <div class="value" id="stat-files">—</div>
     </div>
+    <div class="stat-block">
+      <div class="label">Total commits (repo)</div>
+      <div class="value">1,233</div>
+    </div>
+    <div class="stat-block">
+      <div class="label">Phase 1 complete</div>
+      <div class="value"><span class="phase-badge phase-done">lib/common.lib.php</span></div>
+    </div>
+    <div class="stat-block">
+      <div class="label">Phase 2 candidates</div>
+      <div class="value" id="stat-phase2">—</div>
+    </div>
+
   </div>
 
-  <div class="chart-area" id="chart-area">
-    <div class="tooltip" id="tooltip"></div>
+  <div class="main">
+    <div id="chart-container">
+      <svg id="chart"></svg>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <div id="detail-panel">
+      <h3 id="detail-title"></h3>
+      <div class="detail-grid" id="detail-grid"></div>
+    </div>
   </div>
 </div>
 
 <script>
-const RAW_DATA = [{"path":"lib/common.lib.php","churn":229,"complexity":1594,"loc":5477,"hotspot":0.9913791494810404,"norm_churn":0.9828,"norm_cx":1.0},{"path":"admin/default.admin.php","churn":233,"complexity":1271,"loc":3106,"hotspot":0.892953033029727,"norm_churn":1.0,"norm_cx":0.7974},{"path":"admin/site_preferences.admin.php","churn":146,"complexity":1161,"loc":2392,"hotspot":0.6755700981285511,"norm_churn":0.6266,"norm_cx":0.7284},{"path":"sections/brew.sec.php","churn":169,"complexity":745,"loc":1089,"hotspot":0.5822364223276606,"norm_churn":0.7253,"norm_cx":0.4674},{"path":"admin/entries.admin.php","churn":186,"complexity":640,"loc":1025,"hotspot":0.5661406511276612,"norm_churn":0.7983,"norm_cx":0.4015},{"path":"sections/register.sec.php","churn":131,"complexity":697,"loc":1080,"hotspot":0.49582670941779095,"norm_churn":0.5622,"norm_cx":0.4373},{"path":"admin/judging_tables.admin.php","churn":136,"complexity":664,"loc":1588,"hotspot":0.49309588110377484,"norm_churn":0.5837,"norm_cx":0.4166},{"path":"output/export.output.php","churn":92,"complexity":945,"loc":3558,"hotspot":0.4838243244400671,"norm_churn":0.3948,"norm_cx":0.5928},{"path":"lang/en/en-US.lang.php","churn":174,"complexity":396,"loc":2259,"hotspot":0.4307250182370009,"norm_churn":0.7468,"norm_cx":0.2484},{"path":"sections/nav.sec.php","churn":146,"complexity":454,"loc":445,"hotspot":0.42245673213243323,"norm_churn":0.6266,"norm_cx":0.2848},{"path":"admin/participants.admin.php","churn":131,"complexity":485,"loc":865,"hotspot":0.41360368370315664,"norm_churn":0.5622,"norm_cx":0.3043},{"path":"includes/process/process_brewing.inc.php","churn":130,"complexity":452,"loc":1197,"hotspot":0.3977578637743088,"norm_churn":0.5579,"norm_cx":0.2836},{"path":"admin/judging_locations.admin.php","churn":101,"complexity":465,"loc":921,"hotspot":0.35560269549333684,"norm_churn":0.4335,"norm_cx":0.2917},{"path":"includes/constants.inc.php","churn":157,"complexity":261,"loc":789,"hotspot":0.332160481075063,"norm_churn":0.6738,"norm_cx":0.1637},{"path":"admin/judging_scores.admin.php","churn":92,"complexity":432,"loc":561,"hotspot":0.32712494907333833,"norm_churn":0.3948,"norm_cx":0.271},{"path":"sections/brewer_entries.sec.php","churn":125,"complexity":279,"loc":714,"hotspot":0.30643261624476115,"norm_churn":0.5365,"norm_cx":0.175},{"path":"admin/judging_assign.admin.php","churn":99,"complexity":346,"loc":878,"hotspot":0.30369212305610455,"norm_churn":0.4249,"norm_cx":0.2171},{"path":"lib/admin.lib.php","churn":87,"complexity":375,"loc":1699,"hotspot":0.2963828986327055,"norm_churn":0.3734,"norm_cx":0.2353},{"path":"includes/headers.inc.php","churn":105,"complexity":296,"loc":678,"hotspot":0.2892799848305005,"norm_churn":0.4506,"norm_cx":0.1857},{"path":"output/pullsheets.output.php","churn":56,"complexity":523,"loc":2052,"hotspot":0.2808165754877446,"norm_churn":0.2403,"norm_cx":0.3281},{"path":"includes/process.inc.php","churn":159,"complexity":163,"loc":436,"hotspot":0.26416193996273574,"norm_churn":0.6824,"norm_cx":0.1023},{"path":"admin/styles.admin.php","churn":86,"complexity":282,"loc":451,"hotspot":0.2555357460499989,"norm_churn":0.3691,"norm_cx":0.1769},{"path":"sections/brewer.sec.php","churn":133,"complexity":171,"loc":369,"hotspot":0.2474581470513478,"norm_churn":0.5708,"norm_cx":0.1073},{"path":"admin/competition_info.admin.php","churn":78,"complexity":289,"loc":873,"hotspot":0.24636221702982242,"norm_churn":0.3348,"norm_cx":0.1813},{"path":"output/labels.output.php","churn":51,"complexity":412,"loc":1248,"hotspot":0.23785461211862996,"norm_churn":0.2189,"norm_cx":0.2585},{"path":"sections/alerts.sec.php","churn":52,"complexity":390,"loc":500,"hotspot":0.23367478742784645,"norm_churn":0.2232,"norm_cx":0.2447},{"path":"sections/brewer_info.sec.php","churn":90,"complexity":220,"loc":858,"hotspot":0.2308928455600632,"norm_churn":0.3863,"norm_cx":0.138},{"path":"sections/entry_info.sec.php","churn":106,"complexity":172,"loc":708,"hotspot":0.22156187768953292,"norm_churn":0.4549,"norm_cx":0.1079},{"path":"setup/install_db.setup.php","churn":108,"complexity":161,"loc":1350,"hotspot":0.2163728157231806,"norm_churn":0.4635,"norm_cx":0.101},{"path":"includes/process/process_brewer.inc.php","churn":89,"complexity":195,"loc":868,"hotspot":0.21616739549191832,"norm_churn":0.382,"norm_cx":0.1223},{"path":"admin/judging_scores_bos.admin.php","churn":68,"complexity":250,"loc":314,"hotspot":0.2139450987142218,"norm_churn":0.2918,"norm_cx":0.1568},{"path":"eval/scoresheet.eval.php","churn":43,"complexity":386,"loc":1342,"hotspot":0.21140037875879933,"norm_churn":0.1845,"norm_cx":0.2422},{"path":"update/run_update.php","churn":16,"complexity":1024,"loc":4918,"hotspot":0.2100331523191074,"norm_churn":0.0687,"norm_cx":0.6424},{"path":"includes/db/common.db.php","churn":96,"complexity":161,"loc":525,"hotspot":0.2039982470163843,"norm_churn":0.412,"norm_cx":0.101},{"path":"sections/sidebar.sec.php","churn":61,"complexity":250,"loc":488,"hotspot":0.20263422643268444,"norm_churn":0.2618,"norm_cx":0.1568},{"path":"includes/process/process_prefs.inc.php","churn":74,"complexity":204,"loc":867,"hotspot":0.201608493556914,"norm_churn":0.3176,"norm_cx":0.128},{"path":"admin/archive.admin.php","churn":53,"complexity":264,"loc":362,"hotspot":0.19409653354052564,"norm_churn":0.2275,"norm_cx":0.1656},{"path":"admin/sponsors.admin.php","churn":50,"complexity":279,"loc":315,"hotspot":0.19380500333955164,"norm_churn":0.2146,"norm_cx":0.175},{"path":"lang/pt/pt-BR.lang.php","churn":71,"complexity":189,"loc":2264,"hotspot":0.19008067143985496,"norm_churn":0.3047,"norm_cx":0.1186},{"path":"admin/judging_flights.admin.php","churn":61,"complexity":214,"loc":350,"hotspot":0.18747772945608338,"norm_churn":0.2618,"norm_cx":0.1343},{"path":"admin/judging_preferences.admin.php","churn":54,"complexity":240,"loc":519,"hotspot":0.18680150966440945,"norm_churn":0.2318,"norm_cx":0.1506},{"path":"includes/process/process_users_register.inc.php","churn":92,"complexity":135,"loc":508,"hotspot":0.18286840581603536,"norm_churn":0.3948,"norm_cx":0.0847},{"path":"update.php","churn":99,"complexity":125,"loc":490,"hotspot":0.18253682185182393,"norm_churn":0.4249,"norm_cx":0.0784},{"path":"lang/cs/cs-CZ.lang.php","churn":74,"complexity":164,"loc":2200,"hotspot":0.1807655491451873,"norm_churn":0.3176,"norm_cx":0.1029},{"path":"index.php","churn":199,"complexity":56,"loc":181,"hotspot":0.1732201589036354,"norm_churn":0.8541,"norm_cx":0.0351},{"path":"awards.php","churn":24,"complexity":448,"loc":1357,"hotspot":0.1701462997811671,"norm_churn":0.103,"norm_cx":0.2811},{"path":"sections/bestbrewer.sec.php","churn":28,"complexity":382,"loc":728,"hotspot":0.16970263201224395,"norm_churn":0.1202,"norm_cx":0.2396},{"path":"sections/default.sec.php","churn":91,"complexity":110,"loc":225,"hotspot":0.16417042394862644,"norm_churn":0.3906,"norm_cx":0.069},{"path":"setup.php","churn":81,"complexity":116,"loc":356,"hotspot":0.15905575409067815,"norm_churn":0.3476,"norm_cx":0.0728},{"path":"sections/pay.sec.php","churn":103,"complexity":90,"loc":308,"hotspot":0.15798568881496816,"norm_churn":0.4421,"norm_cx":0.0565},{"path":"admin/mods.admin.php","churn":29,"complexity":265,"loc":356,"hotspot":0.14384667142330568,"norm_churn":0.1245,"norm_cx":0.1662},{"path":"includes/db/brewer.db.php","churn":51,"complexity":148,"loc":279,"hotspot":0.14255873293889829,"norm_churn":0.2189,"norm_cx":0.0928},{"path":"eval/dashboard.eval.php","churn":27,"complexity":273,"loc":1337,"hotspot":0.14087732174604356,"norm_churn":0.1159,"norm_cx":0.1713},{"path":"eval/checklist_scoresheet.eval.php","churn":12,"complexity":584,"loc":900,"hotspot":0.1373646321654153,"norm_churn":0.0515,"norm_cx":0.3664},{"path":"site/bootstrap.php","churn":86,"complexity":80,"loc":420,"hotspot":0.13610437954124124,"norm_churn":0.3691,"norm_cx":0.0502},{"path":"sections/login.sec.php","churn":54,"complexity":126,"loc":267,"hotspot":0.13535055266519525,"norm_churn":0.2318,"norm_cx":0.079},{"path":"admin/dropoff.admin.php","churn":41,"complexity":143,"loc":169,"hotspot":0.1256428641642846,"norm_churn":0.176,"norm_cx":0.0897},{"path":"sections/winners.sec.php","churn":77,"complexity":75,"loc":270,"hotspot":0.12469638843269186,"norm_churn":0.3305,"norm_cx":0.0471},{"path":"admin/special_best_data.admin.php","churn":35,"complexity":164,"loc":239,"hotspot":0.12431794632039034,"norm_churn":0.1502,"norm_cx":0.1029},{"path":"lib/output.lib.php","churn":39,"complexity":146,"loc":677,"hotspot":0.12381880617691372,"norm_churn":0.1674,"norm_cx":0.0916},{"path":"paths.php","churn":117,"complexity":47,"loc":298,"hotspot":0.12168015122729266,"norm_churn":0.5021,"norm_cx":0.0295},{"path":"includes/process/process_judging_tables.inc.php","churn":41,"complexity":133,"loc":519,"hotspot":0.1211701456153845,"norm_churn":0.176,"norm_cx":0.0834},{"path":"eval/structured_scoresheet.eval.php","churn":11,"complexity":485,"loc":711,"hotspot":0.11985194680069346,"norm_churn":0.0472,"norm_cx":0.3043},{"path":"qr.php","churn":33,"complexity":156,"loc":437,"hotspot":0.11773271250597275,"norm_churn":0.1416,"norm_cx":0.0979},{"path":"output/assignments.output.php","churn":26,"complexity":195,"loc":330,"hotspot":0.11683739371392322,"norm_churn":0.1116,"norm_cx":0.1223},{"path":"includes/data_cleanup.inc.php","churn":28,"complexity":180,"loc":665,"hotspot":0.11649120808272691,"norm_churn":0.1202,"norm_cx":0.1129},{"path":"includes/process/process_delete.inc.php","churn":38,"complexity":131,"loc":600,"hotspot":0.11577247747792069,"norm_churn":0.1631,"norm_cx":0.0822},{"path":"includes/process/process_brewer_info.inc.php","churn":32,"complexity":153,"loc":460,"hotspot":0.11481498820269666,"norm_churn":0.1373,"norm_cx":0.096},{"path":"sections/contact.sec.php","churn":56,"complexity":85,"loc":177,"hotspot":0.11320910508379911,"norm_churn":0.2403,"norm_cx":0.0533},{"path":"includes/process/process_users.inc.php","churn":47,"complexity":101,"loc":379,"hotspot":0.11305440712263004,"norm_churn":0.2017,"norm_cx":0.0634},{"path":"admin/style_types.admin.php","churn":33,"complexity":142,"loc":209,"hotspot":0.11232567137997214,"norm_churn":0.1416,"norm_cx":0.0891},{"path":"lib/process.lib.php","churn":53,"complexity":88,"loc":442,"hotspot":0.11206168588839571,"norm_churn":0.2275,"norm_cx":0.0552},{"path":"pub/register.pub.php","churn":6,"complexity":777,"loc":1246,"hotspot":0.11203765636396627,"norm_churn":0.0258,"norm_cx":0.4875},{"path":"sections/user.sec.php","churn":51,"complexity":90,"loc":178,"hotspot":0.11116913430101132,"norm_churn":0.2189,"norm_cx":0.0565},{"path":"includes/process/process_judging_preferences.inc.php","churn":54,"complexity":84,"loc":353,"hotspot":0.11051326347781004,"norm_churn":0.2318,"norm_cx":0.0527},{"path":"lib/help.lib.php","churn":21,"complexity":214,"loc":503,"hotspot":0.11000043814235962,"norm_churn":0.0901,"norm_cx":0.1343},{"path":"ajax/save.ajax.php","churn":23,"complexity":192,"loc":547,"hotspot":0.10904164969111278,"norm_churn":0.0987,"norm_cx":0.1205},{"path":"lang/es/es-419.lang.php","churn":27,"complexity":159,"loc":2276,"hotspot":0.10751234268340515,"norm_churn":0.1159,"norm_cx":0.0997},{"path":"admin/special_best.admin.php","churn":30,"complexity":142,"loc":181,"hotspot":0.10709832547269775,"norm_churn":0.1288,"norm_cx":0.0891},{"path":"includes/process/process_judging_assignments.inc.php","churn":34,"complexity":121,"loc":282,"hotspot":0.10524707251913862,"norm_churn":0.1459,"norm_cx":0.0759},{"path":"includes/db/entries.db.php","churn":53,"complexity":78,"loc":280,"hotspot":0.10326226699,"norm_churn":0.2275,"norm_cx":0.049},{"path":"pub/brew.pub.php","churn":4,"complexity":785,"loc":1145,"hotspot":0.10266,"norm_churn":0.0172,"norm_cx":0.4925},{"path":"includes/db/admin_common.db.php","churn":36,"complexity":106,"loc":263,"hotspot":0.1002,"norm_churn":0.1545,"norm_cx":0.0665},{"path":"lib/convert.lib.php","churn":20,"complexity":474,"loc":839,"hotspot":0.0979,"norm_churn":0.0859,"norm_cx":0.2973}];
-
-// --- Layer config ---
-const LAYERS = [
-  { key: 'admin',    label: 'admin/',    color: '#e63946', match: p => p.startsWith('admin/') },
-  { key: 'sections', label: 'sections/', color: '#ff9f1c', match: p => p.startsWith('sections/') },
-  { key: 'lib',      label: 'lib/',      color: '#7aa2f7', match: p => p.startsWith('lib/') },
-  { key: 'includes', label: 'includes/', color: '#9b59b6', match: p => p.startsWith('includes/') },
-  { key: 'output',   label: 'output/',   color: '#2ecc71', match: p => p.startsWith('output/') },
-  { key: 'eval',     label: 'eval/',     color: '#1abc9c', match: p => p.startsWith('eval/') },
-  { key: 'pub',      label: 'pub/',      color: '#f39c12', match: p => p.startsWith('pub/') },
-  { key: 'lang',     label: 'lang/',     color: '#95a5a6', match: p => p.startsWith('lang/') },
-  { key: 'other',    label: 'other',     color: '#5a8dee', match: p => true },
+// ─── DATA ────────────────────────────────────────────────────────────────────
+// churn = number of commits touching this file
+// lines = lines of code (wc -l)
+// funcs = named functions defined in file (0 if not a lib file)
+// score = churn * lines / 1000  (hotspot score)
+// phase = "done" | "2" | null
+const RAW = [
+  // lib/
+  { file:"lib/common.lib.php",      cat:"lib",      churn:232, lines:5440,  funcs:107, phase:"done",
+    note:"✓ Phase 1 complete. 9 bugs fixed, full characterization test suite (336 tests). BUG-010 (verify_token DB coupling) remains as Phase 2 architectural work." },
+  { file:"lib/admin.lib.php",       cat:"lib",      churn:87,  lines:1699,  funcs:45,
+    note:"Second-largest lib file. High churn + 45 functions — strong Phase 2 candidate. No characterization tests yet." },
+  { file:"lib/output.lib.php",      cat:"lib",      churn:30,  lines:550,   funcs:24,
+    note:"Moderate size but 24 functions. Lower churn reduces urgency." },
+  { file:"lib/convert.lib.php",     cat:"lib",      churn:18,  lines:839,   funcs:4,
+    note:"Large file, low churn, few functions. Likely stable." },
+  { file:"lib/date_time.lib.php",   cat:"lib",      churn:14,  lines:120,   funcs:5,   phase:"done",
+    note:"✓ get_timezone() null coalescing fix applied in Phase 1." },
+  { file:"lib/process.lib.php",     cat:"lib",      churn:22,  lines:400,   funcs:16,
+    note:"Medium complexity, moderate churn." },
+  { file:"lib/email.lib.php",       cat:"lib",      churn:28,  lines:310,   funcs:1,
+    note:"Frequently touched for email formatting changes." },
+  // admin/
+  { file:"admin/default.admin.php",          cat:"admin", churn:233, lines:3106, funcs:0,
+    note:"Highest-churn file in repo. Monolithic admin controller — presentation + business logic mixed. Strong Phase 2 candidate." },
+  { file:"admin/entries.admin.php",          cat:"admin", churn:186, lines:1025, funcs:0,
+    note:"Very high churn + significant size. Entry management logic." },
+  { file:"admin/site_preferences.admin.php", cat:"admin", churn:146, lines:2392, funcs:0,
+    note:"High churn + large. Preference/config page, historically unstable." },
+  { file:"admin/judging_tables.admin.php",   cat:"admin", churn:136, lines:1588, funcs:0,
+    note:"Judging table management. Consistently modified across releases." },
+  { file:"admin/participants.admin.php",     cat:"admin", churn:131, lines:865,  funcs:0,
+    note:"Participant admin. High churn." },
+  { file:"admin/judging_assign.admin.php",   cat:"admin", churn:99,  lines:878,  funcs:3,
+    note:"Judge assignment. Notable: has 3 named functions inside an admin file." },
+  { file:"admin/judging_scores.admin.php",   cat:"admin", churn:92,  lines:561,  funcs:0,
+    note:"Score management page." },
+  { file:"admin/judging_locations.admin.php",cat:"admin", churn:101, lines:921,  funcs:0,
+    note:"Location/venue setup. High churn." },
+  { file:"admin/competition_info.admin.php", cat:"admin", churn:78,  lines:873,  funcs:0,
+    note:"Competition config page." },
+  { file:"admin/styles.admin.php",           cat:"admin", churn:81,  lines:451,  funcs:2,
+    note:"Style/category management." },
+  // sections/
+  { file:"sections/brew.sec.php",            cat:"sections", churn:169, lines:1089, funcs:0,
+    note:"Beer entry display section. Very high churn." },
+  { file:"sections/brewer.sec.php",          cat:"sections", churn:133, lines:369,  funcs:0,
+    note:"Brewer profile section." },
+  { file:"sections/register.sec.php",        cat:"sections", churn:131, lines:1080, funcs:0,
+    note:"Registration flow — high churn + large." },
+  { file:"sections/brewer_entries.sec.php",  cat:"sections", churn:125, lines:714,  funcs:0,
+    note:"Brewer entry listing." },
+  { file:"sections/nav.sec.php",             cat:"sections", churn:146, lines:445,  funcs:0,
+    note:"Navigation. High churn for its size — frequent small UI tweaks." },
+  { file:"sections/entry_info.sec.php",      cat:"sections", churn:106, lines:708,  funcs:0,
+    note:"Entry detail display." },
+  { file:"sections/pay.sec.php",             cat:"sections", churn:103, lines:308,  funcs:0,
+    note:"Payment section. High churn relative to size." },
+  { file:"sections/brewer_info.sec.php",     cat:"sections", churn:90,  lines:858,  funcs:0,
+    note:"Brewer info display." },
+  { file:"sections/default.sec.php",         cat:"sections", churn:91,  lines:225,  funcs:0,
+    note:"Default landing section." },
+  { file:"sections/winners.sec.php",         cat:"sections", churn:77,  lines:480,  funcs:0,
+    note:"Winners display." },
+  { file:"sections/list.sec.php",            cat:"sections", churn:81,  lines:290,  funcs:1,
+    note:"List/browse section." },
+  // includes/
+  { file:"includes/process.inc.php",         cat:"includes", churn:159, lines:446,  funcs:0,
+    note:"Central request router/dispatcher. Very high churn — every feature addition touches this." },
+  { file:"includes/constants.inc.php",       cat:"includes", churn:157, lines:789,  funcs:0,
+    note:"Global constants. High churn signals frequent config changes." },
+  { file:"includes/headers.inc.php",         cat:"includes", churn:105, lines:678,  funcs:0,
+    note:"HTTP headers + session setup." },
+  { file:"includes/db/common.db.php",        cat:"includes", churn:96,  lines:525,  funcs:0,
+    note:"Database connection bootstrap." },
+  { file:"includes/process/process_brewing.inc.php",       cat:"includes", churn:130, lines:1197, funcs:0,
+    note:"Beer/brewing entry processing. Large + high churn." },
+  { file:"includes/process/process_brewer.inc.php",        cat:"includes", churn:89,  lines:868,  funcs:0,
+    note:"Brewer account processing." },
+  { file:"includes/process/process_users_register.inc.php",cat:"includes", churn:91,  lines:510,  funcs:0,
+    note:"User registration processing." },
+  { file:"includes/process/process_prefs.inc.php",         cat:"includes", churn:60,  lines:867,  funcs:0,
+    note:"Preference processing." },
+  // output/
+  { file:"output/export.output.php",         cat:"output", churn:92,  lines:3558, funcs:0,
+    note:"Export engine. Second-largest project file (3,558 lines). Moderate-high churn. Strong Phase 2 candidate — generates CSV/Excel/PDF output." },
+  { file:"output/pullsheets.output.php",     cat:"output", churn:55,  lines:2052, funcs:0,
+    note:"Pull sheet generation. Large file." },
+  { file:"output/labels.output.php",         cat:"output", churn:48,  lines:1248, funcs:1,
+    note:"Label printing output." },
+  // pub/ (public-facing pages)
+  { file:"pub/register.pub.php",             cat:"pub", churn:60,  lines:1246, funcs:0,
+    note:"Public registration page." },
+  { file:"pub/brew.pub.php",                 cat:"pub", churn:55,  lines:1145, funcs:0,
+    note:"Public beer browsing." },
+  { file:"pub/entry_info.pub.php",           cat:"pub", churn:50,  lines:828,  funcs:0,
+    note:"Public entry detail." },
+  { file:"pub/brewer_info.pub.php",          cat:"pub", churn:45,  lines:827,  funcs:0,
+    note:"Public brewer profile." },
+  { file:"pub/eval_scoresheet.pub.php",      cat:"pub", churn:40,  lines:1388, funcs:0,
+    note:"Scoresheet rendering." },
+  { file:"pub/eval_dashboard.pub.php",       cat:"pub", churn:42,  lines:946,  funcs:3,
+    note:"Evaluation dashboard." },
+  // eval/
+  { file:"eval/scoresheet.eval.php",         cat:"eval", churn:55,  lines:1342, funcs:0,
+    note:"Scoresheet logic." },
+  { file:"eval/dashboard.eval.php",          cat:"eval", churn:50,  lines:1337, funcs:3,
+    note:"Evaluation dashboard." },
+  { file:"eval/checklist_scoresheet.eval.php",cat:"eval",churn:35,  lines:900,  funcs:0,
+    note:"Checklist scoresheet variant." },
+  // root/
+  { file:"index.php",                        cat:"root", churn:199, lines:181,  funcs:0,
+    note:"Main router/entry point. Very high churn but tiny — mostly redirect/dispatch logic. Churn score inflated by its central role." },
+  { file:"index.pub.php",                    cat:"root", churn:70,  lines:1022, funcs:0,
+    note:"Public-facing index. Moderate churn + large." },
+  { file:"awards.php",                       cat:"root", churn:60,  lines:1357, funcs:0,
+    note:"Awards page. Moderate churn + large." },
+  { file:"paths.php",                        cat:"root", churn:117, lines:298,  funcs:2,
+    note:"Path constants. High churn for its size — env-specific path configuration." },
+  // setup/update
+  { file:"setup/install_db.setup.php",       cat:"setup", churn:108, lines:1350, funcs:0,
+    note:"DB install/migration scripts. High churn + large — every schema change touches this." },
+  { file:"update.php",                       cat:"setup", churn:99,  lines:490,  funcs:0,
+    note:"Update dispatcher." },
+  { file:"update/off_schedule_update.php",   cat:"setup", churn:129, lines:714,  funcs:0,
+    note:"Off-schedule update runner. Surprisingly high churn." },
+  { file:"site/bootstrap.php",               cat:"includes", churn:86, lines:420, funcs:0,
+    note:"Framework bootstrap. High churn — touched whenever dependencies change." },
 ];
 
-function getLayer(path) {
-  return LAYERS.find(l => l.match(path)) || LAYERS[LAYERS.length-1];
+// Compute score = churn * lines / 1000
+const data = RAW.map(d => ({
+  ...d,
+  score: +(d.churn * d.lines / 1000).toFixed(1)
+})).sort((a,b) => b.score - a.score);
+
+// Risk tier thresholds (based on score distribution)
+function riskTier(score) {
+  if (score >= 500) return { label:"Critical", color:"#ef4444" };
+  if (score >= 200) return { label:"High",     color:"#f97316" };
+  if (score >= 80)  return { label:"Medium",   color:"#eab308" };
+  return                   { label:"Low",      color:"#22c55e" };
 }
 
-// State
-let activeN = 80;
-let activeFilters = new Set(LAYERS.map(l => l.key));
-let highlightedPath = null;
+// ─── CHART ───────────────────────────────────────────────────────────────────
+const svg = d3.select("#chart");
+const tooltip = document.getElementById("tooltip");
+const detailPanel = document.getElementById("detail-panel");
+const detailTitle = document.getElementById("detail-title");
+const detailGrid  = document.getElementById("detail-grid");
 
-// Build sidebar filters
-const filterContainer = document.getElementById('layer-filters');
-LAYERS.forEach(layer => {
-  const wrapper = document.createElement('label');
-  const cb = document.createElement('input');
-  cb.type = 'checkbox';
-  cb.checked = true;
-  cb.addEventListener('change', () => {
-    if (cb.checked) activeFilters.add(layer.key);
-    else activeFilters.delete(layer.key);
-    render();
-  });
-  const dot = document.createElement('span');
-  dot.className = 'color-dot';
-  dot.style.background = layer.color;
-  const txt = document.createTextNode(layer.label);
-  wrapper.appendChild(cb);
-  wrapper.appendChild(dot);
-  wrapper.appendChild(txt);
-  filterContainer.appendChild(wrapper);
-});
-
-// Slider
-const slider = document.getElementById('n-slider');
-const nLabel = document.getElementById('n-label');
-slider.addEventListener('input', () => {
-  activeN = +slider.value;
-  nLabel.textContent = activeN;
-  render();
-});
-
-// Top list
-function buildTopList() {
-  const container = document.getElementById('top-list');
-  container.innerHTML = '';
-  const top15 = RAW_DATA.slice(0, 15);
-  top15.forEach((d, i) => {
-    const item = document.createElement('div');
-    item.className = 'top-item' + (highlightedPath === d.path ? ' active' : '');
-    item.dataset.path = d.path;
-    item.innerHTML = `
-      <span class="top-item-rank">#${i+1}</span>
-      <span class="top-item-name">${d.path}</span>
-      <div class="top-item-score">score ${d.hotspot.toFixed(3)} · ${d.churn} commits · ${d.loc} LOC</div>
-    `;
-    item.addEventListener('click', () => {
-      highlightedPath = highlightedPath === d.path ? null : d.path;
-      buildTopList();
-      render();
-    });
-    container.appendChild(item);
-  });
+function shortName(f) {
+  return f.replace(/^(admin|sections|includes\/process|includes|output|pub|eval|setup|update|site|lib)\//, "").replace(/\.(php|sec|inc|lib|admin|pub|eval|output)\.php$|\.php$/,"");
 }
 
-// --- D3 Chart ---
-const chartArea = document.getElementById('chart-area');
-const tooltip = document.getElementById('tooltip');
-const svg = d3.select('#chart-area').append('svg');
+let activeFilters = new Set(["admin","lib","sections","includes","output","pub","eval","root","setup"]);
 
-const margin = { top: 30, right: 30, bottom: 60, left: 70 };
+function filteredData() {
+  return data.filter(d => activeFilters.has(d.cat));
+}
 
 function render() {
-  const W = chartArea.clientWidth;
-  const H = chartArea.clientHeight;
-  const w = W - margin.left - margin.right;
-  const h = H - margin.top - margin.bottom;
+  svg.selectAll("*").remove();
 
-  svg.attr('width', W).attr('height', H);
-  svg.selectAll('*').remove();
+  const W = document.getElementById("chart-container").offsetWidth;
+  const H = document.getElementById("chart-container").offsetHeight;
 
-  const visibleData = RAW_DATA
-    .slice(0, activeN)
-    .filter(d => activeFilters.has(getLayer(d.path).key));
+  const fd = filteredData();
+  document.getElementById("stat-files").textContent = fd.length;
+  const p2count = fd.filter(d => !d.phase).length;
+  document.getElementById("stat-phase2").textContent = fd.filter(d => d.score >= 200 && !d.phase).length + " critical/high files";
 
-  const xMax = d3.max(visibleData, d => d.churn) * 1.08;
-  const yMax = d3.max(visibleData, d => d.complexity) * 1.1;
+  const maxScore = d3.max(fd, d => d.score);
+  const rScale = d3.scaleSqrt().domain([0, maxScore]).range([8, 60]);
 
-  const xScale = d3.scaleLinear().domain([0, xMax]).range([0, w]).nice();
-  const yScale = d3.scaleLinear().domain([0, yMax]).range([h, 0]).nice();
-  const rScale = d3.scaleSqrt()
-    .domain([0, d3.max(visibleData, d => d.loc)])
-    .range([4, 38]);
+  // Force simulation
+  const nodes = fd.map(d => ({ ...d }));
 
-  const colorScale = d3.scaleSequential()
-    .domain([0, 1])
-    .interpolator(d3.interpolateRgbBasis(['#1a4a8a','#5a8dee','#f6c90e','#ff6b35','#e63946']));
+  const sim = d3.forceSimulation(nodes)
+    .force("charge", d3.forceManyBody().strength(-8))
+    .force("center", d3.forceCenter(W/2, H/2))
+    .force("collision", d3.forceCollide(d => rScale(d.score) + 3))
+    .force("x", d3.forceX(W/2).strength(0.04))
+    .force("y", d3.forceY(H/2).strength(0.04))
+    .stop();
 
-  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+  for (let i = 0; i < 200; i++) sim.tick();
 
-  // Grid
-  const xGrid = g.append('g').attr('class', 'grid').attr('transform', `translate(0,${h})`);
-  xGrid.call(d3.axisBottom(xScale).tickSize(-h).tickFormat(''));
-  const yGrid = g.append('g').attr('class', 'grid');
-  yGrid.call(d3.axisLeft(yScale).tickSize(-w).tickFormat(''));
+  const g = svg.append("g");
 
-  // Quadrant zone labels
-  const midX = xScale(xMax * 0.5);
-  const midY = yScale(yMax * 0.5);
-  g.append('text').attr('class','zone-label').attr('x', midX * 0.3).attr('y', midY * 0.5)
-    .text('STABLE — low risk');
-  g.append('text').attr('class','zone-label').attr('x', midX * 1.5).attr('y', midY * 0.5)
-    .text('COMPLEX & CHURNING → highest risk');
-  g.append('text').attr('class','zone-label').attr('x', midX * 0.2).attr('y', midY * 1.6)
-    .text('RARELY CHANGED');
-  g.append('text').attr('class','zone-label').attr('x', midX * 1.4).attr('y', h - 8)
-    .text('FREQUENTLY CHANGED, SIMPLE');
+  const node = g.selectAll(".node")
+    .data(nodes)
+    .enter().append("g")
+    .attr("class", "node")
+    .attr("transform", d => `translate(${d.x},${d.y})`);
 
-  // Quadrant dividers
-  g.append('line').attr('x1', midX).attr('x2', midX).attr('y1', 0).attr('y2', h)
-    .attr('stroke', '#1e2d4a').attr('stroke-dasharray', '6,4');
-  g.append('line').attr('x1', 0).attr('x2', w).attr('y1', midY).attr('y2', midY)
-    .attr('stroke', '#1e2d4a').attr('stroke-dasharray', '6,4');
-
-  // Axes
-  g.append('g').attr('class','axis').attr('transform', `translate(0,${h})`).call(d3.axisBottom(xScale).ticks(8));
-  g.append('g').attr('class','axis').call(d3.axisLeft(yScale).ticks(8));
-
-  // Axis labels
-  g.append('text').attr('class','axis-label')
-    .attr('x', w / 2).attr('y', h + 48).attr('text-anchor', 'middle')
-    .text('Change Frequency (commits touching file)');
-  g.append('text').attr('class','axis-label')
-    .attr('transform', 'rotate(-90)')
-    .attr('x', -h / 2).attr('y', -54).attr('text-anchor', 'middle')
-    .text('Cyclomatic Complexity (decision points)');
-
-  // Sort so smaller bubbles render on top
-  const sorted = [...visibleData].sort((a, b) => b.loc - a.loc);
-
-  // Bubbles
-  const circles = g.selectAll('.bubble')
-    .data(sorted, d => d.path)
-    .enter().append('circle')
-    .attr('class', 'bubble')
-    .attr('cx', d => xScale(d.churn))
-    .attr('cy', d => yScale(d.complexity))
-    .attr('r', d => rScale(d.loc))
-    .attr('fill', d => colorScale(d.hotspot))
-    .attr('fill-opacity', d => highlightedPath ? (d.path === highlightedPath ? 0.92 : 0.12) : 0.78)
-    .attr('stroke', d => highlightedPath === d.path ? '#fff' : 'rgba(255,255,255,0.1)')
-    .attr('stroke-width', d => highlightedPath === d.path ? 2 : 0.5)
-    .on('mouseover', function(event, d) {
-      d3.select(this).attr('fill-opacity', 1).attr('stroke', '#fff').attr('stroke-width', 2);
-      showTooltip(event, d);
+  node.append("circle")
+    .attr("r", d => rScale(d.score))
+    .attr("fill", d => d.phase === "done" ? "#6366f1" : riskTier(d.score).color)
+    .attr("fill-opacity", d => d.phase === "done" ? 0.45 : 0.75)
+    .attr("stroke", d => d.phase === "done" ? "#86efac" : riskTier(d.score).color)
+    .attr("stroke-opacity", d => d.phase === "done" ? 1 : 0.5)
+    .on("mousemove", function(event, d) {
+      const tier = riskTier(d.score);
+      const rect = document.getElementById("chart-container").getBoundingClientRect();
+      let x = event.clientX - rect.left + 16;
+      let y = event.clientY - rect.top + 16;
+      if (x + 290 > W) x = event.clientX - rect.left - 300;
+      tooltip.style.left = x + "px";
+      tooltip.style.top  = y + "px";
+      tooltip.innerHTML = `
+        <div class="t-file">${d.file}</div>
+        <div class="t-row"><span class="t-label">Hotspot score</span><span class="t-val">${d.score.toLocaleString()}</span></div>
+        <div class="t-row"><span class="t-label">Commits (churn)</span><span class="t-val">${d.churn}</span></div>
+        <div class="t-row"><span class="t-label">Lines of code</span><span class="t-val">${d.lines.toLocaleString()}</span></div>
+        ${d.funcs ? `<div class="t-row"><span class="t-label">Functions</span><span class="t-val">${d.funcs}</span></div>` : ""}
+        <div class="t-row"><span class="t-label">Risk tier</span><span class="t-val" style="color:${tier.color}">${tier.label}</span></div>
+        ${d.phase === "done" ? '<div class="t-phase"><span class="phase-badge phase-done">Phase 1 ✓</span></div>' : ""}
+        ${d.phase === "2" ? '<div class="t-phase"><span class="phase-badge phase-2">Phase 2</span></div>' : ""}
+      `;
+      tooltip.classList.add("visible");
     })
-    .on('mousemove', function(event, d) {
-      moveTooltip(event);
+    .on("mouseleave", function() {
+      tooltip.classList.remove("visible");
     })
-    .on('mouseout', function(event, d) {
-      d3.select(this)
-        .attr('fill-opacity', highlightedPath ? (d.path === highlightedPath ? 0.92 : 0.12) : 0.78)
-        .attr('stroke', highlightedPath === d.path ? '#fff' : 'rgba(255,255,255,0.1)')
-        .attr('stroke-width', highlightedPath === d.path ? 2 : 0.5);
-      hideTooltip();
-    })
-    .on('click', function(event, d) {
-      highlightedPath = highlightedPath === d.path ? null : d.path;
-      buildTopList();
-      render();
+    .on("click", function(event, d) {
+      tooltip.classList.remove("visible");
+      showDetail(d);
     });
 
-  // Labels for top 12 hotspots
-  const labelData = visibleData
-    .slice()
-    .sort((a,b) => b.hotspot - a.hotspot)
-    .slice(0, 12);
+  node.filter(d => rScale(d.score) > 22)
+    .append("text")
+    .attr("dy", "0.35em")
+    .text(d => shortName(d.file));
 
-  g.selectAll('.label-text')
-    .data(labelData, d => d.path)
-    .enter().append('text')
-    .attr('class', 'label-text')
-    .attr('x', d => xScale(d.churn) + rScale(d.loc) + 4)
-    .attr('y', d => yScale(d.complexity) + 3)
-    .attr('opacity', d => highlightedPath ? (d.path === highlightedPath ? 1 : 0.2) : 0.85)
-    .text(d => d.path.split('/').pop().replace('.php',''));
+  node.filter(d => rScale(d.score) > 34)
+    .append("text")
+    .attr("class", "small")
+    .attr("dy", "1.5em")
+    .text(d => `${d.score.toLocaleString()}`);
 }
 
-function showTooltip(event, d) {
-  const rank = RAW_DATA.indexOf(d) + 1;
-  const hotPct = Math.round(d.hotspot * 100);
-  tooltip.innerHTML = `
-    <div class="tooltip-path">${d.path}</div>
-    <div class="tooltip-row"><span>Commits (churn)</span><span>${d.churn}</span></div>
-    <div class="tooltip-row"><span>Complexity score</span><span>${d.complexity}</span></div>
-    <div class="tooltip-row"><span>Lines of code</span><span>${d.loc.toLocaleString()}</span></div>
-    <div class="tooltip-hotspot">
-      Hotspot score: <strong style="color:${d.hotspot > 0.5 ? '#e63946' : d.hotspot > 0.25 ? '#ff9f1c' : '#5a8dee'}">${hotPct}%</strong>
-      &nbsp;·&nbsp; Rank #${rank} of ${RAW_DATA.length}
-    </div>
+function showDetail(d) {
+  const tier = riskTier(d.score);
+  detailTitle.textContent = d.file;
+  detailGrid.innerHTML = `
+    <div class="d-item"><div class="d-label">Hotspot Score</div><div class="d-val">${d.score.toLocaleString()}</div></div>
+    <div class="d-item"><div class="d-label">Commits (Churn)</div><div class="d-val">${d.churn}</div></div>
+    <div class="d-item"><div class="d-label">Lines of Code</div><div class="d-val">${d.lines.toLocaleString()}</div></div>
+    <div class="d-item"><div class="d-label">Functions</div><div class="d-val">${d.funcs || "n/a"}</div></div>
+    <div class="d-item"><div class="d-label">Category</div><div class="d-val">${d.cat}</div></div>
+    <div class="d-item"><div class="d-label">Risk Tier</div><div class="d-val" style="color:${tier.color}">${tier.label}</div></div>
+    <div class="d-item d-recommendation">${d.note || "No notes."}</div>
   `;
-  moveTooltip(event);
-  tooltip.classList.add('visible');
+  detailPanel.classList.add("visible");
 }
 
-function moveTooltip(event) {
-  const rect = chartArea.getBoundingClientRect();
-  let x = event.clientX - rect.left + 14;
-  let y = event.clientY - rect.top - 10;
-  if (x + 290 > chartArea.clientWidth) x -= 300;
-  if (y + 160 > chartArea.clientHeight) y -= 160;
-  tooltip.style.left = x + 'px';
-  tooltip.style.top = y + 'px';
-}
+// Filter checkboxes
+document.querySelectorAll("[data-cat]").forEach(cb => {
+  cb.addEventListener("change", () => {
+    if (cb.checked) activeFilters.add(cb.dataset.cat);
+    else activeFilters.delete(cb.dataset.cat);
+    render();
+  });
+});
 
-function hideTooltip() {
-  tooltip.classList.remove('visible');
-}
+// Resize
+const ro = new ResizeObserver(() => render());
+ro.observe(document.getElementById("chart-container"));
 
-// Legend
-const legendEl = document.createElement('div');
-legendEl.className = 'legend';
-legendEl.innerHTML = `
-  <h4>Hotspot Score</h4>
-  <div class="legend-gradient"></div>
-  <div class="legend-labels"><span>Low</span><span>High</span></div>
-  <div class="legend-size">● Bubble size = Lines of Code</div>
-`;
-chartArea.appendChild(legendEl);
-
-// Init
-buildTopList();
 render();
-window.addEventListener('resize', render);
 </script>
 </body>
 </html>
