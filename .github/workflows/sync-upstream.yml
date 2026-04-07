@@ -17,6 +17,8 @@ jobs:
 
       - name: Add upstream remote
         run: |
+          git config --global user.email "bforrest30@gmail.com"
+          git config --global user.name "Barry Forrest"
           git remote add upstream https://github.com/geoffhumphrey/brewcompetitiononlineentry.git
           git fetch upstream --tags --prune
 
