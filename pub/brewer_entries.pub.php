@@ -723,7 +723,7 @@ if (($totalRows_log > 0) && ($entry_window_open >= 1)) {
 				<?php 
 				
 				if (($show_scores) && ($totalRows_log > 0)) {
-					$link_results_export = $base_url."includes/output.inc.php?section=export-personal-results&amp;id=".$_SESSION['brewerID'];
+					$link_results_export = $base_url."includes/output.inc.php?section=export-personal-results&amp;id=".$_SESSION['user_id'];
 					echo sprintf("<a href=\"%s\" class=\"btn btn-success\" target=\"_blank\"><i class=\"fa fa-lg fa-file-csv me-2\"></i>%s</a>",$link_results_export, $label_results_export_personal);
 				}  
 
