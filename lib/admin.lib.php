@@ -748,7 +748,7 @@ function flight_entry_info($entry_id) {
 	$flight_number = mysqli_query($connection,$query_flight_number) or die (mysqli_error($connection));
 	$row_flight_number = mysqli_fetch_assoc($flight_number);
 	
-	return $row_flight_number['id']."^".$row_flight_number['flightNumber']."^".$row_flight_number['flightEntryID']."^".$row_flight_number['flightRound'];
+	if ($row_flight_number) return $row_flight_number['id']."^".$row_flight_number['flightNumber']."^".$row_flight_number['flightEntryID']."^".$row_flight_number['flightRound'];
 
 }
 

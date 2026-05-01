@@ -346,7 +346,7 @@ if ($section != "admin") {
 				}
 				else {
 					$location_link = "#";
-					$location_tooltip = "Log in to view the ".$row_judging['judgingLocName']." location.";
+					$location_tooltip = $entry_info_text_058;
 				}
 				if ($row_judging['judgingLocation'] != "") $non_judging_display .= " <a class=\"hide-loader\" href=\"".$location_link."\" target=\"".$location_target."\" data-toggle=\"tooltip\" data-placement=\"top\" title=\"".$location_tooltip."\"> <span class=\"fa fa-lg fa-map-marker\"></span></a>";
 
@@ -368,7 +368,7 @@ if ($section != "admin") {
 					}
 					else {
 						$location_link = "#";
-						$location_tooltip = "Log in to view the ".$row_judging['judgingLocName']." location.";
+						$location_tooltip = $entry_info_text_058;
 					}
 					if ($row_judging['judgingLocation'] != "") $page_info400 .= " <a class=\"hide-loader\" href=\"".$location_link."\" target=\"".$location_target."\" data-toggle=\"tooltip\" data-placement=\"top\" title=\"".$location_tooltip."\"> <span class=\"fa fa-lg fa-map-marker\"></span></a>";
 				}

@@ -528,15 +528,28 @@ else {
 
 	$glance_cards = array();
 
-	$glance_cards[$label_entries] = $glance_entry_status;
-	if (!empty($glance_awards)) $glance_cards[$label_awards] = $glance_awards;
-	$glance_cards[$label_judging] = $glance_judging;	
-	$glance_cards[$label_entry_registration] = $glance_entry_reg;
-	$glance_cards[$label_account_registration] = $glance_account_reg;
-	$glance_cards[$label_judge_reg] = $glance_judge_reg;
-	$glance_cards[$label_steward_reg] = $glance_steward_reg;
-	if (!empty($dropoff_open_sidebar)) $glance_cards[$label_entry_drop_off] = $glance_drop_off;
-	if (!empty($shipping_open_sidebar)) $glance_cards[$label_entry_shipping] = $glance_shipping;
+	if ($_SESSION['prefsProEdition'] == 0) {
+	    $glance_cards[$label_entries] = $glance_entry_status;
+	    if (!empty($glance_awards)) $glance_cards[$label_awards] = $glance_awards;
+	    $glance_cards[$label_judging] = $glance_judging;	
+	    $glance_cards[$label_entry_registration] = $glance_entry_reg;
+	    $glance_cards[$label_account_registration] = $glance_account_reg;
+	    $glance_cards[$label_judge_reg] = $glance_judge_reg;
+	    $glance_cards[$label_steward_reg] = $glance_steward_reg;
+	    if (!empty($dropoff_open_sidebar)) $glance_cards[$label_entry_drop_off] = $glance_drop_off;
+	    if (!empty($shipping_open_sidebar)) $glance_cards[$label_entry_shipping] = $glance_shipping;
+	}
+	
+	if ($_SESSION['prefsProEdition'] == 1) {
+	    $glance_cards[$label_entry_registration] = $glance_entry_reg;
+	    $glance_cards[$label_account_registration] = $glance_account_reg;
+	    $glance_cards[$label_judge_reg] = $glance_judge_reg;
+	    $glance_cards[$label_steward_reg] = $glance_steward_reg;
+	    if (!empty($dropoff_open_sidebar)) $glance_cards[$label_entry_drop_off] = $glance_drop_off;
+	    if (!empty($shipping_open_sidebar)) $glance_cards[$label_entry_shipping] = $glance_shipping;
+	    if (!empty($glance_awards)) $glance_cards[$label_awards] = $glance_awards;
+	    $glance_cards[$label_judging] = $glance_judging;	
+	}
 
 	$row_class = "row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-3 g-4 justify-content-center mt-1";
 

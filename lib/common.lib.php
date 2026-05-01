@@ -12,12 +12,7 @@ include (LIB.'date_time.lib.php');
 include (INCLUDES.'version.inc.php');
 
 function csrf_token_generate($force_regenerate = false) {
-	if (
-		(!$force_regenerate) &&
-		(isset($_SESSION['user_session_token'])) &&
-		(is_string($_SESSION['user_session_token'])) &&
-		(preg_match('/^[a-f0-9]{64}$/i', $_SESSION['user_session_token']))
-	) {
+	if ((!$force_regenerate) && (isset($_SESSION['user_session_token'])) && (is_string($_SESSION['user_session_token'])) &&	(preg_match('/^[a-f0-9]{64}$/i', $_SESSION['user_session_token']))) {
 		return $_SESSION['user_session_token'];
 	}
 
@@ -103,7 +98,7 @@ function build_action_link($icon,$base_url,$section,$go,$action,$filter,$id,$dbT
 	else {
 
 		if ($method == 2) { // print form link
-			$return .= "<a data-fancybox data-type=\"iframe\" class=\"modal-window-link hide-loader\" href=\"".$base_url."includes/outpoutput.inc.php?section=entry-form&amp;action=print&amp;";
+			$return .= "<a data-fancybox data-type=\"iframe\" class=\"modal-window-link hide-loader\" href=\"".$base_url."includes/outpoutput.inc.php?section=entry-form-multi&amp;action=print&amp;";
 			$return .= "id=".$id;
 			$return .= "&amp;bid=".$section;
 			$return .= "\" data-toggle=\"tooltip\" data-placement=\"top\" title=\"".$tooltip_text."\">";
