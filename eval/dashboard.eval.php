@@ -450,7 +450,7 @@ if ($totalRows_table_assignments > 0) {
 									$pouring_arr = json_decode($row_entries['brewPouring'],true);
 									$pouring_display .= "<li><strong>".$label_pouring.":</strong> ".$pouring_arr['pouring']."</li>";
 									if ((isset($pouring_arr['pouring_notes'])) && (!empty($pouring_arr['pouring_notes']))) $pouring_display .= "<li><strong>".$label_pouring_notes.":</strong> ".$pouring_arr['pouring_notes']."</li>";
-									$pouring_display .= "<li><strong>".$label_rouse_yeast.":</strong> ".$pouring_arr['pouring_rouse']."</li>";
+									if ((isset($pouring_arr['pouring_rouse'])) && (!empty($pouring_arr['pouring_rouse']))) $pouring_display .= "<li><strong>".$label_rouse_yeast.":</strong> ".$pouring_arr['pouring_rouse']."</li>";
 									unset($pouring_arr);
 								}
 

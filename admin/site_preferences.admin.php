@@ -1701,11 +1701,20 @@ include (DB.'entry_info.db.php');
         <optgroup label="Print Multiple Entries at a Time">
             <option value="7" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "7")) echo " SELECTED"; ?> />Standard</option>
             <option value="5" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "5")) echo " SELECTED"; ?> />Standard with Barcode/QR Code</option>
-            <option value="8" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "8")) echo " SELECTED"; ?> />Anonymous</option>
-            <option value="6" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "6")) echo " SELECTED"; ?> />Anonymous with Barcode/QR Code</option>
-            <option value="9" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "9")) echo " SELECTED"; ?> />Anonymous with Large Entry Number</option>
+            <option value="8" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "8")) echo " SELECTED"; ?> />Anonymous - Smaller Printed Entry Number</option>
+            <option value="6" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "6")) echo " SELECTED"; ?> />Anonymous - Smaller Printed Entry Number with Barcode/QR Code</option>
+            <option value="9" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "9")) echo " SELECTED"; ?> />Anonymous - Smaller Printed Random Number</option>
+            <option value="0" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "0")) echo " SELECTED"; ?> />Anonymous - Smaller Printed Random Number with Barcode/QR Code</option>
+            <option value="2" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "2")) echo " SELECTED"; ?> />Anonymous - Larger Printed Entry Number</option>
+            <option value="1" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "1")) echo " SELECTED"; ?> />Anonymous - Larger Printed Entry Number with Barcode/QR Code</option>
+            <option value="4" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "4")) echo " SELECTED"; ?> />Anonymous - Larger Printed Random Number</option>
+            <option value="3" <?php if (($section != "step3") && ($row_prefs['prefsEntryForm'] == "3")) echo " SELECTED"; ?> />Anonymous - Larger Printed Random Number with Barcode/QR Code</option>
         </optgroup>
     </select>
+        <div class="help-block">
+            <p><strong>Standard Entry Labels</strong> feature the participant's name and contact info, the name of the entry, and the entry's style/category.</p>
+            <p><strong>Anonymous Entry Labels</strong> DO NOT list the participant's information. These labels are intended to be taped to bottles by entrants before submittal.</p>
+        </div>
         <div class="help-block">
             <div class="btn-group" role="group" aria-label="entryFormModal">
                 <div class="btn-group" role="group">
@@ -1724,12 +1733,12 @@ include (DB.'entry_info.db.php');
                 <h4 class="modal-title" id="entryFormModalLabel">Printed Entry Labels</h4>
             </div>
             <div class="modal-body">
-                <p>There are two types of entry labels available: Standard and Anonymous.</p>
+                <p>There are two types of entry labels available:</p>
                 <ul>
                     <li>Standard Entry Labels feature the participant's name and contact info, the name of the entry, and the entry's style/category.</li>
-                    <li>Anonymous Entry Labels do NOT list the participant's information. These labels are intended to be taped to bottles by entrants before submittal, thereby saving the labor and waste of removing rubberbanded labels by competition staff when sorting. This approach is similar to the method used in the National Homebrew Competition final round.</li>
+                    <li>Anonymous Entry Labels DO NOT list the participant's information. These labels are intended to be taped to bottles by entrants before submittal, thereby saving the labor and waste of removing rubberbanded labels by competition staff when sorting. <strong>It is recommended that you specify taping these labels to entries in your Entry Acceptance Rules,</strong> specified via the <a href="<?php echo $base_url; ?>index.php?section=admin&go=contest_info&action=edit">Edit Competition Info function</a>.</li>
                 </ul>
-                <p>Both label types are available with or without a entry number barcode and QR code.</p>
+                <p>Both label types are available with or without a barcode and QR code corresponding to the unique identification number.</p>
                 <p>The Barcode options are intended to be used with a USB barcode scanner and the <a href="<?php echo $base_url; ?>index.php?section=admin&amp;go=checkin">barcode entry check-in function</a>.</p>
                 <p>The QR code options are intended to be used with a mobile device and <a class="hide-loader" href="<?php echo $base_url; ?>qr.php" target="_blank">QR code entry check-in function</a> (requires a QR code reading app).</p>
                 <div class="well">

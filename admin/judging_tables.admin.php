@@ -338,8 +338,8 @@ if (($action == "default") && ($filter == "default")) {
             
 
             // Set js cookies of initial judge / steward available counts for each location
-            $table_location_js_cookies[] .= "Cookies.set('delete-stewards-".$table_location_class."', '".$steward_avail."', { expires: 1 });";
-            $table_location_js_cookies[] .= "Cookies.set('delete-judges-".$table_location_class."', '".$judge_avail."', { expires: 1 });";
+            $table_location_js_cookies[] .= "Cookies.set('delete-stewards-".$table_location_class."', '".$steward_avail."', { expires: 1 });\n";
+            $table_location_js_cookies[] .= "Cookies.set('delete-judges-".$table_location_class."', '".$judge_avail."', { expires: 1 });\n";
 
             if ($dbTable == "default") {
                 $manage_tables_default_tbody .= "<td nowrap class=\"hidden-print\">";
@@ -354,10 +354,10 @@ if (($action == "default") && ($filter == "default")) {
 
                     if ($_SESSION['jPrefsTablePlanning'] == 0) {
                         // Build print pullsheet link
-                        $manage_tables_default_tbody .= "<a data-fancybox data-type=\"iframe\" class=\"modal-window-link hide-loader\" href=\"".$base_url."includes/output.inc.php?section=pullsheets&amp;go=judging_tables&amp;id=".$row_tables['id']."\" data-toggle=\"tooltip\" data-placement=\"top\" title=\"Print the pullsheet for Table ".$row_tables['tableNumber'].": ".$row_tables['tableName']."\">";
+                        if ($_SESSION['prefsDisplaySpecial'] == "J") $manage_tables_default_tbody .= "<a data-fancybox data-type=\"iframe\" class=\"modal-window-link hide-loader\" href=\"".$base_url."includes/output.inc.php?section=pullsheets&amp;go=judging_tables&amp;id=".$row_tables['id']."\" data-toggle=\"tooltip\" data-placement=\"top\" title=\"Print the pullsheet by Judging Numbers for Table ".$row_tables['tableNumber'].": ".$row_tables['tableName']."\">";
+                        else $manage_tables_default_tbody .= "<a data-fancybox data-type=\"iframe\" class=\"modal-window-link hide-loader\" href=\"".$base_url."includes/output.inc.php?section=pullsheets&amp;go=judging_tables&amp;view=entry&amp;id=".$row_tables['id']."\" data-toggle=\"tooltip\" data-placement=\"top\" title=\"Print the pullsheet by Entry Numbers for Table ".$row_tables['tableNumber'].": ".$row_tables['tableName']."\">";
                         $manage_tables_default_tbody .= "<span class=\"fa fa-lg fa-print\"></span>";
                         $manage_tables_default_tbody .= "</a> ";
-
                     }
 
                     else $manage_tables_default_tbody .= "<span class=\"fa fa-lg fa-print text-muted\" data-toggle=\"tooltip\" data-placement=\"top\" title=\"Printing pullsheest is disabled in Tables Planning Mode\"></span> ";
@@ -501,8 +501,7 @@ if (($action == "add") || ($action == "edit")) {
                 $table_locations_available .= "<option value=\"".$row_judging['id']."\"".$selected_table_location.">";
                 $table_locations_available .= $row_judging['judgingLocName']." (".getTimeZoneDateTime($_SESSION['prefsTimeZone'], $row_judging['judgingDate'], $_SESSION['prefsDateFormat'],  $_SESSION['prefsTimeFormat'], "short", "date-time-no-gmt").")";
                 $table_locations_available .= "</option>\n";
-            }
-            
+            }            
 
         } while ($row_judging = mysqli_fetch_assoc($judging));
 
@@ -577,21 +576,20 @@ if (($action == "add") || ($action == "edit")) {
     
     }
 
-    
-
 } // end if (($action == "add") || ($action == "edit"))
 
 if ($action == "default") {
 ?>
 <script type="text/javascript">
 
-<?php 
+// Set cookies of the number of judges/stewards that are available for each table.
+// These are set be used in case all assignments are cleared via ajax.
+<?php
 $table_location_js_cookies = array_unique($table_location_js_cookies);
 foreach ($table_location_js_cookies as $value) {
     echo $value;
 } 
 ?>
-
 
 var admin_function = "<?php echo $go; ?>";
 var prefs_planning = "<?php echo $_SESSION['jPrefsTablePlanning']; ?>";

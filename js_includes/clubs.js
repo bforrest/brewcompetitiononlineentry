@@ -1408,6 +1408,7 @@ const CLUBS = [
   "Mash-Ter-Minds Brewing Club",
   "MASH831",
   "Masholes",
+  "Mashout Boyz",
   "Mashrunners",
   "Mason/Dixon Brewers",
   "Massachusetts Electric Brewers",
