@@ -93,6 +93,7 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 
 	// Bluebonnet check for entries entered too quickly
 	if (($action == "add") && ($BBOseconds < 0)) {
+		error_log("BBO003: Entry too soon, waited seconds=" . strval(60 + $BBOseconds) . " at " . date("Y-m-d H:i:s") . " by " . $_SESSION['loginUsername']);
 		$insertGoTo = $base_url."index.php?section=list&msg=bbo4";
 		$pattern = array('\'', '"');
 		$insertGoTo = str_replace($pattern, "", $insertGoTo);

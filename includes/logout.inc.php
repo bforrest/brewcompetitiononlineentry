@@ -1,4 +1,6 @@
 <?php
+// BBO
+error_log("BBO002: Logout at " . date("Y-m-d H:i:s") . " " . $_SESSION['loginUsername']);
 ob_start();
 session_unset();
 session_destroy();

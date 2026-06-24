@@ -91,6 +91,8 @@ if ($check == 1) {
 	
 	// Register the session variable
 	$_SESSION['loginUsername'] = $loginUsername;
+// BBO
+	error_log("BBO001: Login at " . date("Y-m-d H:i:s") . " " . $loginUsername);
 	
 	// Set the relocation variables
 	if ($section == "update") $location = $base_url."update.php";
