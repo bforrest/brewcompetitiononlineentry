@@ -28,8 +28,8 @@ else {
 
 if (($cider) && ($row_eval['evalScoresheet'] == 4)) $nw_cider = TRUE;
 
-if ($_SESSION['prefsDisplaySpecial'] == "E") $entry_id = $row_entry_info[0]['id'];
-else $entry_id = $row_entry_info[0]['brewJudgingNumber'];
+if ($_SESSION['prefsDisplaySpecial'] == "E") $entry_id = $row_entry_info['id'];
+else $entry_id = $row_entry_info['brewJudgingNumber'];
 $entry_id = sprintf("%06s",$entry_id);
 $score = ($row_eval['evalAromaScore'] + $row_eval['evalAppearanceScore'] + $row_eval['evalFlavorScore'] + $row_eval['evalMouthfeelScore'] + $row_eval['evalOverallScore']);
 $evalSpecialIngredients = str_replace("^", " ", $row_eval['evalSpecialIngredients']);
@@ -103,13 +103,13 @@ if (!empty($_SESSION['contestHostLocation'])) $competition_location = $_SESSION[
 
 $mhp_rank = explode(",",$row_judge['brewerJudgeRank']);
 
-//$eval_entrant = brewer_info($row_entry_info[0]['brewBrewerID']);
+//$eval_entrant = brewer_info($row_entry_info['brewBrewerID']);
 //$eval_entrant = explode("^",$eval_entrant);
 
 $mhp_qr_data = array(
-    "entrant_name" => $row_entry_info[0]['brewBrewerFirstName']." ".$row_entry_info[0]['brewBrewerLastName'],
-    "entrant_mhp" => $row_entry_info[0]['brewerMHP'],
-    "co_entrant" => $row_entry_info[0]['brewCoBrewer'],
+    "entrant_name" => $row_entry_info['brewBrewerFirstName']." ".$row_entry_info['brewBrewerLastName'],
+    "entrant_mhp" => $row_entry_info['brewerMHP'],
+    "co_entrant" => $row_entry_info['brewCoBrewer'],
     "competition_name" => $_SESSION['contestName'],
     "competition_year" => getTimeZoneDateTime($_SESSION['prefsTimeZone'], $row_eval['evalInitialDate'], $_SESSION['prefsDateFormat'], $_SESSION['prefsTimeFormat'], "short", "year"),
     "style_id" => $row_style['brewStyleGroup'].$row_style['brewStyleNum'],
@@ -137,9 +137,9 @@ $mhp_qr_data = json_encode($mhp_qr_data, JSON_NUMERIC_CHECK);
 <div class="text-center">
     <p style="margin: 5px 0; padding:0;" >
         <?php 
-        if (($_SESSION['brewerID'] == $row_entry_info[0]['brewBrewerID']) || ($_SESSION['userLevel'] < 2)) {
-            echo sprintf("<strong>%s:</strong> %s %s", $label_entrant, $row_entry_info[0]['brewBrewerFirstName'], $row_entry_info[0]['brewBrewerLastName']);
-            if (!empty($row_entry_info[0]['brewerMHP'])) echo sprintf(" [MHP # %s]",$row_entry_info[0]['brewerMHP']);
+        if (($_SESSION['brewerID'] == $row_entry_info['brewBrewerID']) || ($_SESSION['userLevel'] < 2)) {
+            echo sprintf("<strong>%s:</strong> %s %s", $label_entrant, $row_entry_info['brewBrewerFirstName'], $row_entry_info['brewBrewerLastName']);
+            if (!empty($row_entry_info['brewerMHP'])) echo sprintf(" [MHP # %s]",$row_entry_info['brewerMHP']);
             echo "<span style=\"margin: 0 5px 0 5px;\">&bull;</span>";
         }
         echo sprintf("<strong>%s:</strong> %s", $label_recorded, getTimeZoneDateTime($_SESSION['prefsTimeZone'], $row_eval['evalInitialDate'], $_SESSION['prefsDateFormat'], $_SESSION['prefsTimeFormat'], "short", "date-time")); 
@@ -226,7 +226,7 @@ $mhp_qr_data = json_encode($mhp_qr_data, JSON_NUMERIC_CHECK);
             <div class="col col-lg-7 col-md-8 col-sm-9 col-xs-9">
             <?php 
             if ($dbTable == "default") echo $row_style['brewStyle']." (".style_number_const($row_style['brewStyleGroup'],$row_style['brewStyleNum'],$_SESSION['style_set_display_separator'],0).")";
-            else echo $row_entry_info[0]['brewStyle']." (".style_number_const($row_entry_info[0]['brewCategorySort'],$row_entry_info[0]['brewSubCategory'],$_SESSION['style_set_display_separator'],0).")" ?>
+            else echo $row_entry_info['brewStyle']." (".style_number_const($row_entry_info['brewCategorySort'],$row_entry_info['brewSubCategory'],$_SESSION['style_set_display_separator'],0).")" ?>
             </div>
         </div>
         <?php if (!empty($evalSpecialIngredients)) { ?>

@@ -164,7 +164,7 @@
 
         if ($totalRows_archive > 0) {
 
-            do {
+            foreach ($row_archive as $row_archive) {
 
                 if (($row_archive['archiveDisplayWinners'] == "Y") && ($row_archive['archiveStyleSet'] != "")) {
                     $table_archive = $prefix."judging_scores_".$row_archive['archiveSuffix'];
@@ -178,7 +178,7 @@
                     }
                 }   
 
-            } while($row_archive = mysqli_fetch_assoc($archive));
+            }
 
         }
 
@@ -407,13 +407,13 @@ if (ENABLE_MARKDOWN) {
         <?php include (PUB.'default.pub.php'); ?>
     </section>
 
-    <?php if (!$judging_started) { ?>
+    <?php if ($judging_past > 0) { ?>
     <section id="rules" class="landing-page-section pb-3 reveal-element">
         <header class="landing-page-section-header py-2">
             <h1><?php echo $label_rules; ?></h1>
         </header>
         <?php include (PUB.'reg_open.pub.php'); ?>
-    </section>
+    </section>    
     
     <section id="entry-info" class="landing-page-section pb-3 reveal-element">
         <header class="landing-page-section-header py-2">
@@ -421,7 +421,9 @@ if (ENABLE_MARKDOWN) {
         </header>
         <?php include (PUB.'entry_info.pub.php'); ?>
     </section>
+    <?php } ?>
 
+    <?php if (!$judging_started) { ?>
     <section id="volunteers" class="landing-page-section pb-3 reveal-element">
         <header class="landing-page-section-header py-2">
             <h1><?php echo $label_volunteers; ?></h1>
