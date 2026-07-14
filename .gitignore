@@ -30,3 +30,4 @@ templates/simple-us-entry-barcode.html
 templates/simple-us-entry.html
 brewingcompetitions.com
 site/config.php
+*.claude
