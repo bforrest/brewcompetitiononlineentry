@@ -1,17 +1,15 @@
 <?php
 ob_start();
-require (CLASSES.'phpass/PasswordHash.php');
 
 $section = "default";
 if (isset($_GET['section'])) $section = sterilize($_GET['section']);
 
-header('Expires: Sat, 26 Jul 1997 05:00:00 GMT'); 
-header('Last-Modified: ' . gmdate( 'D, d M Y H:i:s' ) . ' GMT'); 
-header('Cache-Control: no-store, no-cache, must-revalidate'); 
-header('Cache-Control: post-check=0, pre-check=0', false); 
-header('Pragma: no-cache'); 
+header('Expires: Sat, 26 Jul 1997 05:00:00 GMT');
+header('Last-Modified: ' . gmdate( 'D, d M Y H:i:s' ) . ' GMT');
+header('Cache-Control: no-store, no-cache, must-revalidate');
+header('Cache-Control: post-check=0, pre-check=0', false);
+header('Pragma: no-cache');
 
-$hasher = new PasswordHash(8, false);
 $loginUsername = sterilize($_POST['loginUsername']);
 $entered_password = sterilize($_POST['loginPassword']);
 $location = $base_url."index.php?section=login";
@@ -19,13 +17,11 @@ $location = $base_url."index.php?section=login";
 if (NHC) $base_url = "../";
 else $base_url = $base_url;
 
-if (strlen($entered_password) > 72) { 
+if (strlen($entered_password) > 72) {
 	session_destroy();
 	header(sprintf("Location: %s", $base_url."index.php?msg=11"));
 	exit;
 }
-
-$entered_password = md5($entered_password);
 
 /**
  * ONLY for 1.3.0.0 release; evaluate for deletion in future releases
@@ -47,7 +43,10 @@ if ($section == "update") {
 
 	$check = 0;
 
-	if ($totalRows_login > 0) $check = $hasher->CheckPassword($entered_password, $stored_hash);
+	if ($totalRows_login > 0) {
+		$check = password_verify_legacy($entered_password, $stored_hash);
+		if (($check == 1) && (password_needs_legacy_upgrade($stored_hash))) upgrade_legacy_password_hash($connection, $prefix."users", "id", $row_login['id'], $entered_password);
+	}
 
 	else $check = 0;
 
@@ -67,7 +66,10 @@ if ($section != "update") {
 	$stored_hash = $row_login['password'];
 	$check = 0;
 
-	if ($totalRows_login > 0) $check = $hasher->CheckPassword($entered_password, $stored_hash);
+	if ($totalRows_login > 0) {
+		$check = password_verify_legacy($entered_password, $stored_hash);
+		if (($check == 1) && (password_needs_legacy_upgrade($stored_hash))) upgrade_legacy_password_hash($connection, $prefix."users", "id", $row_login['id'], $entered_password);
+	}
 
 }
 
