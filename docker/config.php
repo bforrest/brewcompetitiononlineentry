@@ -39,9 +39,15 @@ $setup_free_access = (getenv('SETUP_FREE_ACCESS') === 'true');
 
 $sub_directory = '';
 
+/**
+ * SERVER_NAME reflects Apache's internal name for itself (port 80 inside
+ * the container), not the host port docker-compose.yml maps it to
+ * (8080). HTTP_HOST instead mirrors the client's actual Host header, so
+ * it keeps whatever port the browser really connected through.
+ */
 $base_url = 'http://';
 if (is_https()) $base_url = 'https://';
-$base_url .= $_SERVER['SERVER_NAME'].$sub_directory.'/';
+$base_url .= $_SERVER['HTTP_HOST'].$sub_directory.'/';
 
 $server_root = $_SERVER['DOCUMENT_ROOT'];
 ?>
