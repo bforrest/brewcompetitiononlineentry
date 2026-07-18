@@ -31,3 +31,4 @@ templates/simple-us-entry.html
 brewingcompetitions.com
 site/config.php
 *.claude
+.phpunit.cache/

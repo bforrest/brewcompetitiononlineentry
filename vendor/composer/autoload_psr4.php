@@ -6,5 +6,10 @@ $vendorDir = dirname(dirname(__FILE__));
 $baseDir = dirname($vendorDir);
 
 return array(
+    'PhpParser\\' => array($vendorDir . '/nikic/php-parser/lib/PhpParser'),
     'Markdownify\\' => array($vendorDir . '/pixel418/markdownify/src'),
+    'DeepCopy\\' => array($vendorDir . '/myclabs/deep-copy/src/DeepCopy'),
+    'BCOEM\\Tests\\Unit\\' => array($baseDir . '/tests/Unit'),
+    'BCOEM\\Tests\\Integration\\' => array($baseDir . '/tests/Integration'),
+    'BCOEM\\Tests\\Approval\\' => array($baseDir . '/tests/Approval'),
 );

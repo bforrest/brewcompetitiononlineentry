@@ -1,8 +1,22 @@
 {
+    "name": "bcoem/brewcompetitiononlineentry",
+    "description": "Brew Competition Online Entry & Management",
+    "type": "project",
     "require": {
         "pixel418/markdownify": "^2.3"
     },
     "require-dev": {
-        "phpstan/phpstan": "^2.2"
+        "phpstan/phpstan": "^2.2",
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "BCOEM\\Tests\\Approval\\": "tests/Approval/",
+            "BCOEM\\Tests\\Integration\\": "tests/Integration/",
+            "BCOEM\\Tests\\Unit\\": "tests/Unit/"
+        }
+    },
+    "config": {
+        "sort-packages": true
     }
 }
