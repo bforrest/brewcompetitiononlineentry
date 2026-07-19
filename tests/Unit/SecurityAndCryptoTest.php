@@ -218,4 +218,58 @@ class SecurityAndCryptoTest extends TestCase
         $result = currency_info("", 2);
         $this->assertCount(28, $result);
     }
+
+    // ── password_verify_legacy() / password_needs_legacy_upgrade() ────────
+    // P1-SEC-001: MD5 pre-hashing before phpass/bcrypt was removed. New
+    // hashes are password_hash($plaintext, PASSWORD_BCRYPT) ("$2y$"); the
+    // legacy scheme was phpass HashPassword(md5($plaintext)) ("$2a$").
+    // These let existing legacy-scheme accounts keep logging in.
+
+    private function legacyHash(string $plaintext): string
+    {
+        require_once CLASSES.'phpass/PasswordHash.php';
+        $hasher = new PasswordHash(8, false);
+        return $hasher->HashPassword(md5($plaintext));
+    }
+
+    public function test_password_verify_legacy_accepts_current_scheme_hash(): void
+    {
+        $hash = password_hash('CorrectHorse123!', PASSWORD_BCRYPT);
+        $this->assertSame(1, password_verify_legacy('CorrectHorse123!', $hash));
+    }
+
+    public function test_password_verify_legacy_rejects_wrong_password_for_current_scheme(): void
+    {
+        $hash = password_hash('CorrectHorse123!', PASSWORD_BCRYPT);
+        $this->assertSame(0, password_verify_legacy('WrongPassword!', $hash));
+    }
+
+    public function test_password_verify_legacy_accepts_legacy_md5_prehashed_hash(): void
+    {
+        $hash = $this->legacyHash('LegacyPass123!');
+        $this->assertSame(1, password_verify_legacy('LegacyPass123!', $hash));
+    }
+
+    public function test_password_verify_legacy_rejects_wrong_password_for_legacy_hash(): void
+    {
+        $hash = $this->legacyHash('LegacyPass123!');
+        $this->assertSame(0, password_verify_legacy('WrongPassword!', $hash));
+    }
+
+    public function test_password_verify_legacy_returns_zero_for_empty_stored_hash(): void
+    {
+        $this->assertSame(0, password_verify_legacy('anything', ''));
+    }
+
+    public function test_password_needs_legacy_upgrade_true_for_legacy_hash(): void
+    {
+        $hash = $this->legacyHash('LegacyPass123!');
+        $this->assertTrue(password_needs_legacy_upgrade($hash));
+    }
+
+    public function test_password_needs_legacy_upgrade_false_for_current_scheme_hash(): void
+    {
+        $hash = password_hash('CorrectHorse123!', PASSWORD_BCRYPT);
+        $this->assertFalse(password_needs_legacy_upgrade($hash));
+    }
 }
