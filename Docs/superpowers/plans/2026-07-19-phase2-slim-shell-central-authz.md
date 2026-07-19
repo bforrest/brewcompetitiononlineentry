@@ -1092,7 +1092,7 @@ class AuthenticationMiddlewareTest extends TestCase
 
         $captured = null;
         $next = new class($captured) implements RequestHandlerInterface {
-            public function __construct(private mixed &$captured) {}
+            public function __construct(public mixed &$captured) {}
             public function handle(ServerRequestInterface $request): ResponseInterface
             {
                 $this->captured = $request->getAttribute('identity');
