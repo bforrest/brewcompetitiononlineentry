@@ -42,7 +42,8 @@ class SessionMiddlewareTest extends TestCase
 
         $middleware->process($request, $next);
 
-        $this->assertNotSame(md5(''), session_name(), 'empty string installation_id must NOT hash to the empty string - it must fall back like empty() does in paths.php');
+        $sessionMiddlewareFile = (new \ReflectionClass(SessionMiddleware::class))->getFileName();
+        $this->assertSame(md5($sessionMiddlewareFile), session_name());
     }
 
     public function test_session_name_uses_installation_id_when_non_empty(): void
