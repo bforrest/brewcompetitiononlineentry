@@ -128,4 +128,37 @@ class AuthorizationMiddlewareTest extends TestCase
         $this->assertTrue($next->called);
         $this->assertSame(200, $response->getStatusCode());
     }
+
+    public function test_missing_identity_attribute_denies_rather_than_crashing(): void
+    {
+        $middleware = new AuthorizationMiddleware($this->policy());
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/index.php?section=contact')
+            ->withQueryParams(['section' => 'contact']);
+        // Deliberately NOT setting the 'identity' attribute - simulates a
+        // misconfigured pipeline where AuthenticationMiddleware didn't run.
+        $next = new StubHandler();
+
+        $response = $middleware->process($request, $next);
+
+        // 'contact' is Role::Anonymous in the policy, so even a missing
+        // identity (defaulting to Anonymous) should be ALLOWED through here -
+        // this proves the default fails closed for privileged routes without
+        // over-denying public ones.
+        $this->assertTrue($next->called);
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function test_missing_identity_attribute_denies_a_privileged_route(): void
+    {
+        $middleware = new AuthorizationMiddleware($this->policy());
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/index.php?section=admin')
+            ->withQueryParams(['section' => 'admin']);
+        // No 'identity' attribute set at all.
+        $next = new StubHandler();
+
+        $response = $middleware->process($request, $next);
+
+        $this->assertFalse($next->called);
+        $this->assertSame(403, $response->getStatusCode());
+    }
 }

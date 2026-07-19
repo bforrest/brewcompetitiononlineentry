@@ -20,8 +20,7 @@ final class AuthorizationMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        /** @var Identity $identity */
-        $identity = $request->getAttribute('identity');
+        $identity = $request->getAttribute('identity') ?? Identity::fromSession([]);
         $routeType = $request->getAttribute('routeType', 'section');
 
         $required = match ($routeType) {
