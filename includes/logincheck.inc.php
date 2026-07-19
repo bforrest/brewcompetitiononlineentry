@@ -79,7 +79,11 @@ if ($section != "update") {
  */
 
 if ($check == 1) {
-	
+
+	// Regenerate the session id on privilege elevation to prevent session
+	// fixation (P1-SEC-006) - must run before any session data is trusted.
+	session_regenerate_id(true);
+
 	// Register the loginUsername but first update the db record to make sure the the user name is stored as all lowercase.
 	$stmt_update = mysqli_prepare($connection, sprintf("UPDATE %s SET user_name=? WHERE id=?",$prefix."users")) or die("A database error occurred.");
 	mysqli_stmt_bind_param($stmt_update, "si", $loginUsername, $row_login['id']);
