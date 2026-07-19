@@ -18,5 +18,32 @@
     },
     "config": {
         "sort-packages": true
+    },
+    "scripts": {
+        "stan": "phpstan analyse --memory-limit=1G",
+        "test": "docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit",
+        "test:unit": "phpunit --testsuite Unit",
+        "test:db": [
+            "docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration",
+            "docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Approval"
+        ],
+        "e2e": "sh -c 'cd e2e && npx playwright test \"$@\"' --",
+        "e2e:install": "sh -c 'cd e2e && npm install && npx playwright install chromium'",
+        "db:reset": "docker compose down -v && docker compose up -d",
+        "ci": [
+            "@stan",
+            "@test",
+            "@e2e"
+        ]
+    },
+    "scripts-descriptions": {
+        "stan": "Run PHPStan on the host (level 0 over lib/).",
+        "test": "Run the full 3-tier PHPUnit suite inside the web container (stack must be up).",
+        "test:unit": "Run just the DB-free Unit tier on the host (no Docker needed).",
+        "test:db": "Run the Integration + Approval tiers inside the web container.",
+        "e2e": "Run the Playwright e2e suite against the running stack (passes extra args through).",
+        "e2e:install": "One-time: install e2e npm deps and the Chromium browser.",
+        "db:reset": "Wipe and re-seed the Docker DB volume (clean fixtures).",
+        "ci": "Run everything CI runs: PHPStan, full PHPUnit, and e2e."
     }
 }
