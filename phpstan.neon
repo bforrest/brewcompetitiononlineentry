@@ -11,6 +11,7 @@ parameters:
     reportUnmatchedIgnoredErrors: false
     paths:
         - lib
+        - src
 
     excludePaths:
         - vendor
