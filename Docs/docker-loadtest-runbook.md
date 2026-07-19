@@ -77,3 +77,29 @@ match whatever the fixture uses). Validated clean run from a truly cold
 Reset between runs with `docker compose down -v && docker compose up -d`
 (re-seeds clean; the version-stamp fix means no manual warm-up or DB
 poking is needed after that).
+
+## Test suites (added Phase 0, 2026-07)
+
+Three PHPUnit tiers plus a Playwright e2e suite, all wired into CI
+(`.github/workflows/ci.yml`, green on push/PR).
+
+```bash
+# Characterization suite (Unit/Integration/Approval) — inside the container:
+docker compose exec -e BCOEM_DB_HOST=db web vendor/bin/phpunit
+
+# End-to-end browser journeys — from the host against the running stack:
+cd e2e && npx playwright test          # see e2e/README.md
+```
+
+Gotchas worth remembering:
+
+- **Reseed between e2e and the PHPUnit fee tests.** Playwright commits real
+  brewing/brewer rows; `TotalFeesTest` sums fees across all rows, so an
+  e2e-polluted DB makes it fail. `docker compose down -v && up -d` first.
+- **Docker single-file bind mounts go stale** when the host file is replaced
+  (new inode) — after editing `docker/config.php`, `docker/.htaccess`, or the
+  init SQL, recreate the container (`docker compose up -d --force-recreate web`
+  or `down -v && up -d`), not just restart.
+- **e2e fixture flags** (`docker/03-e2e-fixtures.sql`) turn the post-competition
+  baseline into a live, open competition (CAPTCHA off, winners display off).
+  See that file's header for the why of each.
