@@ -13,7 +13,9 @@ export const ADMIN = {
  */
 export async function login(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/index.php');
-  await page.getByRole('link', { name: 'Log In' }).click();
+  // exact: true — once judging sessions exist, the home page also carries a
+  // "Log in to view the location…" tooltip link that would make this ambiguous.
+  await page.getByRole('link', { name: 'Log In', exact: true }).click();
   await page.fill('input[name="loginUsername"]', email);
   await page.fill('input[name="loginPassword"]', password);
   await page.locator('form:has(input[name="loginUsername"]) button[type="submit"]').click();
