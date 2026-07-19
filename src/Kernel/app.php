@@ -15,6 +15,12 @@ function buildApp(): App
     $container = require __DIR__ . '/container.php';
     $app = Bridge::create($container);
 
+    $app->add(new \Bcoem\Kernel\Middleware\AuthorizationMiddleware(
+        \Bcoem\Security\AccessPolicy::fromFile(__DIR__ . '/../../config/access_policy.php')
+    ));
+    $app->add(new \Bcoem\Kernel\Middleware\AuthenticationMiddleware());
+    $app->add(new \Bcoem\Kernel\Middleware\SessionMiddleware());
+
     $app->get('/__kernel_hello', function ($request, $response) {
         $response->getBody()->write('ok');
         return $response;
