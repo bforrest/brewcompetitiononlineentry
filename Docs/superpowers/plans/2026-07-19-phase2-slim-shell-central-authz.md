@@ -29,7 +29,7 @@
 
 **Files:**
 - Modify: `composer.json` (add deps, PSR-4 autoload for `Bcoem\`), `.gitignore` (stop ignoring nothing extra — vendor removal is a git-rm, not a gitignore change alone)
-- Create: `src/Kernel/container.php`, `src/Kernel/app.php`, `public_index.php` (temporary side-by-side entry point — see Step 5), `tests/Unit/Kernel/HelloWorldRouteTest.php`
+- Create: `src/Kernel/container.php`, `src/Kernel/app.php`, `tests/Unit/Kernel/HelloWorldRouteTest.php`
 
 **Interfaces:**
 - Produces: a working PHP-DI-backed Slim app object from `src/Kernel/app.php`, reusable by every later task in this group.
