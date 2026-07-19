@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [docker-baseline-db, develop, master]
+  pull_request:
+
+jobs:
+  # Static analysis + the DB-free unit tier run on a bare PHP runner: the
+  # PHPUnit bootstrap stubs out every path/DB dependency, so no database or
+  # site/config.php is needed here.
+  static-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli, mbstring, gd, zip, intl, exif
+          ini-values: memory_limit=1G
+      - run: composer install --no-interaction --no-progress
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --no-progress
+      - name: Unit tier
+        run: vendor/bin/phpunit --testsuite Unit
+
+  # DB-dependent tiers + Playwright run against the real Docker stack. The
+  # integration tests reach library code that includes site/config.php, which
+  # docker/config.php supplies inside the container (and which also shares the
+  # test's transactional connection) — so these MUST run in the container, not
+  # on a bare runner. Playwright drives the same stack from the host.
+  integration-and-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the app stack (seeds a fresh InnoDB baseline DB)
+        run: |
+          docker compose up -d --build
+          timeout 180 sh -c 'until curl -sf http://localhost:8080/index.php > /dev/null; do sleep 3; done'
+      - name: Integration + Approval tiers (in container)
+        # vendor/ is committed and bind-mounted into the container, but the
+        # vendor/bin symlinks are not tracked — call the real binary directly.
+        run: |
+          docker compose exec -T -e BCOEM_DB_HOST=db web vendor/phpunit/phpunit/phpunit --testsuite Integration
+          docker compose exec -T -e BCOEM_DB_HOST=db web vendor/phpunit/phpunit/phpunit --testsuite Approval
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Playwright e2e (host → stack)
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 14
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
