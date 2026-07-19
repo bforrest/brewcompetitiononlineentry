@@ -1,7 +1,12 @@
+includes:
+    - phpstan-baseline.neon
+
 parameters:
     level: 0
+    # Analysis of the full lib/ set peaks above the 128M default.
+    tmpDir: .phpstan.cache
     paths:
-        - lib 
+        - lib
 
     excludePaths:
         - vendor

@@ -1100,7 +1100,7 @@ function at_table($bid,$tid) {
 	
 	if (!empty($row_assignments)) {
 		do {
-			$a[] .= $row_assignments['assignTable'];
+			$a[] = $row_assignments['assignTable'];
 		} while ($row_assignments = mysqli_fetch_assoc($assignments));
 	}
 	
@@ -1592,7 +1592,7 @@ function not_assigned($method) {
 
 		$user[] = "";
 
-		do { $user[] .= $row_brewer['uid'];  } while ($row_brewer = mysqli_fetch_assoc($brewer));
+		do { $user[] = $row_brewer['uid'];  } while ($row_brewer = mysqli_fetch_assoc($brewer));
 
 		foreach($user as $bid) {
 

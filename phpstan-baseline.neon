@@ -1,0 +1,145 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Array has 2 duplicate keys with value ''Ä'' \(''Ä'', ''Ä''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''Å'' \(''Å'', ''Å''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''Æ'' \(''Æ'', ''Æ''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''Ö'' \(''Ö'', ''Ö''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''Ø'' \(''Ø'', ''Ø''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''Ü'' \(''Ü'', ''Ü''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''ß'' \(''ß'', ''ß''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''ä'' \(''ä'', ''ä''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''å'' \(''å'', ''å''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''æ'' \(''æ'', ''æ''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''ö'' \(''ö'', ''ö''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''ø'' \(''ø'', ''ø''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''ü'' \(''ü'', ''ü''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''Đ'' \(''Đ'', ''Đ''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''đ'' \(''đ'', ''đ''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Call to sprintf contains 1 placeholder, 2 values given\.$#'
+			identifier: argument.sprintf
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Deprecated in PHP 8\.0\: Required parameter \$dbTable follows optional parameter \$method\.$#'
+			identifier: parameter.requiredAfterOptional
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Function each not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Function sterilize not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: lib/common.lib.php
+
+		-
+			message: '#^Instantiated class MysqliDb not found\.$#'
+			identifier: class.notFound
+			count: 3
+			path: lib/common.lib.php
+
+		-
+			message: '#^Caught class PHPMailer\\PHPMailer\\Exception not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: lib/email.lib.php
+
+		-
+			message: '#^Function eregi not found\.$#'
+			identifier: function.notFound
+			count: 5
+			path: lib/output.lib.php
+
+		-
+			message: '#^Instantiated class MysqliDb not found\.$#'
+			identifier: class.notFound
+			count: 2
+			path: lib/process.lib.php
+
+		-
+			message: '#^Non\-standard \(double\) cast is deprecated in PHP 8\.5\. Use \(float\) instead\.$#'
+			identifier: cast.deprecated
+			count: 1
+			path: lib/process.lib.php
