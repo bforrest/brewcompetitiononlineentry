@@ -148,6 +148,22 @@ docker compose exec web vendor/bin/phpunit --testsuite Unit --filter HelloWorldR
 
 Expected first run (before Steps 3-4 exist): class/function-not-found error. After implementing: `OK (1 test)`.
 
+- [ ] **Step 6a: Extend PHPStan's scope to cover the new `src/` tree**
+
+`phpstan.neon` currently restricts analysis to `paths: [lib]` (a deliberate prior scope decision — the rest of the legacy tree isn't gated yet). None of this phase's new code lives under `lib/`, so every later task's "run PHPStan, expect clean" step is meaningless unless `src/` is added now. Modify the **existing** `parameters:` block's `paths:` list (do not add a second `parameters:` key):
+
+```yaml
+    paths:
+        - lib
+        - src
+```
+
+```bash
+docker compose exec web vendor/bin/phpstan analyse
+```
+
+Expected: `[OK] No errors` (nothing under `src/` exists yet besides what Steps 1-4 just added, which must already be clean).
+
 - [ ] **Step 7: Stop committing `vendor/`**
 
 ```bash
@@ -1651,15 +1667,15 @@ Place this route registration **after** the explicit `/index.php`, `/includes/pr
 
 - [ ] **Step 5: Add the two PHPStan custom rules from the design spec's Section 2 contract**
 
-Append to `phpstan.neon` (rule classes go under a new `src/PHPStan/` or reuse an existing custom-rules convention if PHPStan config already has one — check `phpstan.neon` first):
+`phpstan.neon` already has a `parameters:` block (`level: 0`, `tmpDir`, `reportUnmatchedIgnoredErrors: false`, `paths` — extended with `src` in Task 1 Step 6a — and `excludePaths`). **Do not add a second `parameters:` key** — a NEON/YAML file with two top-level `parameters:` blocks either errors or silently drops one, depending on the parser. `rules:` is a distinct top-level key that doesn't exist yet in this file, so it's safe to append as a new sibling to the existing `parameters:` block:
 
 ```yaml
-parameters:
-    ignoreErrors: []
 rules:
     - Bcoem\PHPStan\NoMysqliOutsideConnectionRule
     - Bcoem\PHPStan\NoLegacyReferenceOutsideLegacyRule
 ```
+
+Rule classes go under a new `src/PHPStan/`.
 
 These two rule classes have no implementation yet (they gate the *Connection* class and Domain-layer purity, both Phase 3 concerns) — register them now as a placeholder-free stub pair that currently always passes (e.g. `return []` from `processNode()`), so the config wiring is proven correct before Phase 3 needs the rules to actually do something. Do not skip writing the classes entirely — an empty rule that's registered and tested to run without error is meaningfully different from "TODO, add later," since it proves the PHPStan custom-rule wiring itself works.
 
