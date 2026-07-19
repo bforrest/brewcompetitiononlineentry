@@ -5,6 +5,10 @@ parameters:
     level: 0
     # Analysis of the full lib/ set peaks above the 128M default.
     tmpDir: .phpstan.cache
+    # The baseline is generated on PHP 8.5 but CI runs 8.2; version-specific
+    # deprecation entries won't all fire on 8.2, so don't fail on unmatched
+    # baseline patterns.
+    reportUnmatchedIgnoredErrors: false
     paths:
         - lib
 
