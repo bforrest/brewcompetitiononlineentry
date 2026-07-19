@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginAsAdmin, registerEntrant } from '../helpers/auth';
 
 test('home page renders the competition site', async ({ page }) => {
   const resp = await page.goto('/index.php');
@@ -13,4 +14,14 @@ test('login modal opens and renders its form fields', async ({ page }) => {
   await page.getByRole('link', { name: 'Log In' }).click();
   await expect(page.locator('input[name="loginUsername"]')).toBeVisible();
   await expect(page.locator('input[name="loginPassword"]')).toBeVisible();
+});
+
+test('seeded admin can log in and reach the dashboard', async ({ page }) => {
+  await loginAsAdmin(page);
+  await page.goto('/index.php?section=admin');
+  await expect(page).toHaveURL(/section=admin/);
+});
+
+test('a fresh entrant can register and lands logged in', async ({ page }) => {
+  await registerEntrant(page);
 });

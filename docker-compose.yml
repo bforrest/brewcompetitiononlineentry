@@ -31,6 +31,8 @@ services:
       - ./sql/bcoem_baseline_3.0.X.sql:/docker-entrypoint-initdb.d/01-baseline.sql:ro
       # Push the baseline's 2023 contest deadlines into the future so registration/entry are open
       - ./docker/02-open-registration.sql:/docker-entrypoint-initdb.d/02-open-registration.sql:ro
+      # E2E test fixtures: pin prefsCAPTCHA=0 so automated registration works (see file header)
+      - ./docker/03-e2e-fixtures.sql:/docker-entrypoint-initdb.d/03-e2e-fixtures.sql:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
