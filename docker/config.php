@@ -13,12 +13,22 @@ $password = getenv('DB_PASSWORD') ?: 'bcoem_password';
 $database = getenv('DB_NAME') ?: 'bcoem';
 $database_port = ini_get('mysqli.default_port');
 
-$connection = new mysqli($hostname, $username, $password, $database, $database_port);
-mysqli_set_charset($connection,'utf8mb4');
-mysqli_query($connection, "SET NAMES 'utf8mb4';");
-mysqli_query($connection, "SET CHARACTER SET 'utf8mb4';");
-mysqli_query($connection, "SET COLLATION_CONNECTION = 'utf8mb4_unicode_ci';");
-mysqli_query($connection, "SET sql_mode = '';");
+/**
+ * Reuse an existing connection if one is already set (the PHPUnit
+ * IntegrationTestCase injects its transactional connection via
+ * $GLOBALS['connection'] so library code shares the test's uncommitted
+ * state). Web requests never have one pre-set and connect normally.
+ */
+if (isset($GLOBALS['connection']) && $GLOBALS['connection'] instanceof mysqli) {
+    $connection = $GLOBALS['connection'];
+} else {
+    $connection = new mysqli($hostname, $username, $password, $database, $database_port);
+    mysqli_set_charset($connection,'utf8mb4');
+    mysqli_query($connection, "SET NAMES 'utf8mb4';");
+    mysqli_query($connection, "SET CHARACTER SET 'utf8mb4';");
+    mysqli_query($connection, "SET COLLATION_CONNECTION = 'utf8mb4_unicode_ci';");
+    mysqli_query($connection, "SET sql_mode = '';");
+}
 
 $brewing = $connection;
 

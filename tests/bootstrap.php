@@ -83,6 +83,18 @@ if (!function_exists('check_setup')) {
     }
 }
 
+// ── Stub: is_https() lives in paths.php, which tests don't load ─
+// site/config.php (included by some lib functions) calls it to build $base_url.
+if (!function_exists('is_https')) {
+    function is_https() {
+        return false; // CLI test context is never behind TLS
+    }
+}
+
+// ── $_SERVER defaults for CLI (config.php reads these) ─────────
+$_SERVER['HTTP_HOST']     = $_SERVER['HTTP_HOST']     ?? 'localhost';
+$_SERVER['DOCUMENT_ROOT'] = $_SERVER['DOCUMENT_ROOT'] ?? ROOT;
+
 // ── Load the library under test ─────────────────────────────
 // common.lib.php includes date_time.lib.php and version.inc.php
 require_once LIB . 'common.lib.php';
