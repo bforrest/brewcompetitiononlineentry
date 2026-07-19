@@ -61,8 +61,12 @@ class RoleTest extends TestCase
         $this->assertSame(Role::Entrant, Role::fromUserLevel('abc'));
     }
 
-    public function test_from_user_level_negative_number_string_is_entrant(): void
+    public function test_from_user_level_negative_zero_is_entrant_not_super_admin(): void
     {
-        $this->assertSame(Role::Entrant, Role::fromUserLevel('-1'));
+        // (int)'-0' === 0 pre-fix would have escalated this to SuperAdmin;
+        // ctype_digit('-0') is false (minus sign isn't a digit), so this
+        // actually exercises the guard, unlike '-1' which the old code's
+        // match `default` arm already handled safely.
+        $this->assertSame(Role::Entrant, Role::fromUserLevel('-0'));
     }
 }
