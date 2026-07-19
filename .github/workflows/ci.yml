@@ -33,16 +33,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli, mbstring, gd, zip, intl, exif
+      - name: Complete vendor/ on the runner (bind-mounted into the container)
+        # The committed vendor/ is a partial tree; a full composer install here
+        # populates it (incl. the vendor/bin symlinks) before the compose
+        # bind-mount (.:/var/www/html) exposes it inside the web container.
+        run: composer install --no-interaction --no-progress
       - name: Start the app stack (seeds a fresh InnoDB baseline DB)
         run: |
           docker compose up -d --build
           timeout 180 sh -c 'until curl -sf http://localhost:8080/index.php > /dev/null; do sleep 3; done'
       - name: Integration + Approval tiers (in container)
-        # vendor/ is committed and bind-mounted into the container, but the
-        # vendor/bin symlinks are not tracked — call the real binary directly.
         run: |
-          docker compose exec -T -e BCOEM_DB_HOST=db web vendor/phpunit/phpunit/phpunit --testsuite Integration
-          docker compose exec -T -e BCOEM_DB_HOST=db web vendor/phpunit/phpunit/phpunit --testsuite Approval
+          docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration
+          docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Approval
       - uses: actions/setup-node@v4
         with:
           node-version: '20'

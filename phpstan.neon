@@ -15,6 +15,8 @@ parameters:
         - user_images
         - user_temp
         - js_includes
-        - Docs
-        - .claude
-        - .github
+        # (?) marks paths that may be absent (e.g. git-ignored dirs not
+        # checked out in CI) so PHPStan treats them as optional.
+        - Docs(?)
+        - .claude(?)
+        - .github(?)
