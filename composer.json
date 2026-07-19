@@ -34,7 +34,8 @@
             "@stan",
             "@test",
             "@e2e"
-        ]
+        ],
+        "report": "cd e2e && npx playwright show-report"
     },
     "scripts-descriptions": {
         "stan": "Run PHPStan on the host (level 0 over lib/).",
@@ -44,6 +45,7 @@
         "e2e": "Run the Playwright e2e suite against the running stack (passes extra args through).",
         "e2e:install": "One-time: install e2e npm deps and the Chromium browser.",
         "db:reset": "Wipe and re-seed the Docker DB volume (clean fixtures).",
-        "ci": "Run everything CI runs: PHPStan, full PHPUnit, and e2e."
+        "ci": "Run everything CI runs: PHPStan, full PHPUnit, and e2e.",
+        "report": "Generate a report of the current project dependencies and their licenses."
     }
 }
