@@ -12,10 +12,14 @@ use Bcoem\Security\Role;
  *
  * Verified against the 2026-07-19 route inventory (index.php, index.legacy.php,
  * index.pub.php, includes/process.inc.php, ajax/*.php, admin/*.admin.php,
- * includes/output.inc.php). Entries marked "VERIFY" reproduce the app's own
- * $section_array whitelist (site/bootstrap.php) but have not yet had their
- * individual sections/*.sec.php file read for its actual role requirement -
- * see Task 3a's checklist to close these out before this phase ships.
+ * includes/output.inc.php). Task 3a (2026-07-19) closed out every placeholder
+ * entry left by Task 3: each site/bootstrap.php $section_array value
+ * was checked against index.pub.php's own inline $section blocks first, then
+ * index.legacy.php's public-pages block, then any matching sections/*.sec.php
+ * file, before a role was assigned - see .superpowers/sdd/task-3a-report.md
+ * for the full per-entry citation trail. includes/output.inc.php's own
+ * $section namespace (output:section:*) was enumerated and declared in the
+ * same pass.
  */
 return [
     // ── Admin base gate + per-go refinements (index.legacy.php dispatch) ──
@@ -61,8 +65,33 @@ return [
     'section:brew' => Role::Entrant,
     'section:evaluation' => Role::Entrant,
 
-    // ── Public pages (site/bootstrap.php's $section_array, VERIFY entries
-    //    per Task 3a before this policy map is considered complete) ──
+    // ── Public pages (site/bootstrap.php's $section_array) ──
+    // Task 3a closed out every placeholder entry below (formerly defaulted
+    // to Anonymous, unconfirmed). Method: for each $section value, grep
+    // index.pub.php's own inline
+    // `$section == "..."` blocks first (the normal, non-admin GET path),
+    // then index.legacy.php's public-pages block (reached only when
+    // $section=="admin" or the undocumented $admin GET param forces it),
+    // then any matching sections/*.sec.php file. The great majority of the
+    // flagged values (confirm, delete, table_cards/table-cards,
+    // participant_summary, loc, sorting, output_styles, map, driving, scores,
+    // entries, participants, emails, assignments, bos-mat, dropoff, summary,
+    // inventory, pullsheets, results, staff, styles, promo, testing, notes,
+    // shipping-label, particpant-entries) turned out to be dead entries in
+    // bootstrap.php's whitelist: grepping index.pub.php and index.legacy.php
+    // for each value's own `$section == "..."` block returns nothing, and no
+    // sections/*.sec.php file with that name is ever included from either
+    // rendering path. Several of the same words are reused elsewhere in the
+    // app (as includes/output.inc.php's own, unrelated $section values, or as
+    // $go values, or as $tb sub-filter values inside an already-included
+    // page) but that reuse doesn't make the *index.php* $section value of
+    // the same name reachable. Empirically verified for a sample (results,
+    // scores, entries, participants, dropoff, styles, staff, summary) via
+    // `curl http://localhost:8080/index.php?section=<value>` during Task 3a:
+    // response is byte-for-byte the generic chrome with no section-specific
+    // content, confirming Anonymous is correct because there is nothing to
+    // gate, not because it was left unchecked. Full per-value citations are
+    // in .superpowers/sdd/task-3a-report.md.
     'section:default' => Role::Anonymous,
     'section:rules' => Role::Anonymous,
     'section:entry' => Role::Anonymous,
@@ -72,7 +101,7 @@ return [
     'section:logout' => Role::Anonymous, // must work regardless of auth state
     'section:check' => Role::Anonymous,
     'section:setup' => Role::Anonymous, // matches today's (unauthenticated) reality - see Task 3a note on setup.php
-    'section:judge' => Role::Anonymous, // VERIFY: sections/judge.sec.php
+    'section:judge' => Role::Anonymous, // confirmed dead: no $section=="judge" block in index.pub.php/index.legacy.php; sections/judge.sec.php's own auth check is commented out (lines 9-17) and the file is never included from any reachable path
     'section:register' => Role::Anonymous,
     'section:sponsors' => Role::Anonymous,
     'section:past_winners' => Role::Anonymous,
@@ -82,34 +111,34 @@ return [
     'section:step5' => Role::Anonymous, 'section:step6' => Role::Anonymous,
     'section:step7' => Role::Anonymous, 'section:step8' => Role::Anonymous,
     'section:update' => Role::Anonymous, // matches today - see Task 3a note on update.php
-    'section:confirm' => Role::Anonymous, // VERIFY
-    'section:delete' => Role::Anonymous, // VERIFY - GET-only render, not the POST action=delete (see process: below)
-    'section:table_cards' => Role::Anonymous, 'section:table-cards' => Role::Anonymous, // VERIFY
-    'section:participant_summary' => Role::Anonymous, // VERIFY
-    'section:loc' => Role::Anonymous, // VERIFY
-    'section:sorting' => Role::Anonymous, // VERIFY
-    'section:output_styles' => Role::Anonymous, // VERIFY
-    'section:map' => Role::Anonymous, // VERIFY
-    'section:driving' => Role::Anonymous, // VERIFY
-    'section:scores' => Role::Anonymous, // VERIFY - likely public results, confirm
-    'section:entries' => Role::Anonymous, // VERIFY - distinct from admin|go:entries above
-    'section:participants' => Role::Anonymous, // VERIFY - distinct from admin|go:participants above
-    'section:emails' => Role::Anonymous, // VERIFY
-    'section:assignments' => Role::Anonymous, // VERIFY
-    'section:bos-mat' => Role::Anonymous, // VERIFY
-    'section:dropoff' => Role::Anonymous, // VERIFY - distinct from admin|go:dropoff above
-    'section:summary' => Role::Anonymous, // VERIFY
-    'section:inventory' => Role::Anonymous, // VERIFY
-    'section:pullsheets' => Role::Anonymous, // VERIFY
-    'section:results' => Role::Anonymous, // VERIFY
-    'section:staff' => Role::Anonymous, // VERIFY
-    'section:styles' => Role::Anonymous, // VERIFY - distinct from admin|go:styles above
-    'section:promo' => Role::Anonymous, // VERIFY
-    'section:testing' => Role::Anonymous, // VERIFY
-    'section:notes' => Role::Anonymous, // VERIFY
+    'section:confirm' => Role::Anonymous, // confirmed dead: string appears only in bootstrap.php's whitelist array (site/bootstrap.php:27)
+    'section:delete' => Role::Anonymous, // confirmed dead as a GET render (no matching block anywhere); the POST action=delete path is separately covered by process:action:delete below
+    'section:table_cards' => Role::Anonymous, 'section:table-cards' => Role::Anonymous, // confirmed dead for index.php; both strings are reused as includes/output.inc.php's own section value (see output:section:table-cards below) and inside includes/db/admin_common.db.php:79,90,106 as a $go-compound modifier, neither of which is reachable via index.php's plain $section dispatch
+    'section:participant_summary' => Role::Anonymous, // confirmed dead for index.php; reused by output/participant_summary.output.php:11 (see output:section:summary below) and includes/db/brewer.db.php:59 (compound with $section=="admin", unrelated)
+    'section:loc' => Role::Anonymous, // confirmed dead: only reused inside includes/db/output_participants_export.db.php:14, which is only reachable from the output.inc.php dispatch, not index.php
+    'section:sorting' => Role::Anonymous, // confirmed dead for index.php; reused by includes/output.inc.php:29 (see output:section:sorting below) and includes/db/styles.db.php:87 (only relevant when that file is included from the output/admin contexts, not index.php's plain dispatch)
+    'section:output_styles' => Role::Anonymous, // confirmed dead: string appears only in bootstrap.php's whitelist array (site/bootstrap.php:27)
+    'section:map' => Role::Anonymous, // confirmed dead: string appears only in bootstrap.php's whitelist array (site/bootstrap.php:27)
+    'section:driving' => Role::Anonymous, // confirmed dead: string appears only in bootstrap.php's whitelist array (site/bootstrap.php:27)
+    'section:scores' => Role::Anonymous, // confirmed dead for index.php (empirically verified via curl - identical to an unhandled section); "scores" also appears as an unrelated $tb sub-filter value inside sections/winners*.sec.php
+    'section:entries' => Role::Anonymous, // confirmed dead as a bare $section - distinct from admin|go:entries above; the only "entries" matches elsewhere are $go values (e.g. sections/alerts.sec.php:250, admin/entries.admin.php:664)
+    'section:participants' => Role::Anonymous, // confirmed dead as a bare $section - distinct from admin|go:participants above; the only "participants" matches elsewhere are $go values (includes/db/brewer.db.php:59-112)
+    'section:emails' => Role::Anonymous, // confirmed dead: string appears only in bootstrap.php's whitelist array (site/bootstrap.php:27)
+    'section:assignments' => Role::Anonymous, // confirmed dead for index.php; reused by includes/output.inc.php:29 (see output:section:assignments below)
+    'section:bos-mat' => Role::Anonymous, // confirmed dead for index.php; reused by includes/output.inc.php:29 (see output:section:bos-mat below)
+    'section:dropoff' => Role::Anonymous, // confirmed dead as a bare $section - distinct from admin|go:dropoff above (empirically verified via curl); reused by includes/output.inc.php:29 (see output:section:dropoff below)
+    'section:summary' => Role::Anonymous, // confirmed dead for index.php (empirically verified via curl); reused by includes/output.inc.php:29 (see output:section:summary below)
+    'section:inventory' => Role::Anonymous, // confirmed dead for index.php; reused by includes/output.inc.php:29 (see output:section:inventory below)
+    'section:pullsheets' => Role::Anonymous, // confirmed dead for index.php; reused by includes/output.inc.php:29 (see output:section:pullsheets below)
+    'section:results' => Role::Anonymous, // confirmed dead for index.php (empirically verified via curl - identical to an unhandled section); sections/winners*.sec.php and sections/bestbrewer.sec.php check $section=="results" but those files are only included via output/results.output.php and admin/default.admin.php, never via index.php's plain dispatch
+    'section:staff' => Role::Anonymous, // confirmed dead for index.php (empirically verified via curl); reused by includes/output.inc.php:29 (see output:section:staff below)
+    'section:styles' => Role::Anonymous, // confirmed dead as a bare $section - distinct from admin|go:styles above (empirically verified via curl); includes/db/styles.db.php:69,92 checks $section=="styles" but that file is never included from index.php's plain dispatch for that value
+    'section:promo' => Role::Anonymous, // confirmed dead: string appears only in bootstrap.php's whitelist array (site/bootstrap.php:27)
+    'section:testing' => Role::Anonymous, // confirmed dead as a $section; an unrelated $go value of the same name exists in includes/constants.inc.php:602's $datetime_load array
+    'section:notes' => Role::Anonymous, // confirmed dead for index.php; reused by includes/output.inc.php:29 (see output:section:notes below)
     'section:qr' => Role::Anonymous, // redirects to qr.php per bootstrap.php:33-36
-    'section:shipping-label' => Role::Anonymous, // VERIFY
-    'section:particpant-entries' => Role::Anonymous, // VERIFY (sic - typo is in the app's own array)
+    'section:shipping-label' => Role::Anonymous, // confirmed dead for index.php; reused by includes/output.inc.php:29 (see output:section:shipping-label below)
+    'section:particpant-entries' => Role::Anonymous, // confirmed dead for index.php (sic - typo is in the app's own array); reused by includes/output.inc.php:29 (see output:section:particpant-entries below)
     'section:competition' => Role::Anonymous, // dead sections/ reference per inventory, renders via index.pub.php inline instead
     'section:winners' => Role::Anonymous, // public results page (used by e2e security-invariants.spec.ts today)
 
@@ -187,9 +216,66 @@ return [
 
     // ── includes/output.inc.php (dispatcher has no gate of its own -
     //    every reachable $section under it must be declared here) ──
-    // VERIFY: enumerate includes/output.inc.php:27-30's $print_sections /
+    // Enumerated from includes/output.inc.php:29-32's $print_sections /
     // $export_sections / $label_sections / $entry_sections /
-    // $scoresheet_sections arrays and declare one 'output:section:{value}'
-    // entry per value, matching each target output/*.output.php file's own
-    // existing check (all confirmed to have one - see Task 3a).
+    // $scoresheet_sections arrays. Each role below matches the target
+    // output/*.output.php file's own existing check, verified by reading it.
+
+    // $print_sections -> output/print.output.php. Outer gate (lines 8-16)
+    // requires (logged in) OR (a print $token). Most values additionally
+    // require $_SESSION['userLevel'] <= 1 (line 139) - Role::Admin.
+    'output:section:admin' => Role::Admin, // output/print.output.php:162 - userLevel<=1
+    'output:section:assignments' => Role::Admin, // output/print.output.php:139-140
+    'output:section:bos-mat' => Role::Admin, // output/print.output.php:139,141
+    'output:section:dropoff' => Role::Admin, // output/print.output.php:139,142
+    'output:section:summary' => Role::Admin, // output/print.output.php:139,143
+    'output:section:particpant-entries' => Role::Admin, // output/print.output.php:139,144 (sic - typo is in the app's own array)
+    'output:section:inventory' => Role::Admin, // output/print.output.php:139,145
+    'output:section:pullsheets' => Role::Admin, // output/print.output.php:139,146
+    'output:section:results' => Role::Admin, // output/print.output.php:139,147 - the public-facing results view/download instead goes through output:section:export-results below
+    'output:section:sorting' => Role::Admin, // output/print.output.php:139,148
+    'output:section:staff' => Role::Admin, // output/print.output.php:139,149
+    'output:section:table-cards' => Role::Admin, // output/print.output.php:139,150
+    'output:section:notes' => Role::Admin, // output/print.output.php:139,151
+    'output:section:styles' => Role::Entrant, // output/print.output.php:154-155 - only requires isset(loginUsername), no userLevel check
+    'output:section:shipping-label' => Role::Entrant, // output/print.output.php:154,156 - only requires isset(loginUsername)
+    'output:section:evaluation' => Role::Anonymous, // output/print.output.php:160 - guarded only by the file's outer login-OR-token gate (lines 8-16); token bypass is by design (electronic scoresheet print links), unchanged
+    'output:section:contact' => Role::Anonymous, // output/print.output.php:83 - only renders when a decrypt $token is present (`$token != "default"`); there is no plain-login path for this value, so a valid token is the real (unchanged) gate
+
+    // $export_sections -> output/export.output.php. Outer gate (lines 49-69)
+    // requires $_SESSION['userLevel'] <= 1 UNLESS the section is
+    // export-results with go=judging_scores(_bos)&view=html|pdf, or the
+    // section is export-personal-results (both explicitly exempted at
+    // lines 56-60) - those two stay Anonymous at this layer; legacy code
+    // narrows them further internally (unchanged).
+    'output:section:export-entries' => Role::Admin, // output/export.output.php:49-69 (no exemption), 230 ($admin_role recheck)
+    'output:section:export-loc' => Role::Admin, // output/export.output.php:49-69 (no exemption); the value is only ever used as a modifier inside the export-entries/export-emails blocks (lines 239, 999, 1214), never its own top-level dispatch
+    'output:section:export-emails' => Role::Admin, // output/export.output.php:49-69, 989
+    'output:section:export-participants' => Role::Admin, // output/export.output.php:49-69, 1199
+    'output:section:export-promo' => Role::Admin, // output/export.output.php:49-69 (no exemption; block at line 1341 has no further internal admin_role check, relies entirely on the outer gate)
+    'output:section:export-results' => Role::Anonymous, // output/export.output.php:53-58 explicit public exemption for go=judging_scores(_bos)&view=html|pdf ("Available publicly on the results page"); empirically verified during Task 3a - unauthenticated GET to that exact combo returns 200, other go/view combos still redirect to 403. Non-exempt go/view stays admin-gated internally (line 1512 $results_download), unchanged
+    'output:section:export-staff' => Role::Admin, // output/export.output.php:49-69, 2403
+    'output:section:export-personal-results' => Role::Anonymous, // output/export.output.php:60 - $authorized=TRUE unconditionally; actual content additionally requires isset(loginUsername) && $id!="default" at line 3400, unchanged
+
+    // $label_sections -> output/labels.output.php. This file does not
+    // branch on $section at all - the same top-of-file gate (line 4: any
+    // logged-in user) applies to all three values, so all three share the
+    // same minimum role. Most content is further gated to userLevel<=1
+    // (line 76); one explicit non-admin carve-out exists for judging labels
+    // (line 1147, "the only label output that non-admins can access") -
+    // both narrowings are unchanged legacy behavior.
+    'output:section:labels-admin' => Role::Entrant, // output/labels.output.php:4-8
+    'output:section:labels-participant' => Role::Entrant, // output/labels.output.php:4-8
+    'output:section:labels-judge' => Role::Entrant, // output/labels.output.php:4-8, 1147
+
+    // $entry_sections -> output/bottle_label.output.php (entry.output.php's
+    // dispatch line is commented out - both values currently route here).
+    // Gate is isset($_SESSION['loginUsername']) only, no userLevel check.
+    'output:section:entry-form' => Role::Entrant, // output/bottle_label.output.php:3-8
+    'output:section:entry-form-multi' => Role::Entrant, // output/bottle_label.output.php:3-8
+
+    // $scoresheet_sections -> output/scoresheets.output.php. Requires login;
+    // per-record ownership (own brewerEmail, or userLevel<=1 admin bypass)
+    // is enforced internally, unchanged.
+    'output:section:scoresheet' => Role::Entrant, // output/scoresheets.output.php:19-25,69-74
 ];
