@@ -50,4 +50,19 @@ class RoleTest extends TestCase
         $this->assertTrue(Role::Anonymous->satisfies(Role::Anonymous));
         $this->assertFalse(Role::Anonymous->satisfies(Role::Entrant));
     }
+
+    public function test_from_user_level_empty_string_is_entrant_not_super_admin(): void
+    {
+        $this->assertSame(Role::Entrant, Role::fromUserLevel(''));
+    }
+
+    public function test_from_user_level_non_numeric_string_is_entrant_not_super_admin(): void
+    {
+        $this->assertSame(Role::Entrant, Role::fromUserLevel('abc'));
+    }
+
+    public function test_from_user_level_negative_number_string_is_entrant(): void
+    {
+        $this->assertSame(Role::Entrant, Role::fromUserLevel('-1'));
+    }
 }
