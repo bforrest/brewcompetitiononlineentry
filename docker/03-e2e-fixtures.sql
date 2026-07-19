@@ -28,6 +28,23 @@
 --        and log out/in — preferences are cached in $_SESSION at login.
 -- ---------------------------------------------------------------------------
 
+-- Winners-display-off flag
+-- ------------------------
+-- What:  `prefsDisplayWinners` ('Y'/'N') in `baseline_preferences`, plus the
+--        `prefsWinnerDelay` timestamp. When 'Y' and the delay has passed
+--        (includes/constants.inc.php:531-536), every logged-in user is put in
+--        "scores mode" ($show_scores = TRUE): the account page shows results
+--        and HIDES the entire entry-management UI (Add Entry / Entries / Pay
+--        buttons, pub/list.pub.php:25-32).
+-- Why N: the baseline fixture is a post-competition snapshot — its
+--        prefsWinnerDelay (2023-11-02) has long passed. The e2e journeys need
+--        the pre-judging state where entrants can still create/edit/pay for
+--        entries, so winners display must be off. 02-open-registration.sql
+--        already reopens the entry deadlines; this closes the other half.
+-- Scope: Docker-local only, same as above. Real competitions toggle this in
+--        Site Preferences when they're ready to publish results.
+-- ---------------------------------------------------------------------------
+
 USE bcoem;
 
-UPDATE baseline_preferences SET prefsCAPTCHA = 0;
+UPDATE baseline_preferences SET prefsCAPTCHA = 0, prefsDisplayWinners = 'N';
