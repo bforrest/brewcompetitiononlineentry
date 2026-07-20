@@ -2241,7 +2241,7 @@ cd e2e && npx playwright test
 cd e2e && npx playwright test
 ```
 
-Expected: identical pass counts to the pre-Phase-2 baseline (PHPStan clean; 346 PHPUnit tests, 0 failures; 18 Playwright tests, both runs green) — **plus** the new Kernel/Security/Legacy Unit and Integration tests from Tasks 1-9.
+Expected: PHPStan clean; PHPUnit `OK` with zero failures at whatever the current total is (this has grown task-by-task through Tasks 1-9 - e.g. it was 387 right after Task 9 - don't compare against the stale pre-Phase-2 figure of 346; compare against a fresh run's own first-pass count for the idempotency check, and confirm zero *failures*, which is the real gate); 18+ Playwright tests, both runs green (the Phase 0/1 count was 18 - Phase 2 added no new specs, so this one number should be stable unless a task along the way added one).
 
 - [ ] **Step 2: Manual smoke check of a representative sample from each route category**
 
@@ -2250,24 +2250,20 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/                 
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/index.php?section=contact          # legacy GET
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/qr.php                              # side door
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/css/common.min.css                  # static asset, unrouted
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/index.php?section=admin             # should redirect (anonymous denied)
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/index.php?section=admin             # anonymous admin access
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/admin/dropoff                       # SEF-style anonymous admin access
 ```
 
-Expected: `200, 200, 200, 200, 302` (the admin one redirects via legacy code's own `msg=0` handling, unchanged - AuthorizationMiddleware and the legacy page's own inline check now BOTH deny it, redundantly, exactly as the design spec's "harmless redundancy during transition" describes).
+Expected: `200, 200, 200, 200, 403, 403`. **This differs from an earlier draft of this step**, which expected the old `302` redirect for anonymous admin access (`?msg=0`) — that assumed `AuthorizationMiddleware` and the legacy page's own inline check would both run, "redundantly." That's not what actually happens post-Task-8a/9: `AuthorizationMiddleware` runs first, as a global gate, and returns 403 directly without ever invoking the route handler — the legacy page's own inline `msg=0` redirect check never executes at all for a denied request, since the legacy code is never reached. A 403 (not a redirect) is the correct, verified behavior (Task 9's review independently confirmed this exact scenario).
 
-- [ ] **Step 3: Push and verify CI**
-
-```bash
-git push origin docker-baseline-db
-gh run watch --exit-status || gh run view --log-failed
-```
-
-- [ ] **Step 4: Commit if any fixes were needed in Step 1-2**
+- [ ] **Step 3: Commit if any fixes were needed in Step 1-2**
 
 ```bash
 git add -A
 git commit -m "Fix regressions surfaced by the Phase 2 equivalence gate"
 ```
+
+**Do not push to `origin` or trigger CI as part of this task.** Pushing and verifying CI happens once, at the very end of the whole plan, alongside the final whole-branch review and the `finishing-a-development-branch` decision — not mid-plan after each task.
 
 ---
 
