@@ -1577,22 +1577,18 @@ final class LegacyFileHandler
 }
 ```
 
-- [ ] **Step 2: Register every side door route in `src/Kernel/app.php`**
+- [ ] **Step 2: Register every side door route in `src/Kernel/app.php`, derived from the policy map itself**
 
-Add, alongside the middleware registration from Task 5 (each route needs `->add(fn ($request, $handler) => $handler->handle($request->withAttribute('routeType', 'file')->withAttribute('routeFile', '<key>')))` — or simpler, set both attributes via Slim's route-level middleware; shown here as an inline closure per route for clarity):
+**Don't hand-maintain a second list of side-door filenames.** `config/access_policy.php`'s `file:*` keys are already the authoritative, single source of truth for exactly which side doors exist (Task 3/3a's whole point was making that map complete and correct) — declaring a parallel `$fileRoutes` array here would let the two silently drift apart with no test to catch it. Derive the route list from the policy map's own keys instead:
 
 ```php
-    $fileRoutes = [
-        'qr.php', 'handle.php', 'ppv.php', 'awards.php', 'maintenance.php',
-        'setup.php', 'update.php', '400.php', '401.php', '403.php', '404.php', '500.php',
-        'admin/send_test_email.admin.php', 'output/maps.output.php',
-        'ajax/account_checks.ajax.php', 'ajax/count_records.ajax.php',
-        'ajax/custom_style.ajax.php', 'ajax/import_scores.ajax.php',
-        'ajax/practice_session.ajax.php', 'ajax/purge.ajax.php',
-        'ajax/regenerate.ajax.php', 'ajax/save.ajax.php',
-        'ajax/tables_mode.ajax.php', 'ajax/username.ajax.php',
-        'ajax/valid_email.ajax.php',
-    ];
+    $policyMap = require __DIR__ . '/../../config/access_policy.php';
+    $fileRoutes = [];
+    foreach (array_keys($policyMap) as $key) {
+        if (str_starts_with($key, 'file:')) {
+            $fileRoutes[] = substr($key, strlen('file:'));
+        }
+    }
 
     foreach ($fileRoutes as $file) {
         $webPath = '/' . $file;
@@ -1606,22 +1602,81 @@ Add, alongside the middleware registration from Task 5 (each route needs `->add(
     }
 ```
 
-- [ ] **Step 3: Write the equivalence test**
+- [ ] **Step 3: Write `LegacyFileHandlerTest`**
 
-Extend `tests/Integration/LegacyPageHandlerTest.php` (or a new `LegacyFileRoutesTest.php`) with one assertion per side door that it's reachable through the new route with a 200 (or its normal redirect) instead of a 403 — reusing the `AccessPolicy` test fixtures from Task 4 for the identity setup per file's declared role.
+**Same testing-strategy pattern as Tasks 6 and 7 (see Task 6's opening note for the full reasoning) — a fixture-based Unit test of `LegacyFileHandler`'s own logic, not the real side doors.** `qr.php`, `handle.php`, and every `ajax/*.php` file are real, side-effecting production code (sessions, DB, in several cases their own `exit()`); running them inside PHPUnit hits the identical class of problems already solved once. `tests/fixtures/legacy_process_fixture.php` (from Task 7) already covers exactly this shape (GET/POST copying + `dirname()`-based chdir + relative require) since `LegacyFileHandler` is structurally identical to `LegacyProcessHandler` — reuse it rather than creating a near-duplicate fixture.
 
-- [ ] **Step 4: Run the full Playwright suite against the routes that now go through this bridge**
+`tests/Unit/Legacy/LegacyFileHandlerTest.php`:
 
-```bash
-cd e2e && npx playwright test
+```php
+<?php
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+use Bcoem\Legacy\LegacyFileHandler;
+use Slim\Psr7\Factory\ServerRequestFactory;
+use Slim\Psr7\Factory\ResponseFactory;
+
+class LegacyFileHandlerTest extends TestCase
+{
+    private string $originalCwd;
+
+    protected function setUp(): void
+    {
+        $this->originalCwd = getcwd();
+    }
+
+    protected function tearDown(): void
+    {
+        chdir($this->originalCwd);
+    }
+
+    public function test_copies_get_and_post_params_chdirs_to_the_targets_directory_and_requires_it(): void
+    {
+        $_GET = [];
+        $_POST = [];
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/tests/fixtures/legacy_process_fixture.php?action=logout')
+            ->withQueryParams(['action' => 'logout'])
+            ->withParsedBody(['field' => 'value']);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        ob_start();
+        $handler = new LegacyFileHandler('tests/fixtures/legacy_process_fixture.php');
+        $result = $handler($request, $response);
+        $output = ob_get_clean();
+
+        $this->assertSame('logout', $_GET['action']);
+        $this->assertSame('value', $_POST['field']);
+        $this->assertStringContainsString('FIXTURE_OK action=logout posted=value cwd_basename=fixtures', $output);
+        $this->assertSame($response, $result);
+    }
+}
 ```
 
-Every existing spec that hits `handle.php`, `qr.php`, or `ajax/save.ajax.php` (the security-invariant tests from Phase 0/1) must still pass unchanged — this is the first real slice of the Phase 2 equivalence gate.
+Run it: `docker compose exec web vendor/bin/phpunit --testsuite Unit --filter LegacyFileHandlerTest` — expected `OK (1 test, 4 assertions)`. Then run the full Unit suite to confirm no regressions.
+
+- [ ] **Step 4: Manually confirm the route derivation actually produces the expected route count**
+
+```bash
+docker compose exec web php -r '
+require "vendor/autoload.php";
+require_once "paths.php";
+require_once "src/Kernel/app.php";
+$app = buildApp();
+$routes = $app->getRouteCollector()->getRoutes();
+$fileRoutes = array_filter($routes, fn($r) => str_starts_with($r->getPattern(), "/") && count($r->getMethods()) === 2);
+echo count($routes) . " total routes registered\n";
+'
+```
+
+Expected: a route exists for every `file:*` entry from `config/access_policy.php` (cross-check the count against `grep -c "^\s*'file:" config/access_policy.php`) — this is a sanity check, not a strict test, since the exact route-filtering logic above is approximate; the real assurance is structural (Step 2's code derives one route per policy key by construction, so as long as that loop ran without error, the counts must match).
+
+**Full end-to-end proof that each side door is reachable at its real URL, with the right role enforced, comes from Task 10** — the *existing* Phase 0/1 Playwright security-invariant specs already assert exactly this (`handle.php` traversal rejection, `qr.php` reachability, `ajax/save.ajax.php` anonymous-write rejection, etc.) against direct file URLs; once Task 9's `.htaccess` rewrite routes those same URLs through this Slim pipeline instead, re-running that unmodified suite is the real equivalence proof for this task's routes — not something achievable earlier, since Apache still serves these files directly (unrouted) until Task 9 lands.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/Legacy/LegacyFileHandler.php src/Kernel/app.php tests/Integration/
+git add src/Legacy/LegacyFileHandler.php src/Kernel/app.php tests/Unit/Legacy/LegacyFileHandlerTest.php
 git commit -m "Wrap every self-bootstrapping side door behind the authorization pipeline"
 ```
 
