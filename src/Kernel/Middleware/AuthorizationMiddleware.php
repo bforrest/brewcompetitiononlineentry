@@ -25,15 +25,22 @@ final class AuthorizationMiddleware implements MiddlewareInterface
 
         // Requires Slim's routing to have already run (app.php places
         // addRoutingMiddleware() before this middleware in the pipeline).
-        // Falls back to the 'section' default if routing genuinely hasn't
-        // happened yet (defensive - keeps this middleware usable in a
-        // standalone/misconfigured context without a hard crash).
         try {
             $route = RouteContext::fromRequest($request)->getRoute();
         } catch (\RuntimeException) {
             $route = null;
         }
-        $routeName = $route?->getName() ?? 'section';
+
+        // A matched route with no name, or no matched route at all (routing
+        // hasn't run - a misconfigured pipeline), means this middleware
+        // cannot determine which policy governs. A security gate that can't
+        // identify the request must fail closed, never guess a permissive
+        // default.
+        $routeName = $route?->getName();
+        if ($routeName === null) {
+            return $this->deny();
+        }
+
         [$routeType, $routeArg] = str_contains($routeName, ':')
             ? explode(':', $routeName, 2)
             : [$routeName, null];
@@ -55,11 +62,16 @@ final class AuthorizationMiddleware implements MiddlewareInterface
         };
 
         if ($required === null || !$identity->role->satisfies($required)) {
-            $response = (new ResponseFactory())->createResponse(403);
-            $response->getBody()->write('Forbidden');
-            return $response;
+            return $this->deny();
         }
 
         return $handler->handle($request);
+    }
+
+    private function deny(): ResponseInterface
+    {
+        $response = (new ResponseFactory())->createResponse(403);
+        $response->getBody()->write('Forbidden');
+        return $response;
     }
 }

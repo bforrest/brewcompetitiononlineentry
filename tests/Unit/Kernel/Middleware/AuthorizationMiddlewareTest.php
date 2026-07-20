@@ -148,4 +148,27 @@ class AuthorizationMiddlewareTest extends TestCase
 
         $this->assertSame(403, $response->getStatusCode());
     }
+
+    public function test_a_matched_route_with_no_name_denies_rather_than_falling_back_to_a_permissive_default(): void
+    {
+        $app = Bridge::create(new \DI\Container());
+        $app->add(new AuthorizationMiddleware($this->policy()));
+        $app->addRoutingMiddleware();
+        $app->add(function (ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface {
+            return $handler->handle($request->withAttribute('identity', Identity::fromSession([])));
+        });
+        $handler = function ($request, $response) {
+            $response->getBody()->write('ok');
+            return $response;
+        };
+        // Deliberately no ->setName(...) - simulates a route registered
+        // without following the naming contract. Even for a public-looking
+        // URL with no ?section, this must NOT fall back to the permissive
+        // section:default => Anonymous policy.
+        $app->get('/test-route', $handler);
+
+        $response = $this->get($app, '/test-route');
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
 }
