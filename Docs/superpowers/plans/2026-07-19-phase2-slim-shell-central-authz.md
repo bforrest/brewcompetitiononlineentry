@@ -1219,7 +1219,7 @@ git commit -m "Add Session and Authentication middleware; wire the pipeline orde
 
 **Files:**
 - Create: `src/Legacy/LegacyBootstrap.php`, `src/Legacy/LegacyPageHandler.php`, `tests/Integration/LegacyPageHandlerTest.php`
-- Modify: `paths.php`, `lib/update.lib.php`, `tests/bootstrap.php` (Step 0 — a prerequisite fix, discovered while implementing this task, not anticipated when this plan was written)
+- Modify: `paths.php`, `lib/update.lib.php`, `tests/bootstrap.php`, `site/bootstrap.php` (Step 0 — a prerequisite fix, discovered while implementing this task, not anticipated when this plan was written)
 
 **Interfaces:**
 - Consumes: `AuthorizationMiddleware` has already run (denied requests never reach this handler).
@@ -1319,7 +1319,17 @@ if (!function_exists('check_setup')) {
 }
 ```
 
-This preserves the existing behavior for every Unit-tier test (no `$GLOBALS['connection']` ⇒ still blindly `true`, unchanged) while giving Integration-tier tests — which DO have a real connection — the actual, correct, per-table answer `preflight.lib.php` needs. This is the complete set of fixes needed for this chain — all three of `tests/bootstrap.php`'s stubs now either have a matching guard at their real declaration site (`is_https`, `sterilize`) or correct, connection-aware behavior (`check_setup`), so no further surprise should surface later in this same require chain.
+This preserves the existing behavior for every Unit-tier test (no `$GLOBALS['connection']` ⇒ still blindly `true`, unchanged) while giving Integration-tier tests — which DO have a real connection — the actual, correct, per-table answer `preflight.lib.php` needs.
+
+**One more, different-in-kind fix, found once the three stub/redeclaration issues above were resolved:** `tests/bootstrap.php:108` does `require_once LIB.'common.lib.php';` so Unit tests get every function in it without loading the rest of the app — but `site/bootstrap.php:60` re-loads the same file with a plain `require (LIB.'common.lib.php');` (not `require_once`). In a real single-request production process this is harmless (the file is never actually loaded twice), but in PHPUnit's single shared process it means `site/bootstrap.php` tries to redeclare every function in `common.lib.php` (`csrf_token_generate()`, etc.) the moment an Integration test loads the full `index.php` chain a second time in the same run. Fix in `site/bootstrap.php`:
+
+```php
+	require_once (LIB.'common.lib.php');
+```
+
+(Change only that one line — line 60 — from `require` to `require_once`. Leave the other `require` calls in this file as-is; they don't collide with anything `tests/bootstrap.php` preloads.)
+
+This is the complete set of fixes needed for this chain — all three of `tests/bootstrap.php`'s stubs now either have a matching guard at their real declaration site (`is_https`, `sterilize`) or correct, connection-aware behavior (`check_setup`), and the one file `tests/bootstrap.php` itself preloads (`common.lib.php`) is now safe to re-encounter later in the same chain. No further surprise of this kind should surface in Task 6 — but Task 7 loads a *different* legacy entry point (`includes/process.inc.php`) with its own independent require chain that ALSO plain-`include`s `common.lib.php` and `update.lib.php`; that task's own Step 0 addresses it (same root cause, same fix pattern, called out there rather than here since Task 6 doesn't touch `process.inc.php` at all).
 
 This is purely additive (the guard only matters when the function is already declared, which happens only under the PHPUnit bootstrap; normal production requests never hit the `false` branch) and does not change any function's behavior. It also unblocks Task 7's `LegacyProcessHandlerTest`, which loads the same `paths.php`/`update.lib.php` chain via `includes/process.inc.php` and would hit the identical collisions.
 
@@ -1445,7 +1455,7 @@ This can't be fully proven by an automated test until Task 9 rewrites `.htaccess
 
 ```bash
 docker compose exec web php -r '
-require "paths.php";
+define("ROOT", getcwd() . "/");
 require "src/Legacy/LegacyBootstrap.php";
 $_GET = ["section" => "contact"];
 $_SERVER["REQUEST_METHOD"] = "GET";
@@ -1453,7 +1463,7 @@ Bcoem\Legacy\LegacyBootstrap::requireRootFile("index.php");
 ' 2>&1 | head -20
 ```
 
-(`require "paths.php"` first, since `LegacyBootstrap::requireRootFile()` uses the `ROOT` constant that only `paths.php` defines — without it this snippet fatals on an undefined constant before ever reaching `index.php`.)
+**Do not pre-`require "paths.php"` at the top level of this snippet** (an earlier draft of this step did, and it's wrong): `LegacyBootstrap::requireRootFile()` is a static method, and PHP's `require` executes in the scope of wherever it's textually called — so if `paths.php` were required at the *top level* of this one-liner first, all the variables it sets (`$connection`, `$prefix`, etc.) would live in the script's global scope, not inside `requireRootFile()`'s method scope. Then when `index.php` (running *inside* that method) does its own `require_once('paths.php')`, `require_once` would see the file is already loaded and skip it entirely — silently leaving `$connection`/`$prefix`/etc. undefined in the scope `index.php` is actually running in. Defining only the bare `ROOT` constant (constants are scope-independent in PHP, unlike variables) and letting `index.php`'s own `require_once('paths.php')` be the one-and-only real execution of `paths.php` — inside `requireRootFile()`'s scope, exactly like the real `LegacyPageHandler` flow — avoids the mismatch entirely.
 
 Expected: HTML output, no PHP fatal errors.
 
@@ -1470,10 +1480,31 @@ git commit -m "Add LegacyPageHandler: bridge GET requests to the existing index.
 
 **Files:**
 - Create: `src/Legacy/LegacyProcessHandler.php`, `tests/Integration/LegacyProcessHandlerTest.php`
+- Modify: `includes/process.inc.php` (Step 0 — same root cause as Task 6's Step 0, predicted in advance rather than rediscovered)
 
 **Interfaces:**
 - Consumes: `AuthorizationMiddleware`'s `process:` route type (Task 4).
 - Produces: `Bcoem\Legacy\LegacyProcessHandler::__invoke($request, $response)`.
+
+- [ ] **Step 0: Fix the same test-bootstrap/legacy-code collision Task 6 hit, before it recurs here**
+
+`includes/process.inc.php` has its own independent require chain (it does NOT go through `site/bootstrap.php`) and does:
+
+```php
+include (LIB.'common.lib.php');
+include (LIB.'update.lib.php');
+```
+
+Both plain `include` (not `include_once`). `tests/bootstrap.php` preloads `common.lib.php` via `require_once` for every Unit test, and — once Task 6 lands — `update.lib.php` is also routinely loaded during the same PHPUnit process via the `index.php` chain. PHPUnit runs the whole suite in one shared PHP process (no `--process-isolation`), so by the time `LegacyProcessHandlerTest` runs, both files are highly likely to already be loaded, and a plain `include` of an already-loaded file that declares functions unconditionally is a fatal "cannot redeclare" error — the exact same failure mode Task 6 hit three times over, just via a different entry point. Fix pre-emptively:
+
+```php
+include_once (LIB.'common.lib.php');
+include_once (LIB.'update.lib.php');
+```
+
+(Change only these two lines. This has zero effect on real production behavior — a real request only ever loads each file once regardless of `include` vs `include_once` — it only matters for the shared-process PHPUnit scenario.)
+
+Run the full Unit suite afterward to confirm nothing changes: `docker compose exec web vendor/bin/phpunit --testsuite Unit` (same pass count as before).
 
 - [ ] **Step 1: Write `LegacyProcessHandler`**
 
