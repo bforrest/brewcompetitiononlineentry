@@ -28,12 +28,19 @@ RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 # If storing your installation in a sub-folder, uncomment the following line (remove the # symbol) and replace [subfolder] with the name of your subfolder
 # RewriteBase /[subfolder]
 
-# SEF URLs
-RewriteRule ^$ index.php [L]
-RewriteRule ^([A-Za-z0-9-]+)?$ index.php?section=$1 [L]
-RewriteRule ^([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/?$ index.php?section=$1&go=$2 [L]
-RewriteRule ^([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/?$ index.php?section=$1&go=$2&action=$3 [L]
-RewriteRule ^([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/?$ index.php?section=$1&go=$2&action=$3&id=$4 [L]
+# Single front controller: everything funnels through index.php so
+# AuthorizationMiddleware runs first, EXCEPT the genuinely static asset
+# directories below. Deliberately NOT the standard
+# `RewriteCond %{REQUEST_FILENAME} !-f` front-controller pattern - that
+# excludes any request matching a real file on disk, which is exactly wrong
+# here: qr.php, handle.php, ppv.php, every ajax/*.php, and the other side
+# doors wrapped behind the authorization pipeline (Task 8) are real files on
+# disk that must still funnel through index.php rather than being served
+# directly by Apache/mod_php as they were before. Excluding by directory
+# instead of by file-existence gets this right.
+RewriteCond %{REQUEST_URI} !^/(css|js_includes|js_source|images|user_images|user_docs|user_temp)/ [NC]
+RewriteRule ^(.*)$ index.php [QSA,L]
+
 RewriteRule ^.*user_docs/.*\.pdf$ - [F,NC,L]
 
 # Block bad bots

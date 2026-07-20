@@ -25,3 +25,7 @@ parameters:
         - Docs(?)
         - .claude(?)
         - .github(?)
+
+rules:
+    - Bcoem\PHPStan\NoMysqliOutsideConnectionRule
+    - Bcoem\PHPStan\NoLegacyReferenceOutsideLegacyRule

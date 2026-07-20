@@ -19,16 +19,18 @@ use Psr\Http\Message\ServerRequestInterface;
  * via register_shutdown_function(), never relied on to run "after" this
  * method returns.
  *
- * $targetFile defaults to the real index.php for production use; tests
- * substitute a small inert fixture (see LegacyPageHandlerTest) so the
- * handler's own bridging logic is provable without pulling in index.php's
- * full side-effecting bootstrap chain (DB, sessions, dozens of legacy
- * requires) - that end-to-end behavior is proven manually (Step 4) and via
- * Task 10's Playwright e2e suite once a real route exists (Task 9).
+ * $targetFile defaults to the real legacy/index.php (Task 9 relocated the
+ * original root index.php there so the new thin front controller could take
+ * the root index.php name) for production use; tests substitute a small
+ * inert fixture (see LegacyPageHandlerTest) so the handler's own bridging
+ * logic is provable without pulling in index.php's full side-effecting
+ * bootstrap chain (DB, sessions, dozens of legacy requires) - that
+ * end-to-end behavior is proven manually (Step 4) and via Task 10's
+ * Playwright e2e suite once a real route exists (Task 9).
  */
 final class LegacyPageHandler
 {
-    public function __construct(private readonly string $targetFile = 'index.php')
+    public function __construct(private readonly string $targetFile = 'legacy/index.php')
     {
     }
 

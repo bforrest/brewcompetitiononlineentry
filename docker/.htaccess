@@ -30,12 +30,15 @@ RewriteEngine on
 # If storing your installation in a sub-folder, uncomment the following line (remove the # symbol) and replace [subfolder] with the name of your subfolder
 # RewriteBase /[subfolder]
 
-# SEF URLs
-RewriteRule ^$ index.php [L]
-RewriteRule ^([A-Za-z0-9-]+)?$ index.php?section=$1 [L]
-RewriteRule ^([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/?$ index.php?section=$1&go=$2 [L]
-RewriteRule ^([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/?$ index.php?section=$1&go=$2&action=$3 [L]
-RewriteRule ^([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/?$ index.php?section=$1&go=$2&action=$3&id=$4 [L]
+# Single front controller (mirrors root .htaccess - see that file's comment
+# for the full "why not RewriteCond %{REQUEST_FILENAME} !-f" rationale).
+# This copy exists only because docker-compose.yml bind-mounts this file
+# over the root .htaccess for local dev (to disable the HTTPS redirect
+# above); the two must be kept in sync or local verification silently tests
+# against stale rewrite rules.
+RewriteCond %{REQUEST_URI} !^/(css|js_includes|js_source|images|user_images|user_docs|user_temp)/ [NC]
+RewriteRule ^(.*)$ index.php [QSA,L]
+
 RewriteRule ^.*user_docs/.*\.pdf$ - [F,NC,L]
 
 # Block bad bots
