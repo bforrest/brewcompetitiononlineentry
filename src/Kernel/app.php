@@ -26,5 +26,29 @@ function buildApp(): App
         return $response;
     });
 
+    // Register one route per side door, derived directly from
+    // config/access_policy.php's file:* keys - that map is the single
+    // source of truth for exactly which side doors exist (Task 3/3a's
+    // whole point), so the route list is derived from it rather than
+    // hand-maintained here, where it could silently drift out of sync.
+    $policyMap = require __DIR__ . '/../../config/access_policy.php';
+    $fileRoutes = [];
+    foreach (array_keys($policyMap) as $key) {
+        if (str_starts_with($key, 'file:')) {
+            $fileRoutes[] = substr($key, strlen('file:'));
+        }
+    }
+
+    foreach ($fileRoutes as $file) {
+        $webPath = '/' . $file;
+        $routeAttr = function ($request, $handler) use ($file) {
+            return $handler->handle(
+                $request->withAttribute('routeType', 'file')->withAttribute('routeFile', $file)
+            );
+        };
+        $app->map(['GET', 'POST'], $webPath, new \Bcoem\Legacy\LegacyFileHandler($file))
+            ->add($routeAttr);
+    }
+
     return $app;
 }
