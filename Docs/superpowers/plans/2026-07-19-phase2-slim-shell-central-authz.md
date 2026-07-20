@@ -1682,6 +1682,355 @@ git commit -m "Wrap every self-bootstrapping side door behind the authorization 
 
 ---
 
+### Task 8a: Fix a critical bug — `AuthorizationMiddleware` never actually saw per-route policy attributes
+
+**Found by Task 8's reviewer, independently reproduced and root-caused.** Since Task 4, `AuthorizationMiddleware` was registered as *global* app middleware (`$app->add(...)`), while `routeType`/`routeFile` were attached by *route-level* middleware (`->add($routeAttr)` on each individual `Route` object, from Task 8's Step 2). In Slim 4/PSR-15, global app middleware always runs before the router matches and dispatches to a specific route's own middleware stack — confirmed by direct, isolated reproduction against a real `Bridge::create()` app (not a synthetic request): a global middleware trying to read the matched route via `RouteContext::fromRequest($request)` throws `Cannot create RouteContext before routing has been completed` when placed where `AuthorizationMiddleware` sits, and route-level middleware attributes are never visible to anything outside that specific route's own dispatch chain. Every one of Task 8's 25 file routes was silently falling through to `AuthorizationMiddleware`'s `default` match arm — `requiredRoleFor('default', ...)` → `section:default` → `Role::Anonymous` — regardless of the file's actual declared role (several are `SuperAdmin`/`Admin`/`Judge`). This is why it went undetected through four reviewed tasks: every existing `AuthorizationMiddlewareTest` case constructed a synthetic PSR-7 request and called `->withAttribute('routeType', ...)` directly, never exercising Slim's real routing at all — the exact mechanism that was broken.
+
+**The fix, verified working by direct reproduction before writing it up here:** stop passing routing info through request attributes set by middleware the authorizer can't see. Instead, name each route at registration time (`->setName('file:qr.php')`, `->setName('section')`, etc.) and have `AuthorizationMiddleware` read the *matched route's name* — which requires it to run **after** Slim's own routing has occurred. Reproduced this exact ordering against a real app and confirmed the middleware correctly received `route name = file:qr.php` before reaching the handler.
+
+**Files:**
+- Modify: `src/Kernel/Middleware/AuthorizationMiddleware.php`, `src/Kernel/app.php`, `tests/Unit/Kernel/Middleware/AuthorizationMiddlewareTest.php`
+
+**Interfaces:**
+- Produces: `AuthorizationMiddleware` now derives its policy lookup from `RouteContext::fromRequest($request)->getRoute()?->getName()` (format `"{type}"` or `"{type}:{arg}"`) instead of `routeType`/`routeFile` request attributes. Every route registered anywhere in `app.php` must call `->setName(...)` accordingly — this is now the contract Task 9's new routes must also follow (that task's own text is updated to match).
+
+- [ ] **Step 1: Rewrite `AuthorizationMiddleware`**
+
+`src/Kernel/Middleware/AuthorizationMiddleware.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Kernel\Middleware;
+
+use Bcoem\Security\AccessPolicy;
+use Bcoem\Security\Identity;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Slim\Psr7\Factory\ResponseFactory;
+use Slim\Routing\RouteContext;
+
+final class AuthorizationMiddleware implements MiddlewareInterface
+{
+    public function __construct(private readonly AccessPolicy $policy)
+    {
+    }
+
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $identity = $request->getAttribute('identity') ?? Identity::fromSession([]);
+
+        // Requires Slim's routing to have already run (app.php places
+        // addRoutingMiddleware() before this middleware in the pipeline).
+        // Falls back to the 'section' default if routing genuinely hasn't
+        // happened yet (defensive - keeps this middleware usable in a
+        // standalone/misconfigured context without a hard crash).
+        try {
+            $route = RouteContext::fromRequest($request)->getRoute();
+        } catch (\RuntimeException) {
+            $route = null;
+        }
+        $routeName = $route?->getName() ?? 'section';
+        [$routeType, $routeArg] = str_contains($routeName, ':')
+            ? explode(':', $routeName, 2)
+            : [$routeName, null];
+
+        $required = match ($routeType) {
+            'process' => $this->policy->requiredRoleForProcessAction(
+                $request->getQueryParams()['action'] ?? null,
+                $request->getQueryParams()['dbTable'] ?? null,
+            ),
+            'file' => $this->policy->requiredRoleForFile((string)$routeArg),
+            'output' => $this->policy->requiredRoleForOutputSection(
+                (string)($request->getQueryParams()['section'] ?? '')
+            ),
+            default => $this->policy->requiredRoleFor(
+                (string)($request->getQueryParams()['section'] ?? 'default'),
+                $request->getQueryParams()['go'] ?? null,
+                $request->getQueryParams()['action'] ?? null,
+            ),
+        };
+
+        if ($required === null || !$identity->role->satisfies($required)) {
+            $response = (new ResponseFactory())->createResponse(403);
+            $response->getBody()->write('Forbidden');
+            return $response;
+        }
+
+        return $handler->handle($request);
+    }
+}
+```
+
+- [ ] **Step 2: Fix the pipeline wiring and every route registration in `src/Kernel/app.php`**
+
+Replace the whole file:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use DI\Bridge\Slim\Bridge;
+use Slim\App;
+
+/**
+ * Builds the Slim app. Does NOT run it - callers (index.php, tests) decide
+ * whether to ->run() against real superglobals or ->handle() a constructed
+ * PSR-7 request.
+ */
+function buildApp(): App
+{
+    $container = require __DIR__ . '/container.php';
+    $app = Bridge::create($container);
+
+    // Middleware add() order is LIFO for the request phase (last add() =
+    // outermost = runs first). Desired execution order: Session ->
+    // Authentication -> Slim's own routing -> Authorization -> route
+    // handler. AuthorizationMiddleware reads the MATCHED route's name (set
+    // via ->setName() on every route below) to determine which policy
+    // entry governs, so Slim's routing must already have run by the time
+    // it executes - hence addRoutingMiddleware() sits between the add()
+    // calls for Authorization and Authentication here (Task 8a fix).
+    $app->add(new \Bcoem\Kernel\Middleware\AuthorizationMiddleware(
+        \Bcoem\Security\AccessPolicy::fromFile(__DIR__ . '/../../config/access_policy.php')
+    ));
+    $app->addRoutingMiddleware();
+    $app->add(new \Bcoem\Kernel\Middleware\AuthenticationMiddleware());
+    $app->add(new \Bcoem\Kernel\Middleware\SessionMiddleware());
+
+    $app->get('/__kernel_hello', function ($request, $response) {
+        $response->getBody()->write('ok');
+        return $response;
+    })->setName('section');
+
+    // Register one route per side door, derived directly from
+    // config/access_policy.php's file:* keys - that map is the single
+    // source of truth for exactly which side doors exist (Task 3/3a's
+    // whole point), so the route list is derived from it rather than
+    // hand-maintained here, where it could silently drift out of sync.
+    $policyMap = require __DIR__ . '/../../config/access_policy.php';
+    $fileRoutes = [];
+    foreach (array_keys($policyMap) as $key) {
+        if (str_starts_with($key, 'file:')) {
+            $fileRoutes[] = substr($key, strlen('file:'));
+        }
+    }
+
+    foreach ($fileRoutes as $file) {
+        $webPath = '/' . $file;
+        $app->map(['GET', 'POST'], $webPath, new \Bcoem\Legacy\LegacyFileHandler($file))
+            ->setName('file:' . $file);
+    }
+
+    return $app;
+}
+```
+
+The per-route `$routeAttr` closure from Task 8 is gone entirely — naming the route replaces it, and `->setName()` is visible to `AuthorizationMiddleware` regardless of the outer/inner middleware split that broke the attribute approach.
+
+- [ ] **Step 3: Rewrite `AuthorizationMiddlewareTest` to dispatch through a real Slim app**
+
+**This is the important part.** The original tests passed because they never exercised real routing — that's exactly how this bug hid for four tasks. The rewritten tests build a small real app (same `Bridge::create()` + middleware-order pattern as production `app.php`) and dispatch real PSR-7 requests through it, so a regression in the pipeline ordering itself would be caught, not just a regression in the policy-lookup logic in isolation.
+
+`tests/Unit/Kernel/Middleware/AuthorizationMiddlewareTest.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+use Bcoem\Kernel\Middleware\AuthorizationMiddleware;
+use Bcoem\Security\AccessPolicy;
+use Bcoem\Security\Identity;
+use DI\Bridge\Slim\Bridge;
+use Slim\App;
+use Slim\Psr7\Factory\ServerRequestFactory;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Http\Message\ResponseInterface;
+
+class AuthorizationMiddlewareTest extends TestCase
+{
+    private function policy(): AccessPolicy
+    {
+        return AccessPolicy::fromFile(ROOT . 'config/access_policy.php');
+    }
+
+    /**
+     * Builds a real Slim app wired with the exact same middleware order as
+     * production src/Kernel/app.php (Authorization -> routing ->
+     * Authentication-stand-in -> handler), so these tests exercise the real
+     * pipeline ordering, not a hand-constructed request/attribute pair.
+     */
+    private function buildTestApp(Identity $identity, string $routeName): App
+    {
+        $app = Bridge::create(new \DI\Container());
+
+        $app->add(new AuthorizationMiddleware($this->policy()));
+        $app->addRoutingMiddleware();
+        $app->add(function (ServerRequestInterface $request, RequestHandlerInterface $handler) use ($identity): ResponseInterface {
+            return $handler->handle($request->withAttribute('identity', $identity));
+        });
+
+        $handler = function ($request, $response) {
+            $response->getBody()->write('ok');
+            return $response;
+        };
+        $app->map(['GET', 'POST'], '/test-route', $handler)->setName($routeName);
+
+        return $app;
+    }
+
+    private function get(App $app, string $uri): ResponseInterface
+    {
+        parse_str((string)parse_url($uri, PHP_URL_QUERY), $query);
+        $request = (new ServerRequestFactory())->createServerRequest('GET', $uri)->withQueryParams($query);
+        return $app->handle($request);
+    }
+
+    public function test_anonymous_may_reach_a_public_section(): void
+    {
+        $app = $this->buildTestApp(Identity::fromSession([]), 'section');
+        $response = $this->get($app, '/test-route?section=contact');
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('ok', (string)$response->getBody());
+    }
+
+    public function test_anonymous_is_denied_the_admin_section(): void
+    {
+        $app = $this->buildTestApp(Identity::fromSession([]), 'section');
+        $response = $this->get($app, '/test-route?section=admin');
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function test_entrant_is_denied_a_super_admin_only_go(): void
+    {
+        $app = $this->buildTestApp(
+            Identity::fromSession(['loginUsername' => 'e@example.com', 'userLevel' => '3']),
+            'section'
+        );
+        $response = $this->get($app, '/test-route?section=admin&go=styles');
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function test_super_admin_may_reach_a_super_admin_only_go(): void
+    {
+        $app = $this->buildTestApp(
+            Identity::fromSession(['loginUsername' => 'a@example.com', 'userLevel' => '0']),
+            'section'
+        );
+        $response = $this->get($app, '/test-route?section=admin&go=styles');
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function test_undeclared_section_is_denied_fail_closed(): void
+    {
+        $app = $this->buildTestApp(
+            Identity::fromSession(['loginUsername' => 'a@example.com', 'userLevel' => '0']),
+            'section'
+        );
+        // Even a super-admin is denied - undeclared means denied, no exceptions.
+        $response = $this->get($app, '/test-route?section=brand-new-undeclared-section');
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function test_process_route_checks_process_action_via_query_params(): void
+    {
+        $app = $this->buildTestApp(Identity::fromSession([]), 'process');
+        $response = $this->get($app, '/test-route?action=login');
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function test_file_route_allows_when_the_files_declared_role_is_satisfied(): void
+    {
+        // qr.php is Role::Anonymous in the real policy map.
+        $app = $this->buildTestApp(Identity::fromSession([]), 'file:qr.php');
+        $response = $this->get($app, '/test-route');
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function test_file_route_denies_when_the_files_declared_role_is_not_satisfied(): void
+    {
+        // ajax/purge.ajax.php is Role::SuperAdmin in the real policy map.
+        $app = $this->buildTestApp(
+            Identity::fromSession(['loginUsername' => 'e@example.com', 'userLevel' => '3']),
+            'file:ajax/purge.ajax.php'
+        );
+        $response = $this->get($app, '/test-route');
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function test_missing_identity_attribute_denies_a_privileged_route(): void
+    {
+        $app = Bridge::create(new \DI\Container());
+        $app->add(new AuthorizationMiddleware($this->policy()));
+        $app->addRoutingMiddleware();
+        // Deliberately NOT adding the identity-attaching middleware -
+        // simulates a misconfigured pipeline.
+        $handler = function ($request, $response) {
+            $response->getBody()->write('ok');
+            return $response;
+        };
+        $app->get('/test-route', $handler)->setName('section');
+
+        $response = $this->get($app, '/test-route?section=admin');
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
+}
+```
+
+- [ ] **Step 4: Run — this is the test that should have caught the original bug, so it matters that it actually exercises the fix**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter AuthorizationMiddlewareTest
+```
+
+Expected: `OK (9 tests, ...)`. Then confirm the specific scenario that was broken now works, live, against the real built app (not the test double):
+
+```bash
+docker compose exec web php -r '
+require "vendor/autoload.php";
+require_once "src/Kernel/app.php";
+$app = buildApp();
+$request = (new \Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest("GET", "/ajax/purge.ajax.php");
+$response = $app->handle($request);
+echo "GET /ajax/purge.ajax.php (declared SuperAdmin, no identity attached) -> " . $response->getStatusCode() . "\n";
+'
+```
+
+Expected: `403` (before this fix, this printed `200` and would have gone on to execute the real, unauthenticated `ajax/purge.ajax.php` — a live authorization bypass on a SuperAdmin-only side door).
+
+- [ ] **Step 5: Run the full Unit suite**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit
+```
+
+Expected: same or higher pass count than before (net new tests, zero regressions — `LegacyFileHandlerTest`/`LegacyProcessHandlerTest`/`LegacyPageHandlerTest` don't touch the Slim app at all, so they're unaffected by this change).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/Kernel/Middleware/AuthorizationMiddleware.php src/Kernel/app.php tests/Unit/Kernel/Middleware/AuthorizationMiddlewareTest.php
+git commit -m "Fix critical bug: AuthorizationMiddleware never saw route-level policy attributes (route naming + addRoutingMiddleware fix)"
+```
+
+---
+
 ### Task 9: New front controller + `.htaccess` rewrite + PHPStan legacy-isolation rules
 
 **Files:**
@@ -1739,19 +2088,16 @@ buildApp()->run();
 In `src/Kernel/app.php`, alongside the side-door routes from Task 8:
 
 ```php
-    $app->get('/index.php', new \Bcoem\Legacy\LegacyPageHandler())
-        ->add(function ($request, $handler) {
-            return $handler->handle($request->withAttribute('routeType', 'section'));
-        });
-    $app->post('/includes/process.inc.php', new \Bcoem\Legacy\LegacyProcessHandler())
-        ->add(function ($request, $handler) {
-            return $handler->handle($request->withAttribute('routeType', 'process'));
-        });
-    $app->get('/', new \Bcoem\Legacy\LegacyPageHandler())
-        ->add(function ($request, $handler) {
-            return $handler->handle($request->withAttribute('routeType', 'section'));
-        });
+    $app->get('/index.php', new \Bcoem\Legacy\LegacyPageHandler())->setName('section');
+    $app->post('/includes/process.inc.php', new \Bcoem\Legacy\LegacyProcessHandler())->setName('process');
+    $app->get('/', new \Bcoem\Legacy\LegacyPageHandler())->setName('section');
+    $app->map(['GET', 'POST'], '/includes/output.inc.php', new \Bcoem\Legacy\LegacyFileHandler('includes/output.inc.php'))
+        ->setName('output');
 ```
+
+**`includes/output.inc.php` needs its own registration here — a gap found while writing this task, not covered anywhere earlier.** Task 3a declared its `output:section:*` policy entries and `AuthorizationMiddleware` has always had an `'output'` match arm, but no prior task ever registered an actual Slim route for it (Task 8's derivation only covers `file:*` policy keys, and `output:section:*` is a different namespace — one dispatcher file gated per-*section*-query-param, not one route per file). Without this line, `includes/output.inc.php` — real, currently-used export/print/label/scoresheet functionality — would 404 once the `.htaccess` rewrite below routes everything through the front controller, since no registered route would match it at all. `LegacyFileHandler` (Task 8) is reused here rather than `LegacyPageHandler`, since `output.inc.php` is self-bootstrapping like the other side doors, not part of the `index.php` GET-section flow.
+
+(Task 8a replaced the old `routeType`/`routeFile` request-attribute approach with route naming — `AuthorizationMiddleware` now reads the matched route's name directly, which requires Slim's own routing to have already run by the time it executes; `app.php`'s middleware order already accounts for this. No route-level attribute-setting middleware is needed here anymore.)
 
 - [ ] **Step 4: Rewrite `.htaccess` for a single front controller with a static-file passthrough**
 
@@ -1790,6 +2136,7 @@ Keep the SEF path-segment behavior by pre-parsing it: since everything now funne
 
 ```php
     $app->get('/{section}[/{go}[/{action}[/{id}]]]', new \Bcoem\Legacy\LegacyPageHandler())
+        ->setName('section')
         ->add(function ($request, $handler) {
             $args = $request->getAttribute('__route__')?->getArguments() ?? [];
             foreach (['section', 'go', 'action', 'id'] as $key) {
@@ -1798,9 +2145,11 @@ Keep the SEF path-segment behavior by pre-parsing it: since everything now funne
                     $request = $request->withQueryParams([...$request->getQueryParams(), $key => $args[$key]]);
                 }
             }
-            return $handler->handle($request->withAttribute('routeType', 'section'));
+            return $handler->handle($request);
         });
 ```
+
+This route-level middleware still runs (it's attached to this specific route, executing once Slim dispatches to it) and is still needed to translate SEF path segments into `$_GET`/query params `LegacyPageHandler` and downstream legacy code expect — that part is unrelated to the Task 8a bug. Only the `routeType` attribute-setting is gone, replaced by `->setName('section')` at registration.
 
 Place this route registration **after** the explicit `/index.php`, `/includes/process.inc.php`, and side-door routes (Slim matches routes in registration order for overlapping patterns) so those explicit paths are never swallowed by the generic SEF pattern.
 
