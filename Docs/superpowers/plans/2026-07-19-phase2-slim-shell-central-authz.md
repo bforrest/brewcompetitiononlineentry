@@ -1219,7 +1219,7 @@ git commit -m "Add Session and Authentication middleware; wire the pipeline orde
 
 **Files:**
 - Create: `src/Legacy/LegacyBootstrap.php`, `src/Legacy/LegacyPageHandler.php`, `tests/Integration/LegacyPageHandlerTest.php`
-- Modify: `paths.php` (Step 0 — a prerequisite fix, discovered while implementing this task, not anticipated when this plan was written)
+- Modify: `paths.php`, `lib/update.lib.php` (Step 0 — a prerequisite fix, discovered while implementing this task, not anticipated when this plan was written)
 
 **Interfaces:**
 - Consumes: `AuthorizationMiddleware` has already run (denied requests never reach this handler).
@@ -1268,7 +1268,30 @@ function sterilize($sterilize = NULL) {
 }
 ```
 
-This is purely additive (the guard only matters when the function is already declared, which happens only under the PHPUnit bootstrap; normal production requests never hit the `false` branch) and does not change either function's behavior. It also unblocks Task 7's `LegacyProcessHandlerTest`, which loads the same `paths.php` chain via `includes/process.inc.php` and would hit the identical collision.
+`tests/bootstrap.php` stubs exactly three functions total (confirmed by grepping it for every `function_exists()`-guarded declaration): `sterilize`, `is_https` (both above, in `paths.php`), and **`check_setup`** — one more hop down the same `index.php` chain (`index.php` → `site/bootstrap.php` → `preflight.lib.php` → `lib/update.lib.php`, which declares `check_setup()` unconditionally). Fix that one too, in `lib/update.lib.php`:
+
+```php
+<?php
+if (!function_exists('check_setup')) {
+function check_setup($tablename, $database) {
+	
+	require(CONFIG.'config.php');
+	mysqli_select_db($connection,$database);
+	
+	$query_log = sprintf("SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'", $database, $tablename);
+	$log = mysqli_query($connection,$query_log) or die (mysqli_error($connection));
+	$row_log = mysqli_fetch_assoc($log);
+
+	if ($row_log['count'] == 0) return FALSE;
+	else return TRUE;
+
+}
+}
+```
+
+(Only the `check_setup` declaration itself gets wrapped — everything else already in `lib/update.lib.php`, including the sibling `check_update()` function right after it, is untouched.) This is the complete set — all three of `tests/bootstrap.php`'s stubs now have a matching guard at their real declaration site, so no further collision should surface later in this same require chain.
+
+This is purely additive (the guard only matters when the function is already declared, which happens only under the PHPUnit bootstrap; normal production requests never hit the `false` branch) and does not change any function's behavior. It also unblocks Task 7's `LegacyProcessHandlerTest`, which loads the same `paths.php`/`update.lib.php` chain via `includes/process.inc.php` and would hit the identical collisions.
 
 Run the full Unit suite afterward to confirm the guard doesn't change anything for the existing tests that rely on the stub:
 
