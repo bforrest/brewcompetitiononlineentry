@@ -3,6 +3,7 @@
     "description": "Brew Competition Online Entry & Management",
     "type": "project",
     "require": {
+        "monolog/monolog": "^3.0",
         "php-di/php-di": "^7.0",
         "php-di/slim-bridge": "^3.4",
         "pixel418/markdownify": "^2.3",

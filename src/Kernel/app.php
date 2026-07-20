@@ -10,9 +10,12 @@ use Slim\App;
  * whether to ->run() against real superglobals or ->handle() a constructed
  * PSR-7 request.
  */
-function buildApp(): App
+function buildApp(?\Psr\Container\ContainerInterface $container = null): App
 {
-    $container = require __DIR__ . '/container.php';
+    // index.php builds the container first (to register legacy error logging on
+    // its `legacy` channel before dispatch) and passes it in; callers that
+    // don't care get a freshly built one.
+    $container ??= require __DIR__ . '/container.php';
     $app = Bridge::create($container);
 
     // Middleware add() order is LIFO for the request phase (last add() =
@@ -66,13 +69,25 @@ function buildApp(): App
     // Outermost of all: catches Slim's own routing exceptions (e.g.
     // HttpNotFoundException for a URL matching none of the routes below -
     // a real, empirically-hit case once EVERY request funnels through this
-    // front controller, e.g. a stray trailing slash or a bot-probed path)
-    // and any other uncaught exception, turning it into a plain error
-    // response instead of an uncaught fatal. displayErrorDetails is FALSE
-    // (no stack traces to clients, matching this app's existing
-    // display_errors=Off posture); logErrors/logErrorDetails TRUE (full
-    // detail still reaches the server's error log for debugging).
-    $app->addErrorMiddleware(false, true, true);
+    // front controller, e.g. a stray trailing slash or a bot-probed path),
+    // the legacy mysqli_sql_exception thrown by any failed query (the
+    // exception model that made the old `or die(mysqli_error())` idiom dead
+    // code - see container.php's mysqli_report line), and any other uncaught
+    // exception. The custom Bcoem\Kernel\ErrorHandler turns each into a
+    // branded HTML page or {error, reference_id} JSON envelope (never a raw
+    // stack trace or mysqli_error() string - closes P2-SEC-007), while still
+    // logging the full trace + request context to Monolog under that same
+    // reference ID.
+    //
+    // APP_DEBUG=1 flips on in-browser trace display (replaces hand-editing
+    // paths.php's DEBUG constant). displayErrorDetails is passed to
+    // addErrorMiddleware too so Slim's own logging honors it; logErrors /
+    // logErrorDetails stay TRUE so full detail always reaches the log.
+    $displayErrorDetails = getenv('APP_DEBUG') === '1';
+    $errorMiddleware = $app->addErrorMiddleware($displayErrorDetails, true, true);
+    $errorMiddleware->setDefaultErrorHandler(
+        new \Bcoem\Kernel\ErrorHandler($container->get('logger.app'), $displayErrorDetails)
+    );
 
     $app->get('/__kernel_hello', function ($request, $response) {
         $response->getBody()->write('ok');

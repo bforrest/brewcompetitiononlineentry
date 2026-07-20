@@ -46,5 +46,13 @@ if (!defined('ROOT')) {
 }
 
 require_once __DIR__ . '/src/Kernel/app.php';
+require_once __DIR__ . '/src/Kernel/bootstrap_errors.php';
 
-buildApp()->run();
+// Build the container once so the legacy warning/notice capture can be wired
+// onto its Monolog `legacy` channel before any request is dispatched, then
+// hand the same instance to buildApp(). container.php also makes mysqli's
+// exception-throwing mode explicit (see its header comment).
+$container = require __DIR__ . '/src/Kernel/container.php';
+bcoem_register_error_logging($container->get('logger.legacy'));
+
+buildApp($container)->run();
