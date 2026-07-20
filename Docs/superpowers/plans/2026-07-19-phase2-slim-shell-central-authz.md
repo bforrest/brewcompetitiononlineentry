@@ -1217,129 +1217,14 @@ git commit -m "Add Session and Authentication middleware; wire the pipeline orde
 
 ### Task 6: `LegacyPageHandler` — bridge the GET (`index.php?section=...`) flow
 
+**Testing-strategy note (decided after extensive investigation, see the plan's revision history if working from git blame):** an earlier draft of this task tried to prove the bridge automatically via a PHPUnit Integration test that required the *real* `index.php` end-to-end. That was abandoned — not because the bridge code is wrong (it was verified correct, repeatedly, by direct manual testing), but because `index.php`'s real bootstrap chain has global side effects (an unconditional `mysqli_close()`, a require chain PHP can only safely execute once per process, ~30 constants and several functions also predefined by `tests/bootstrap.php`) that fight PHPUnit's shared-process test harness no matter how they're isolated — including PHPUnit's own `#[RunInSeparateProcess]`, which fails a test on *any* non-empty child stderr, and legacy deprecation/warning noise (all pre-existing, all already tolerated everywhere else in this suite) makes that unachievable without extensively modifying files far outside this task's scope. **The decision:** this task's automated test proves `LegacyBootstrap`/`LegacyPageHandler`'s *own* logic (query-param copying, `chdir`, root-relative `require`) against a small, inert fixture file — not the real `index.php`. Real end-to-end proof that the bridge renders actual pages correctly comes from this task's own manual check (Step 4, keep doing it) now, and automatically from Task 10's Playwright e2e suite once Task 9 wires an actual route — exactly the tool this phase's design already earmarked for full-page-render verification, running against a real web server process with none of these test-harness artifacts.
+
 **Files:**
-- Create: `src/Legacy/LegacyBootstrap.php`, `src/Legacy/LegacyPageHandler.php`, `tests/Integration/LegacyPageHandlerTest.php`
-- Modify: `paths.php`, `lib/update.lib.php`, `tests/bootstrap.php`, `site/bootstrap.php` (Step 0 — a prerequisite fix, discovered while implementing this task, not anticipated when this plan was written)
+- Create: `src/Legacy/LegacyBootstrap.php`, `src/Legacy/LegacyPageHandler.php`, `tests/fixtures/legacy_root_fixture.php`, `tests/Unit/Legacy/LegacyPageHandlerTest.php`
 
 **Interfaces:**
 - Consumes: `AuthorizationMiddleware` has already run (denied requests never reach this handler).
-- Produces: `Bcoem\Legacy\LegacyPageHandler::__invoke($request, $response, $args)` — a Slim route callable that `require`s the real `index.php` from within the app root, letting it run exactly as it does today (its own `header()`/`exit()` calls take effect on the real SAPI, unmodified).
-
-- [ ] **Step 0: Fix a test-bootstrap/legacy-code function collision (prerequisite)**
-
-`tests/bootstrap.php` (PHPUnit's shared bootstrap, loaded once before any test) stubs `is_https()` and `sterilize()` behind `function_exists()` guards, so narrow Unit-tier tests can load `common.lib.php` without the full legacy bootstrap. `paths.php` declares both of those same functions **unconditionally**. Every test up to this point only ever loaded `common.lib.php` directly (never `paths.php`), so this never collided — but this task's Integration test is the first to load the *full* `index.php` → `paths.php` chain, and PHP fatals with `Cannot redeclare is_https()` the moment it does, since `tests/bootstrap.php`'s stub already claimed the name first.
-
-Fix by mirroring `tests/bootstrap.php`'s own guard pattern in `paths.php` — wrap both declarations:
-
-```php
-if (!function_exists('is_https')) {
-function is_https() {
-    if (((!empty($_SERVER['HTTPS'])) && (strtolower($_SERVER['HTTPS']) !== "off")) || ((isset($_SERVER['SERVER_PORT'])) && ($_SERVER['SERVER_PORT'] === "443"))) return TRUE;
-    elseif (((!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == "https")) || ((!empty($_SERVER['HTTP_X_FORWARDED_SSL'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_SSL']) == "on"))) return TRUE;
-    else return FALSE;
-}
-}
-```
-
-and
-
-```php
-if (!function_exists('sterilize')) {
-function sterilize($sterilize = NULL) {
-    if ($sterilize == NULL) return NULL;
-    elseif (empty($sterilize)) return $sterilize;
-    else {
-        $sterilize = trim($sterilize);
-        if (is_numeric($sterilize)) {
-            if (is_float($sterilize)) $sterilize = filter_var($sterilize,FILTER_SANITIZE_NUMBER_FLOAT,FILTER_FLAG_ALLOW_FRACTION);
-            if (is_int($sterilize)) {
-                if ($sterilize == 0) $sterilize = 0;
-                else $sterilize = filter_var($sterilize,FILTER_SANITIZE_NUMBER_INT);
-            }            
-        }
-        else $sterilize = filter_var($sterilize,FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-        $sterilize = strip_tags($sterilize);
-        $sterilize = stripcslashes($sterilize);
-        $sterilize = stripslashes($sterilize);
-        $sterilize = addslashes($sterilize);
-        return $sterilize;
-    }
-}
-}
-```
-
-`tests/bootstrap.php` stubs exactly three functions total (confirmed by grepping it for every `function_exists()`-guarded declaration): `sterilize`, `is_https` (both above, in `paths.php`), and **`check_setup`** — one more hop down the same `index.php` chain (`index.php` → `site/bootstrap.php` → `preflight.lib.php` → `lib/update.lib.php`, which declares `check_setup()` unconditionally). Fix that one too, in `lib/update.lib.php`:
-
-```php
-<?php
-if (!function_exists('check_setup')) {
-function check_setup($tablename, $database) {
-	
-	require(CONFIG.'config.php');
-	mysqli_select_db($connection,$database);
-	
-	$query_log = sprintf("SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'", $database, $tablename);
-	$log = mysqli_query($connection,$query_log) or die (mysqli_error($connection));
-	$row_log = mysqli_fetch_assoc($log);
-
-	if ($row_log['count'] == 0) return FALSE;
-	else return TRUE;
-
-}
-}
-```
-
-(Only the `check_setup` declaration itself gets wrapped — everything else already in `lib/update.lib.php`, including the sibling `check_update()` function right after it, is untouched.) This closes every *redeclaration* collision between `tests/bootstrap.php`'s stubs and the real legacy files — but `check_setup()` surfaces a second, different problem once the guard is in place: the stub unconditionally `return true`s regardless of which table is asked about, while the real `lib/preflight.lib.php` calls it for **two different table names** — the legacy `{prefix}system` (pre-rename) and the current `{prefix}bcoem_sys` — expecting a real, table-specific answer so it can pick the right code branch. This baseline schema only has `bcoem_sys` (`sql/bcoem_baseline_3.0.X.sql` — `baseline_system` doesn't exist, only `baseline_bcoem_sys` does). The blind `true` stub lies to `preflight.lib.php`, which then queries the (non-existent) legacy `system` table for real and gets an uncaught `mysqli_sql_exception`. This never mattered for any test before this one, because no prior test loaded the full `index.php` → `preflight.lib.php` chain where the two-table distinction is actually exercised.
-
-Fix by making the stub delegate to a real schema check whenever a real DB connection is available (exactly the connection `IntegrationTestCase::setUp()` already exposes via `$GLOBALS['connection']` for narrow library-function tests), falling back to the old blind `true` only when there's no connection at all (pure Unit tier, which never touches a DB and doesn't care about the real answer). In `tests/bootstrap.php`, replace:
-
-```php
-if (!function_exists('check_setup')) {
-    function check_setup($table, $database) {
-        return true; // Stub: assume tables exist in test context
-    }
-}
-```
-
-with:
-
-```php
-if (!function_exists('check_setup')) {
-    function check_setup($table, $database) {
-        if ((isset($GLOBALS['connection'])) && ($GLOBALS['connection'] instanceof mysqli)) {
-            $conn = $GLOBALS['connection'];
-            $tableEscaped = $conn->real_escape_string($table);
-            $dbEscaped = $conn->real_escape_string($database);
-            $result = $conn->query("SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = '{$dbEscaped}' AND table_name = '{$tableEscaped}'");
-            $row = $result->fetch_assoc();
-            return $row['count'] > 0;
-        }
-        return true; // Stub: no DB connection available (pure Unit tier) - assume tables exist.
-    }
-}
-```
-
-This preserves the existing behavior for every Unit-tier test (no `$GLOBALS['connection']` ⇒ still blindly `true`, unchanged) while giving Integration-tier tests — which DO have a real connection — the actual, correct, per-table answer `preflight.lib.php` needs.
-
-**One more, different-in-kind fix, found once the three stub/redeclaration issues above were resolved:** `tests/bootstrap.php:108` does `require_once LIB.'common.lib.php';` so Unit tests get every function in it without loading the rest of the app — but `site/bootstrap.php:60` re-loads the same file with a plain `require (LIB.'common.lib.php');` (not `require_once`). In a real single-request production process this is harmless (the file is never actually loaded twice), but in PHPUnit's single shared process it means `site/bootstrap.php` tries to redeclare every function in `common.lib.php` (`csrf_token_generate()`, etc.) the moment an Integration test loads the full `index.php` chain a second time in the same run. Fix in `site/bootstrap.php`:
-
-```php
-	require_once (LIB.'common.lib.php');
-```
-
-(Change only that one line — line 60 — from `require` to `require_once`. Leave the other `require` calls in this file as-is; they don't collide with anything `tests/bootstrap.php` preloads.)
-
-This is the complete set of fixes needed for this chain — all three of `tests/bootstrap.php`'s stubs now either have a matching guard at their real declaration site (`is_https`, `sterilize`) or correct, connection-aware behavior (`check_setup`), and the one file `tests/bootstrap.php` itself preloads (`common.lib.php`) is now safe to re-encounter later in the same chain. No further surprise of this kind should surface in Task 6 — but Task 7 loads a *different* legacy entry point (`includes/process.inc.php`) with its own independent require chain that ALSO plain-`include`s `common.lib.php` and `update.lib.php`; that task's own Step 0 addresses it (same root cause, same fix pattern, called out there rather than here since Task 6 doesn't touch `process.inc.php` at all).
-
-This is purely additive (the guard only matters when the function is already declared, which happens only under the PHPUnit bootstrap; normal production requests never hit the `false` branch) and does not change any function's behavior. It also unblocks Task 7's `LegacyProcessHandlerTest`, which loads the same `paths.php`/`update.lib.php` chain via `includes/process.inc.php` and would hit the identical collisions.
-
-Run the full Unit suite afterward to confirm the guard doesn't change anything for the existing tests that rely on the stub:
-
-```bash
-docker compose exec web vendor/bin/phpunit --testsuite Unit
-```
-
-Expected: same pass count as before this change (the stub still wins when it runs first, exactly as today).
+- Produces: `Bcoem\Legacy\LegacyPageHandler::__invoke($request, $response)` — a Slim route callable that `require`s a root-relative file (defaulting to the real `index.php`) from within the app root, letting it run exactly as it does today (its own `header()`/`exit()` calls take effect on the real SAPI, unmodified).
 
 - [ ] **Step 1: Write `LegacyBootstrap`**
 
@@ -1371,7 +1256,7 @@ final class LegacyBootstrap
 
 - [ ] **Step 2: Write `LegacyPageHandler`**
 
-`src/Legacy/LegacyPageHandler.php`:
+`src/Legacy/LegacyPageHandler.php`. The target filename is a constructor parameter defaulting to `'index.php'` — real usage (`new LegacyPageHandler()`, Task 9) is completely unaffected, but this is what makes the class unit-testable against a fixture instead of the real, side-effecting `index.php`:
 
 ```php
 <?php
@@ -1394,81 +1279,101 @@ use Psr\Http\Message\ServerRequestInterface;
  * (AuditMiddleware's post-processing, once Phase 3 needs it) is registered
  * via register_shutdown_function(), never relied on to run "after" this
  * method returns.
+ *
+ * $targetFile defaults to the real index.php for production use; tests
+ * substitute a small inert fixture (see LegacyPageHandlerTest) so the
+ * handler's own bridging logic is provable without pulling in index.php's
+ * full side-effecting bootstrap chain (DB, sessions, dozens of legacy
+ * requires) - that end-to-end behavior is proven manually (Step 4) and via
+ * Task 10's Playwright e2e suite once a real route exists (Task 9).
  */
 final class LegacyPageHandler
 {
+    public function __construct(private readonly string $targetFile = 'index.php')
+    {
+    }
+
     public function __invoke(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         foreach ($request->getQueryParams() as $key => $value) {
             $_GET[$key] = $value;
         }
-        LegacyBootstrap::requireRootFile('index.php');
+        LegacyBootstrap::requireRootFile($this->targetFile);
         return $response;
     }
 }
 ```
 
-- [ ] **Step 3: Write the integration test — in its own process, not sharing `IntegrationTestCase`'s connection**
+- [ ] **Step 3: Write the fixture and the Unit test**
 
-**Do not extend `IntegrationTestCase` for this test.** `index.php` is real, unmodified, side-effecting production code: it ends with an unconditional `mysqli_close($connection)` (`index.php:180`), and its full bootstrap chain (`paths.php` → `site/bootstrap.php` → ...) executes a battery of `require`/`include` statements PHP tracks as "already loaded" for the lifetime of the *process*, not per-test. `IntegrationTestCase` is built around the opposite assumption — one shared connection and one shared require-state, reused (safely, by design) across every test in the suite. Running this test that way was tried and failed twice over: `index.php`'s own `mysqli_close()` kills the shared connection out from under `IntegrationTestCase::tearDown()`'s `rollback()` call, and — worse — once the full legacy chain has been `require_once`'d anywhere in the shared PHPUnit process, PHP will never execute it again for any *other* test that runs afterward in the same run, silently breaking unrelated Integration tests that assumed a fresh `require(CONFIG.'config.php')`.
+`tests/fixtures/legacy_root_fixture.php` — a minimal stand-in for a real legacy root-level page script, with none of the real app's side effects:
 
-The fix PHPUnit itself provides for exactly this situation — a test that must run real, global-side-effect-heavy legacy bootstrap code — is running it in its own child process. `docker/config.php` (the Docker-mounted `site/config.php` override) was already written to support this cleanly: it reuses `$GLOBALS['connection']` *if* one is already set (the `IntegrationTestCase` pattern), and otherwise opens a brand-new connection exactly like a real web request would (`docker/config.php`: `if (isset($GLOBALS['connection']) ...) { reuse } else { new mysqli(...) }`). A separate-process test has no `$GLOBALS['connection']` at all — a fresh process, fresh globals — so `index.php` running inside it opens, uses, and closes its own dedicated connection, precisely matching what happens for a real request. Nothing it does can leak into or be affected by the rest of the suite.
+```php
+<?php
+// Minimal stand-in for a real legacy root-level entry point. Proves
+// LegacyBootstrap/LegacyPageHandler's OWN bridging logic (query-param
+// copying into $_GET, chdir(ROOT), requiring a root-relative file) without
+// pulling in the real app's side-effecting bootstrap chain. See the
+// docblock on LegacyPageHandler for why this exists instead of testing
+// against the real index.php directly.
+echo 'FIXTURE_OK section=' . ($_GET['section'] ?? 'MISSING') . ' go=' . ($_GET['go'] ?? 'MISSING');
+```
 
-`tests/Integration/LegacyPageHandlerTest.php`:
+`tests/Unit/Legacy/LegacyPageHandlerTest.php`:
 
 ```php
 <?php
 declare(strict_types=1);
 
-namespace BCOEM\Tests\Integration;
-
-use Bcoem\Legacy\LegacyPageHandler;
-use PHPUnit\Framework\Attributes\RunInSeparateProcess;
-use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\TestCase;
+use Bcoem\Legacy\LegacyPageHandler;
 use Slim\Psr7\Factory\ServerRequestFactory;
 use Slim\Psr7\Factory\ResponseFactory;
 
-/**
- * Deliberately does NOT extend IntegrationTestCase. index.php is real,
- * unmodified production code - it closes its own DB connection
- * unconditionally and its bootstrap chain can only safely execute once per
- * process. Running it in its own child process (no shared $GLOBALS, no
- * shared require-once state) is what lets it behave exactly like a real web
- * request instead of colliding with the rest of the PHPUnit run.
- */
-#[RunInSeparateProcess]
-#[PreserveGlobalState(false)]
 class LegacyPageHandlerTest extends TestCase
 {
-    public function test_contact_section_renders_via_legacy_bridge(): void
+    private string $originalCwd;
+
+    protected function setUp(): void
     {
-        $_GET = ['section' => 'contact'];
-        $request = (new ServerRequestFactory())->createServerRequest('GET', '/index.php?section=contact')
-            ->withQueryParams(['section' => 'contact']);
+        $this->originalCwd = getcwd();
+    }
+
+    protected function tearDown(): void
+    {
+        chdir($this->originalCwd);
+    }
+
+    public function test_copies_query_params_into_get_chdirs_to_root_and_requires_the_target_file(): void
+    {
+        $_GET = [];
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/index.php?section=contact&go=entrant')
+            ->withQueryParams(['section' => 'contact', 'go' => 'entrant']);
         $response = (new ResponseFactory())->createResponse(200);
 
         ob_start();
-        $handler = new LegacyPageHandler();
-        $handler($request, $response);
+        $handler = new LegacyPageHandler('tests/fixtures/legacy_root_fixture.php');
+        $result = $handler($request, $response);
         $output = ob_get_clean();
 
-        $this->assertStringContainsString('Brew Competition Online Entry', $output);
+        $this->assertSame('contact', $_GET['section']);
+        $this->assertSame('entrant', $_GET['go']);
+        $this->assertStringContainsString('FIXTURE_OK section=contact go=entrant', $output);
+        $this->assertSame(rtrim(ROOT, '/'), rtrim(getcwd(), '/'));
+        $this->assertSame($response, $result);
     }
 }
 ```
 
-- [ ] **Step 4: Run — this test exercises real legacy code end-to-end, so failure modes vary**
+- [ ] **Step 4: Run the Unit test, then manually verify the real bridge against the real running stack**
 
 ```bash
-docker compose exec -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration --filter LegacyPageHandlerTest
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter LegacyPageHandlerTest
 ```
 
-Expected: 1 test, 1 assertion, passing on its own, AND the *rest* of the Integration suite still green when run together (`docker compose exec -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration`) — the separate-process isolation is specifically what makes both true at once. If it fails with a header-already-sent warning or similar, that's the "headers already sent" risk called out in the design spec's Risks section — investigate whether `index.php`'s own headers (sent before this test's PHPUnit process would have sent any) are the cause; PHPUnit's CLI SAPI doesn't enforce header-already-sent the way a real web request does, so this is expected to pass in the test environment even though the *production* path (Step 5 below) needs its own manual verification.
+Expected: `OK (1 test, 4 assertions)`.
 
-- [ ] **Step 5: Manually verify against the real running stack (headers matter here, unlike the PHPUnit CLI context)**
-
-This can't be fully proven by an automated test until Task 9 rewrites `.htaccess` and Task 10 runs the full e2e gate — defer full confidence to those tasks, but sanity-check now:
+This proves the handler's own logic — it does **not** prove the real `index.php` renders correctly through it (that's what got abandoned as a PHPUnit-Integration-tier goal, per this task's opening note). Sanity-check the real thing manually instead, using the default `$targetFile`:
 
 ```bash
 docker compose exec web php -r '
@@ -1482,12 +1387,12 @@ Bcoem\Legacy\LegacyBootstrap::requireRootFile("index.php");
 
 **Do not pre-`require "paths.php"` at the top level of this snippet** (an earlier draft of this step did, and it's wrong): `LegacyBootstrap::requireRootFile()` is a static method, and PHP's `require` executes in the scope of wherever it's textually called — so if `paths.php` were required at the *top level* of this one-liner first, all the variables it sets (`$connection`, `$prefix`, etc.) would live in the script's global scope, not inside `requireRootFile()`'s method scope. Then when `index.php` (running *inside* that method) does its own `require_once('paths.php')`, `require_once` would see the file is already loaded and skip it entirely — silently leaving `$connection`/`$prefix`/etc. undefined in the scope `index.php` is actually running in. Defining only the bare `ROOT` constant (constants are scope-independent in PHP, unlike variables) and letting `index.php`'s own `require_once('paths.php')` be the one-and-only real execution of `paths.php` — inside `requireRootFile()`'s scope, exactly like the real `LegacyPageHandler` flow — avoids the mismatch entirely.
 
-Expected: HTML output, no PHP fatal errors.
+Expected: HTML output, no PHP fatal errors. This manual check, plus Task 10's Playwright suite once Task 9 wires a real route, are the actual end-to-end proof for this bridge — not an automated PHPUnit tier.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/Legacy/LegacyBootstrap.php src/Legacy/LegacyPageHandler.php tests/Integration/LegacyPageHandlerTest.php
+git add src/Legacy/LegacyBootstrap.php src/Legacy/LegacyPageHandler.php tests/fixtures/legacy_root_fixture.php tests/Unit/Legacy/LegacyPageHandlerTest.php
 git commit -m "Add LegacyPageHandler: bridge GET requests to the existing index.php flow"
 ```
 
@@ -1495,37 +1400,18 @@ git commit -m "Add LegacyPageHandler: bridge GET requests to the existing index.
 
 ### Task 7: `LegacyProcessHandler` — bridge the POST (`includes/process.inc.php`) flow
 
+**Same testing-strategy decision as Task 6, for the same reasons — see that task's opening note.** `includes/process.inc.php` has the identical class of global side effects `index.php` has (its own bootstrap chain, `session_write_close()`, and — worse — an unconditional `exit()` as its very last line, which would also cut off PHPUnit's own separate-process result-capture machinery even if isolation were otherwise viable). This task's automated test proves `LegacyProcessHandler`'s *own* bridging logic (GET/POST param population, `chdir` to the target's directory, relative `require`) against a small fixture, not the real `process.inc.php`. Real end-to-end coverage of specific legacy actions (e.g. logout) already exists in the Phase 0/1 Playwright suite and gains central-authorization coverage automatically once Task 9 wires a real route and Task 10 runs the full e2e gate.
+
 **Files:**
-- Create: `src/Legacy/LegacyProcessHandler.php`, `tests/Integration/LegacyProcessHandlerTest.php`
-- Modify: `includes/process.inc.php` (Step 0 — same root cause as Task 6's Step 0, predicted in advance rather than rediscovered)
+- Create: `src/Legacy/LegacyProcessHandler.php`, `tests/fixtures/legacy_process_fixture.php`, `tests/Unit/Legacy/LegacyProcessHandlerTest.php`
 
 **Interfaces:**
 - Consumes: `AuthorizationMiddleware`'s `process:` route type (Task 4).
 - Produces: `Bcoem\Legacy\LegacyProcessHandler::__invoke($request, $response)`.
 
-- [ ] **Step 0: Fix the same test-bootstrap/legacy-code collision Task 6 hit, before it recurs here**
-
-`includes/process.inc.php` has its own independent require chain (it does NOT go through `site/bootstrap.php`) and does:
-
-```php
-include (LIB.'common.lib.php');
-include (LIB.'update.lib.php');
-```
-
-Both plain `include` (not `include_once`). `tests/bootstrap.php` preloads `common.lib.php` via `require_once` for every Unit test, and — once Task 6 lands — `update.lib.php` is also routinely loaded during the same PHPUnit process via the `index.php` chain. PHPUnit runs the whole suite in one shared PHP process (no `--process-isolation`), so by the time `LegacyProcessHandlerTest` runs, both files are highly likely to already be loaded, and a plain `include` of an already-loaded file that declares functions unconditionally is a fatal "cannot redeclare" error — the exact same failure mode Task 6 hit three times over, just via a different entry point. Fix pre-emptively:
-
-```php
-include_once (LIB.'common.lib.php');
-include_once (LIB.'update.lib.php');
-```
-
-(Change only these two lines. This has zero effect on real production behavior — a real request only ever loads each file once regardless of `include` vs `include_once` — it only matters for the shared-process PHPUnit scenario.)
-
-Run the full Unit suite afterward to confirm nothing changes: `docker compose exec web vendor/bin/phpunit --testsuite Unit` (same pass count as before).
-
 - [ ] **Step 1: Write `LegacyProcessHandler`**
 
-`src/Legacy/LegacyProcessHandler.php`:
+`src/Legacy/LegacyProcessHandler.php`. Like `LegacyPageHandler`, the target file is a constructor parameter (default `'includes/process.inc.php'`) so tests can substitute a fixture without touching real usage:
 
 ```php
 <?php
@@ -1541,11 +1427,18 @@ use Psr\Http\Message\ServerRequestInterface;
  * Bridges POSTs to includes/process.inc.php. That file does
  * require('../paths.php') - a path relative to includes/ - so it must
  * actually run from within includes/ for its own relative require to
- * resolve; requireRootFile() chdir()s to ROOT first, so this bridges via
- * the includes/-relative path instead.
+ * resolve; chdir()s to the target file's own directory rather than ROOT.
+ *
+ * $targetFile defaults to the real process.inc.php for production use;
+ * tests substitute a small inert fixture (see LegacyProcessHandlerTest) -
+ * same rationale as LegacyPageHandler's $targetFile parameter.
  */
 final class LegacyProcessHandler
 {
+    public function __construct(private readonly string $targetFile = 'includes/process.inc.php')
+    {
+    }
+
     public function __invoke(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         foreach ($request->getQueryParams() as $key => $value) {
@@ -1554,58 +1447,70 @@ final class LegacyProcessHandler
         foreach ((array)$request->getParsedBody() as $key => $value) {
             $_POST[$key] = $value;
         }
-        chdir(ROOT . 'includes');
-        require ROOT . 'includes/process.inc.php';
+        chdir(ROOT . dirname($this->targetFile));
+        require ROOT . $this->targetFile;
         return $response;
     }
 }
 ```
 
-- [ ] **Step 2: Write the integration test**
+- [ ] **Step 2: Write the fixture and the Unit test**
 
-**Same reasoning as Task 6's `LegacyPageHandlerTest`: do not extend `IntegrationTestCase`.** `includes/process.inc.php` is real production code with the same class of global side effects `index.php` has (its own bootstrap chain, `session_write_close()`, and an unconditional `exit()` at the very end) — running it in the shared PHPUnit process risks the identical connection-lifecycle and require-once collisions Task 6 hit. Use `#[RunInSeparateProcess]`/`#[PreserveGlobalState(false)]` here too.
+`tests/fixtures/legacy_process_fixture.php`:
 
-**One extra wrinkle to watch for, specific to this file (not present in `index.php`'s flow): `process.inc.php` calls `exit()` unconditionally as its very last line.** If that `exit()` fires before PHPUnit's own separate-process result-capture code runs (the mechanism that serializes the test outcome back to the parent process), the parent may see "child process exited unexpectedly" rather than a clean pass/fail regardless of whether the assertion inside would have succeeded. If you hit this, don't fight it by weakening the assertion — investigate whether asserting on state that's already durable *before* the `exit()` call helps (e.g., session state is written to the session storage backend before `exit()`, so checking `$_SESSION` from a fresh read, or the session file/table directly, may be more robust than relying on the test process's own in-memory `$_SESSION` surviving past the child's `exit()`), and report back precisely what you find rather than guessing further.
+```php
+<?php
+// Minimal stand-in for includes/process.inc.php. Proves LegacyProcessHandler's
+// OWN bridging logic ($_GET/$_POST population, chdir to the target's
+// directory, requiring a relative-path file) without pulling in the real
+// process.inc.php's full side-effecting bootstrap chain and unconditional
+// exit() call.
+echo 'FIXTURE_OK action=' . ($_GET['action'] ?? 'MISSING') . ' posted=' . ($_POST['field'] ?? 'MISSING') . ' cwd_basename=' . basename(getcwd());
+```
 
-`tests/Integration/LegacyProcessHandlerTest.php`:
+`tests/Unit/Legacy/LegacyProcessHandlerTest.php`:
 
 ```php
 <?php
 declare(strict_types=1);
 
-namespace BCOEM\Tests\Integration;
-
-use Bcoem\Legacy\LegacyProcessHandler;
-use PHPUnit\Framework\Attributes\RunInSeparateProcess;
-use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\TestCase;
+use Bcoem\Legacy\LegacyProcessHandler;
 use Slim\Psr7\Factory\ServerRequestFactory;
 use Slim\Psr7\Factory\ResponseFactory;
 
-#[RunInSeparateProcess]
-#[PreserveGlobalState(false)]
 class LegacyProcessHandlerTest extends TestCase
 {
-    public function test_logout_action_clears_session_via_legacy_bridge(): void
+    private string $originalCwd;
+
+    protected function setUp(): void
     {
-        $_SESSION['loginUsername'] = 'someone@example.com';
-        $_GET = ['action' => 'logout'];
+        $this->originalCwd = getcwd();
+    }
+
+    protected function tearDown(): void
+    {
+        chdir($this->originalCwd);
+    }
+
+    public function test_copies_get_and_post_params_chdirs_to_the_targets_directory_and_requires_it(): void
+    {
+        $_GET = [];
         $_POST = [];
         $request = (new ServerRequestFactory())->createServerRequest('POST', '/includes/process.inc.php?action=logout')
             ->withQueryParams(['action' => 'logout'])
-            ->withParsedBody([]);
+            ->withParsedBody(['field' => 'value']);
         $response = (new ResponseFactory())->createResponse(200);
 
-        $handler = new LegacyProcessHandler();
-        try {
-            $handler($request, $response);
-        } catch (\Throwable $e) {
-            // process.inc.php calls exit() - under PHPUnit this may surface
-            // as a risky-test warning rather than a clean return; assert on
-            // session state regardless of how control returned.
-        }
+        ob_start();
+        $handler = new LegacyProcessHandler('tests/fixtures/legacy_process_fixture.php');
+        $result = $handler($request, $response);
+        $output = ob_get_clean();
 
-        $this->assertArrayNotHasKey('loginUsername', $_SESSION);
+        $this->assertSame('logout', $_GET['action']);
+        $this->assertSame('value', $_POST['field']);
+        $this->assertStringContainsString('FIXTURE_OK action=logout posted=value cwd_basename=fixtures', $output);
+        $this->assertSame($response, $result);
     }
 }
 ```
@@ -1613,15 +1518,15 @@ class LegacyProcessHandlerTest extends TestCase
 - [ ] **Step 3: Run**
 
 ```bash
-docker compose exec -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration --filter LegacyProcessHandlerTest
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter LegacyProcessHandlerTest
 ```
 
-`process.inc.php` ends with `exit()` unconditionally (`includes/process.inc.php:446`) — if this terminates the PHPUnit process instead of being caught, this is exactly the "exit() in page-scripts" risk from the design spec. If so, don't fight it in-process: convert this test to a Playwright e2e assertion instead (logout already has e2e coverage via existing specs) and note in this task's commit message that `LegacyProcessHandler`'s in-process testability is limited to actions that don't reach the trailing `exit()` (rare) - this is expected and matches how legacy behavior has always worked, not a new problem introduced by the bridge.
+Expected: `OK (1 test, 4 assertions)`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/Legacy/LegacyProcessHandler.php tests/Integration/LegacyProcessHandlerTest.php
+git add src/Legacy/LegacyProcessHandler.php tests/fixtures/legacy_process_fixture.php tests/Unit/Legacy/LegacyProcessHandlerTest.php
 git commit -m "Add LegacyProcessHandler: bridge POSTs to includes/process.inc.php"
 ```
 
