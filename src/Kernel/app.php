@@ -28,7 +28,8 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
     // addRoutingMiddleware() sits between the add() calls for Authorization
     // and Authentication here (Task 8a fix).
     $app->add(new \Bcoem\Kernel\Middleware\AuthorizationMiddleware(
-        \Bcoem\Security\AccessPolicy::fromFile(__DIR__ . '/../../config/access_policy.php')
+        \Bcoem\Security\AccessPolicy::fromFile(__DIR__ . '/../../config/access_policy.php'),
+        $container->get('logger.security')
     ));
     // Translates SEF path segments (/{section}/{go}/{action}/{id}, matched
     // by the catch-all route registered below) into $_GET/query params

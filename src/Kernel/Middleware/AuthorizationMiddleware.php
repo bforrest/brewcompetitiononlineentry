@@ -10,13 +10,22 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Slim\Psr7\Factory\ResponseFactory;
 use Slim\Routing\RouteContext;
 
 final class AuthorizationMiddleware implements MiddlewareInterface
 {
-    public function __construct(private readonly AccessPolicy $policy)
+    private readonly LoggerInterface $logger;
+
+    public function __construct(private readonly AccessPolicy $policy, ?LoggerInterface $logger = null)
     {
+        // Defaults to a no-op logger so every existing call site (and every
+        // test in this suite) that constructs this middleware without a
+        // logger keeps working unchanged - only app.php's production wiring
+        // passes the real 'security' channel.
+        $this->logger = $logger ?? new NullLogger();
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -38,7 +47,7 @@ final class AuthorizationMiddleware implements MiddlewareInterface
         // default.
         $routeName = $route?->getName();
         if ($routeName === null) {
-            return $this->deny();
+            return $this->deny($identity, $request, 'no-named-route-matched');
         }
 
         [$routeType, $routeArg] = str_contains($routeName, ':')
@@ -62,14 +71,22 @@ final class AuthorizationMiddleware implements MiddlewareInterface
         };
 
         if ($required === null || !$identity->role->satisfies($required)) {
-            return $this->deny();
+            return $this->deny($identity, $request, $routeName);
         }
 
         return $handler->handle($request);
     }
 
-    private function deny(): ResponseInterface
+    private function deny(Identity $identity, ServerRequestInterface $request, string $routeName): ResponseInterface
     {
+        $this->logger->warning('Authorization denied', [
+            'route' => $routeName,
+            'role' => $identity->role->name,
+            'username' => $identity->username,
+            'method' => $request->getMethod(),
+            'uri' => (string)$request->getUri(),
+        ]);
+
         $response = (new ResponseFactory())->createResponse(403);
         $response->getBody()->write('Forbidden');
         return $response;

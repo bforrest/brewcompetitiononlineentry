@@ -6,6 +6,8 @@ use Bcoem\Kernel\Middleware\AuthorizationMiddleware;
 use Bcoem\Security\AccessPolicy;
 use Bcoem\Security\Identity;
 use DI\Bridge\Slim\Bridge;
+use Monolog\Handler\TestHandler;
+use Monolog\Logger;
 use Slim\App;
 use Slim\Psr7\Factory\ServerRequestFactory;
 use Psr\Http\Message\ServerRequestInterface;
@@ -170,5 +172,61 @@ class AuthorizationMiddlewareTest extends TestCase
         $response = $this->get($app, '/test-route');
 
         $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function test_a_denial_is_logged_to_the_security_channel_with_route_and_identity_context(): void
+    {
+        $testHandler = new TestHandler();
+        $logger = new Logger('security');
+        $logger->pushHandler($testHandler);
+
+        $app = Bridge::create(new \DI\Container());
+        $app->add(new AuthorizationMiddleware($this->policy(), $logger));
+        $app->addRoutingMiddleware();
+        $app->add(function (ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface {
+            return $handler->handle($request->withAttribute(
+                'identity',
+                Identity::fromSession(['loginUsername' => 'e@example.com', 'userLevel' => '3'])
+            ));
+        });
+        $handler = function ($request, $response) {
+            $response->getBody()->write('ok');
+            return $response;
+        };
+        $app->get('/test-route', $handler)->setName('section');
+
+        $response = $this->get($app, '/test-route?section=admin');
+
+        $this->assertSame(403, $response->getStatusCode());
+        $this->assertTrue($testHandler->hasWarningRecords());
+        $record = $testHandler->getRecords()[0];
+        $this->assertSame('Authorization denied', $record->message);
+        $this->assertSame('section', $record->context['route']);
+        $this->assertSame('Entrant', $record->context['role']);
+        $this->assertSame('e@example.com', $record->context['username']);
+    }
+
+    public function test_a_successful_authorization_logs_nothing(): void
+    {
+        $testHandler = new TestHandler();
+        $logger = new Logger('security');
+        $logger->pushHandler($testHandler);
+
+        $app = Bridge::create(new \DI\Container());
+        $app->add(new AuthorizationMiddleware($this->policy(), $logger));
+        $app->addRoutingMiddleware();
+        $app->add(function (ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface {
+            return $handler->handle($request->withAttribute('identity', Identity::fromSession([])));
+        });
+        $handler = function ($request, $response) {
+            $response->getBody()->write('ok');
+            return $response;
+        };
+        $app->get('/test-route', $handler)->setName('section');
+
+        $response = $this->get($app, '/test-route?section=contact');
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertCount(0, $testHandler->getRecords());
     }
 }
