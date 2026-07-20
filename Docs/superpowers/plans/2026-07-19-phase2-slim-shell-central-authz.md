@@ -1219,7 +1219,7 @@ git commit -m "Add Session and Authentication middleware; wire the pipeline orde
 
 **Files:**
 - Create: `src/Legacy/LegacyBootstrap.php`, `src/Legacy/LegacyPageHandler.php`, `tests/Integration/LegacyPageHandlerTest.php`
-- Modify: `paths.php`, `lib/update.lib.php` (Step 0 — a prerequisite fix, discovered while implementing this task, not anticipated when this plan was written)
+- Modify: `paths.php`, `lib/update.lib.php`, `tests/bootstrap.php` (Step 0 — a prerequisite fix, discovered while implementing this task, not anticipated when this plan was written)
 
 **Interfaces:**
 - Consumes: `AuthorizationMiddleware` has already run (denied requests never reach this handler).
@@ -1289,7 +1289,37 @@ function check_setup($tablename, $database) {
 }
 ```
 
-(Only the `check_setup` declaration itself gets wrapped — everything else already in `lib/update.lib.php`, including the sibling `check_update()` function right after it, is untouched.) This is the complete set — all three of `tests/bootstrap.php`'s stubs now have a matching guard at their real declaration site, so no further collision should surface later in this same require chain.
+(Only the `check_setup` declaration itself gets wrapped — everything else already in `lib/update.lib.php`, including the sibling `check_update()` function right after it, is untouched.) This closes every *redeclaration* collision between `tests/bootstrap.php`'s stubs and the real legacy files — but `check_setup()` surfaces a second, different problem once the guard is in place: the stub unconditionally `return true`s regardless of which table is asked about, while the real `lib/preflight.lib.php` calls it for **two different table names** — the legacy `{prefix}system` (pre-rename) and the current `{prefix}bcoem_sys` — expecting a real, table-specific answer so it can pick the right code branch. This baseline schema only has `bcoem_sys` (`sql/bcoem_baseline_3.0.X.sql` — `baseline_system` doesn't exist, only `baseline_bcoem_sys` does). The blind `true` stub lies to `preflight.lib.php`, which then queries the (non-existent) legacy `system` table for real and gets an uncaught `mysqli_sql_exception`. This never mattered for any test before this one, because no prior test loaded the full `index.php` → `preflight.lib.php` chain where the two-table distinction is actually exercised.
+
+Fix by making the stub delegate to a real schema check whenever a real DB connection is available (exactly the connection `IntegrationTestCase::setUp()` already exposes via `$GLOBALS['connection']` for narrow library-function tests), falling back to the old blind `true` only when there's no connection at all (pure Unit tier, which never touches a DB and doesn't care about the real answer). In `tests/bootstrap.php`, replace:
+
+```php
+if (!function_exists('check_setup')) {
+    function check_setup($table, $database) {
+        return true; // Stub: assume tables exist in test context
+    }
+}
+```
+
+with:
+
+```php
+if (!function_exists('check_setup')) {
+    function check_setup($table, $database) {
+        if ((isset($GLOBALS['connection'])) && ($GLOBALS['connection'] instanceof mysqli)) {
+            $conn = $GLOBALS['connection'];
+            $tableEscaped = $conn->real_escape_string($table);
+            $dbEscaped = $conn->real_escape_string($database);
+            $result = $conn->query("SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = '{$dbEscaped}' AND table_name = '{$tableEscaped}'");
+            $row = $result->fetch_assoc();
+            return $row['count'] > 0;
+        }
+        return true; // Stub: no DB connection available (pure Unit tier) - assume tables exist.
+    }
+}
+```
+
+This preserves the existing behavior for every Unit-tier test (no `$GLOBALS['connection']` ⇒ still blindly `true`, unchanged) while giving Integration-tier tests — which DO have a real connection — the actual, correct, per-table answer `preflight.lib.php` needs. This is the complete set of fixes needed for this chain — all three of `tests/bootstrap.php`'s stubs now either have a matching guard at their real declaration site (`is_https`, `sterilize`) or correct, connection-aware behavior (`check_setup`), so no further surprise should surface later in this same require chain.
 
 This is purely additive (the guard only matters when the function is already declared, which happens only under the PHPUnit bootstrap; normal production requests never hit the `false` branch) and does not change any function's behavior. It also unblocks Task 7's `LegacyProcessHandlerTest`, which loads the same `paths.php`/`update.lib.php` chain via `includes/process.inc.php` and would hit the identical collisions.
 
