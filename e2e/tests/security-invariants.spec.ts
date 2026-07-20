@@ -9,32 +9,44 @@ import { ADMIN, login, loginAsAdmin, registerEntrant } from '../helpers/auth';
  */
 
 test('anonymous user cannot reach the admin section', async ({ page }) => {
-  await page.goto('/index.php?section=admin');
-  // index.php redirects anonymous admin hits to ?msg=0 (login prompt).
-  await expect(page).toHaveURL(/msg=0/);
+  // Stale expectation corrected (Task 10): this spec predates the Slim
+  // shell and originally expected index.php's own inline ?msg=0 redirect.
+  // Post-Task-8a/9, AuthorizationMiddleware runs first as a global gate and
+  // returns 403 directly, without ever invoking the route handler - the
+  // legacy page's own inline redirect check never executes for a denied
+  // request. A direct 403 (not a redirect) is the correct, verified
+  // behavior (Task 9's review and Task 10's own curl checks both confirm
+  // this live).
+  const resp = await page.goto('/index.php?section=admin');
+  expect(resp?.status()).toBe(403);
   await expect(page.locator('a[href*="go=judging_tables"]')).toHaveCount(0);
 });
 
 test('anonymous user cannot reach account pages', async ({ page }) => {
-  await page.goto('/index.php?section=list');
-  // index.php redirects anonymous account-page hits to ?msg=99.
-  await expect(page).toHaveURL(/msg=99/);
+  // Stale expectation corrected (Task 10) - see the admin-section test
+  // above for the full explanation. Was ?msg=99; is now a direct 403.
+  const resp = await page.goto('/index.php?section=list');
+  expect(resp?.status()).toBe(403);
 });
 
 test('entrant cannot reach the admin section', async ({ page }) => {
+  // Stale expectation corrected (Task 10) - see the anonymous-admin test
+  // above for the full explanation. Was ?msg=4; is now a direct 403.
   await registerEntrant(page);
-  await page.goto('/index.php?section=admin');
-  // index.php redirects userLevel > 1 (entrant) admin hits to ?msg=4.
-  await expect(page).toHaveURL(/msg=4/);
+  const resp = await page.goto('/index.php?section=admin');
+  expect(resp?.status()).toBe(403);
   await expect(page.locator('a[href*="go=judging_tables"]')).toHaveCount(0);
 });
 
 test('pdf download denies an anonymous request', async ({ page }) => {
-  // handle.php's not-logged-in guard redirects any direct hit to 403.php,
-  // which the app's routing resolves to the section=403 error page.
+  // Stale expectation corrected (Task 10): file:handle.php requires at
+  // least Role::Entrant, so AuthorizationMiddleware denies an anonymous hit
+  // centrally, before handle.php's own not-logged-in guard (which used to
+  // redirect to 403.php) ever runs - same "central gate wins" pattern as
+  // the admin-section tests above. A direct 403, not a redirect.
   const resp = await page.goto(
     '/handle.php?section=pdf-download&id=' + encodeURIComponent('../../../../etc/passwd'));
-  expect(resp?.url()).toMatch(/403\.php|section=403/);
+  expect(resp?.status()).toBe(403);
 });
 
 // P1-SEC-005: fixed — handle.php now restricts $id to a safe character set

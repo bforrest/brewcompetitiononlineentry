@@ -104,7 +104,22 @@ function buildApp(): App
     // before dynamic ones, but registration order is what makes intent
     // clear here too - see Task 9 brief Step 4a).
     $app->get('/index.php', new \Bcoem\Legacy\LegacyPageHandler())->setName('section');
-    $app->post('/includes/process.inc.php', new \Bcoem\Legacy\LegacyProcessHandler())->setName('process');
+    // GET, not just POST (Task 10 fix): process.inc.php's $action/$section
+    // dispatch always reads from $_GET (includes/url_variables.inc.php),
+    // regardless of HTTP method - login arrives via a real POST form, but
+    // logout and the auto-logout-timeout redirect are plain <a href>/
+    // window.location.replace() navigations to this same file
+    // (includes/authentication_nav.inc.php, pub/nav.pub.php,
+    // index.pub.php's session_end_redirect), i.e. always a GET in the
+    // browser. A POST-only route left every GET here unmatched by this
+    // route, falling through to the SEF catch-all below instead, which
+    // misparses the two literal path segments as section=includes&
+    // go=process.inc.php and denies it (no such policy key) - logout has
+    // never worked through the Slim front controller before this fix.
+    // process.inc.php's own CSRF check (includes/process.inc.php:109) only
+    // applies to POST, so GET-based actions like logout are unaffected by
+    // it, matching today's real (GET, token-less) logout link.
+    $app->map(['GET', 'POST'], '/includes/process.inc.php', new \Bcoem\Legacy\LegacyProcessHandler())->setName('process');
     $app->get('/', new \Bcoem\Legacy\LegacyPageHandler())->setName('section');
 
     // includes/output.inc.php is a self-bootstrapping side door gated on its

@@ -42,14 +42,52 @@ class AccessPolicyTest extends TestCase
         $this->assertSame(Role::Anonymous, $this->policy()->requiredRoleForProcessAction('login', null));
     }
 
-    public function test_process_dbtable_users_requires_entrant(): void
+    /**
+     * Regression test (Task 10): the central gate's floor for
+     * process:dbTable:baseline_users must be Anonymous, not Entrant -
+     * includes/process/process_users.inc.php's own dispatch has a genuine
+     * anonymous registration sub-case (action=add&section=register, no
+     * session check at all) that a required Role::Entrant blocked entirely
+     * before that legacy dispatch ever ran (an Anonymous identity never
+     * satisfies a required Entrant). The admin-create-user and self-edit
+     * sub-cases remain independently gated by that same file's own internal
+     * checks, unchanged - see access_policy.php's citation for the exact
+     * line numbers.
+     */
+    public function test_process_dbtable_users_requires_only_anonymous_floor(): void
     {
-        $this->assertSame(Role::Entrant, $this->policy()->requiredRoleForProcessAction(null, 'baseline_users'));
+        $this->assertSame(Role::Anonymous, $this->policy()->requiredRoleForProcessAction(null, 'baseline_users'));
     }
 
     public function test_undeclared_process_action_is_denied(): void
     {
         $this->assertNull($this->policy()->requiredRoleForProcessAction('no-such-action', null));
+    }
+
+    /**
+     * Regression test (Task 10): includes/process.inc.php only special-cases
+     * a fixed list of $action values (login, logout, delete, ...) before
+     * falling through to its generic $dbTable-driven CRUD dispatch -
+     * $action=="add"/"edit"/"massupdate"/etc. (the bulk of the app's actual
+     * writes, including registration's action=add&dbTable=baseline_users)
+     * is dispatched purely on $dbTable. A process:action:{action} entry must
+     * only govern when that specific action has its own policy key;
+     * anything else must fall through to the dbTable-based check, exactly
+     * like the legacy dispatch does. Uses baseline_brewing (entry
+     * submission), not baseline_users, to stay independent of that other
+     * table's own Anonymous-floor fix above.
+     */
+    public function test_unmapped_action_falls_through_to_dbtable(): void
+    {
+        $this->assertSame(
+            Role::Entrant,
+            $this->policy()->requiredRoleForProcessAction('add', 'baseline_brewing')
+        );
+    }
+
+    public function test_unmapped_action_with_no_dbtable_match_is_still_denied(): void
+    {
+        $this->assertNull($this->policy()->requiredRoleForProcessAction('add', 'no-such-table'));
     }
 
     public function test_qr_side_door_is_anonymous(): void

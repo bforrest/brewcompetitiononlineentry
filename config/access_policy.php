@@ -165,7 +165,23 @@ return [
 
     // ── process.inc.php: $dbTable fallback dispatch (generic CRUD) ──
     'process:dbTable:baseline_brewing' => Role::Entrant,
-    'process:dbTable:baseline_users' => Role::Entrant, // registration (anonymous sub-case handled inside process_users_register.inc.php, unchanged) + self-service edits
+    // Anonymous, not Entrant (Task 10 fix): includes/process/process_users.inc.php's
+    // own dispatch (reached for EVERY action once $dbTable falls through to this
+    // generic CRUD branch, since process.inc.php's else-block at line 410 doesn't
+    // itself branch on $action) has three independently-gated sub-cases of its
+    // own: action=add&section=register -> process_users_register.inc.php with NO
+    // session check at all (genuine anonymous registration, by design); action=
+    // add&section=admin -> requires $_SESSION['userLevel']<=1 internally; action=
+    // edit -> requires isset(loginUsername) and isset(userLevel) internally. A
+    // central-gate floor of Role::Entrant blocked the FIRST of those - the
+    // anonymous registration path - before process_users.inc.php's own dispatch
+    // ever ran, since a brand-new visitor's identity is Role::Anonymous, which
+    // never satisfies a required Role::Entrant. Anonymous is the correct floor
+    // here precisely because legacy code enforces the finer-grained per-branch
+    // rules itself, unchanged - confirmed by reading process_users.inc.php lines
+    // 15-129. Caught by Task 10's equivalence gate (fresh-entrant registration
+    // 403ing end to end).
+    'process:dbTable:baseline_users' => Role::Anonymous,
     'process:dbTable:baseline_brewer' => Role::Entrant,
     'process:dbTable:baseline_contest_info' => Role::SuperAdmin,
     'process:dbTable:baseline_preferences' => Role::SuperAdmin,
