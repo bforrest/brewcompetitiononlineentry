@@ -1219,10 +1219,64 @@ git commit -m "Add Session and Authentication middleware; wire the pipeline orde
 
 **Files:**
 - Create: `src/Legacy/LegacyBootstrap.php`, `src/Legacy/LegacyPageHandler.php`, `tests/Integration/LegacyPageHandlerTest.php`
+- Modify: `paths.php` (Step 0 — a prerequisite fix, discovered while implementing this task, not anticipated when this plan was written)
 
 **Interfaces:**
 - Consumes: `AuthorizationMiddleware` has already run (denied requests never reach this handler).
 - Produces: `Bcoem\Legacy\LegacyPageHandler::__invoke($request, $response, $args)` — a Slim route callable that `require`s the real `index.php` from within the app root, letting it run exactly as it does today (its own `header()`/`exit()` calls take effect on the real SAPI, unmodified).
+
+- [ ] **Step 0: Fix a test-bootstrap/legacy-code function collision (prerequisite)**
+
+`tests/bootstrap.php` (PHPUnit's shared bootstrap, loaded once before any test) stubs `is_https()` and `sterilize()` behind `function_exists()` guards, so narrow Unit-tier tests can load `common.lib.php` without the full legacy bootstrap. `paths.php` declares both of those same functions **unconditionally**. Every test up to this point only ever loaded `common.lib.php` directly (never `paths.php`), so this never collided — but this task's Integration test is the first to load the *full* `index.php` → `paths.php` chain, and PHP fatals with `Cannot redeclare is_https()` the moment it does, since `tests/bootstrap.php`'s stub already claimed the name first.
+
+Fix by mirroring `tests/bootstrap.php`'s own guard pattern in `paths.php` — wrap both declarations:
+
+```php
+if (!function_exists('is_https')) {
+function is_https() {
+    if (((!empty($_SERVER['HTTPS'])) && (strtolower($_SERVER['HTTPS']) !== "off")) || ((isset($_SERVER['SERVER_PORT'])) && ($_SERVER['SERVER_PORT'] === "443"))) return TRUE;
+    elseif (((!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == "https")) || ((!empty($_SERVER['HTTP_X_FORWARDED_SSL'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_SSL']) == "on"))) return TRUE;
+    else return FALSE;
+}
+}
+```
+
+and
+
+```php
+if (!function_exists('sterilize')) {
+function sterilize($sterilize = NULL) {
+    if ($sterilize == NULL) return NULL;
+    elseif (empty($sterilize)) return $sterilize;
+    else {
+        $sterilize = trim($sterilize);
+        if (is_numeric($sterilize)) {
+            if (is_float($sterilize)) $sterilize = filter_var($sterilize,FILTER_SANITIZE_NUMBER_FLOAT,FILTER_FLAG_ALLOW_FRACTION);
+            if (is_int($sterilize)) {
+                if ($sterilize == 0) $sterilize = 0;
+                else $sterilize = filter_var($sterilize,FILTER_SANITIZE_NUMBER_INT);
+            }            
+        }
+        else $sterilize = filter_var($sterilize,FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+        $sterilize = strip_tags($sterilize);
+        $sterilize = stripcslashes($sterilize);
+        $sterilize = stripslashes($sterilize);
+        $sterilize = addslashes($sterilize);
+        return $sterilize;
+    }
+}
+}
+```
+
+This is purely additive (the guard only matters when the function is already declared, which happens only under the PHPUnit bootstrap; normal production requests never hit the `false` branch) and does not change either function's behavior. It also unblocks Task 7's `LegacyProcessHandlerTest`, which loads the same `paths.php` chain via `includes/process.inc.php` and would hit the identical collision.
+
+Run the full Unit suite afterward to confirm the guard doesn't change anything for the existing tests that rely on the stub:
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit
+```
+
+Expected: same pass count as before this change (the stub still wins when it runs first, exactly as today).
 
 - [ ] **Step 1: Write `LegacyBootstrap`**
 
@@ -1338,12 +1392,15 @@ This can't be fully proven by an automated test until Task 9 rewrites `.htaccess
 
 ```bash
 docker compose exec web php -r '
+require "paths.php";
 require "src/Legacy/LegacyBootstrap.php";
 $_GET = ["section" => "contact"];
 $_SERVER["REQUEST_METHOD"] = "GET";
 Bcoem\Legacy\LegacyBootstrap::requireRootFile("index.php");
 ' 2>&1 | head -20
 ```
+
+(`require "paths.php"` first, since `LegacyBootstrap::requireRootFile()` uses the `ROOT` constant that only `paths.php` defines — without it this snippet fatals on an undefined constant before ever reaching `index.php`.)
 
 Expected: HTML output, no PHP fatal errors.
 
