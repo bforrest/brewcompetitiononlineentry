@@ -1408,9 +1408,13 @@ final class LegacyPageHandler
 }
 ```
 
-- [ ] **Step 3: Write the integration test**
+- [ ] **Step 3: Write the integration test — in its own process, not sharing `IntegrationTestCase`'s connection**
 
-`tests/Integration/LegacyPageHandlerTest.php` (needs the real DB, since `index.php` touches it):
+**Do not extend `IntegrationTestCase` for this test.** `index.php` is real, unmodified, side-effecting production code: it ends with an unconditional `mysqli_close($connection)` (`index.php:180`), and its full bootstrap chain (`paths.php` → `site/bootstrap.php` → ...) executes a battery of `require`/`include` statements PHP tracks as "already loaded" for the lifetime of the *process*, not per-test. `IntegrationTestCase` is built around the opposite assumption — one shared connection and one shared require-state, reused (safely, by design) across every test in the suite. Running this test that way was tried and failed twice over: `index.php`'s own `mysqli_close()` kills the shared connection out from under `IntegrationTestCase::tearDown()`'s `rollback()` call, and — worse — once the full legacy chain has been `require_once`'d anywhere in the shared PHPUnit process, PHP will never execute it again for any *other* test that runs afterward in the same run, silently breaking unrelated Integration tests that assumed a fresh `require(CONFIG.'config.php')`.
+
+The fix PHPUnit itself provides for exactly this situation — a test that must run real, global-side-effect-heavy legacy bootstrap code — is running it in its own child process. `docker/config.php` (the Docker-mounted `site/config.php` override) was already written to support this cleanly: it reuses `$GLOBALS['connection']` *if* one is already set (the `IntegrationTestCase` pattern), and otherwise opens a brand-new connection exactly like a real web request would (`docker/config.php`: `if (isset($GLOBALS['connection']) ...) { reuse } else { new mysqli(...) }`). A separate-process test has no `$GLOBALS['connection']` at all — a fresh process, fresh globals — so `index.php` running inside it opens, uses, and closes its own dedicated connection, precisely matching what happens for a real request. Nothing it does can leak into or be affected by the rest of the suite.
+
+`tests/Integration/LegacyPageHandlerTest.php`:
 
 ```php
 <?php
@@ -1419,10 +1423,23 @@ declare(strict_types=1);
 namespace BCOEM\Tests\Integration;
 
 use Bcoem\Legacy\LegacyPageHandler;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\TestCase;
 use Slim\Psr7\Factory\ServerRequestFactory;
 use Slim\Psr7\Factory\ResponseFactory;
 
-class LegacyPageHandlerTest extends IntegrationTestCase
+/**
+ * Deliberately does NOT extend IntegrationTestCase. index.php is real,
+ * unmodified production code - it closes its own DB connection
+ * unconditionally and its bootstrap chain can only safely execute once per
+ * process. Running it in its own child process (no shared $GLOBALS, no
+ * shared require-once state) is what lets it behave exactly like a real web
+ * request instead of colliding with the rest of the PHPUnit run.
+ */
+#[RunInSeparateProcess]
+#[PreserveGlobalState(false)]
+class LegacyPageHandlerTest extends TestCase
 {
     public function test_contact_section_renders_via_legacy_bridge(): void
     {
@@ -1447,7 +1464,7 @@ class LegacyPageHandlerTest extends IntegrationTestCase
 docker compose exec -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration --filter LegacyPageHandlerTest
 ```
 
-If it fails with a header-already-sent warning or similar, that's the "headers already sent" risk called out in the design spec's Risks section — investigate whether `index.php`'s own headers (sent before this test's PHPUnit process would have sent any) are the cause; PHPUnit's CLI SAPI doesn't enforce header-already-sent the way a real web request does, so this is expected to pass in the test environment even though the *production* path (Task 6a below) needs its own manual verification.
+Expected: 1 test, 1 assertion, passing on its own, AND the *rest* of the Integration suite still green when run together (`docker compose exec -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration`) — the separate-process isolation is specifically what makes both true at once. If it fails with a header-already-sent warning or similar, that's the "headers already sent" risk called out in the design spec's Risks section — investigate whether `index.php`'s own headers (sent before this test's PHPUnit process would have sent any) are the cause; PHPUnit's CLI SAPI doesn't enforce header-already-sent the way a real web request does, so this is expected to pass in the test environment even though the *production* path (Step 5 below) needs its own manual verification.
 
 - [ ] **Step 5: Manually verify against the real running stack (headers matter here, unlike the PHPUnit CLI context)**
 
@@ -1546,6 +1563,10 @@ final class LegacyProcessHandler
 
 - [ ] **Step 2: Write the integration test**
 
+**Same reasoning as Task 6's `LegacyPageHandlerTest`: do not extend `IntegrationTestCase`.** `includes/process.inc.php` is real production code with the same class of global side effects `index.php` has (its own bootstrap chain, `session_write_close()`, and an unconditional `exit()` at the very end) — running it in the shared PHPUnit process risks the identical connection-lifecycle and require-once collisions Task 6 hit. Use `#[RunInSeparateProcess]`/`#[PreserveGlobalState(false)]` here too.
+
+**One extra wrinkle to watch for, specific to this file (not present in `index.php`'s flow): `process.inc.php` calls `exit()` unconditionally as its very last line.** If that `exit()` fires before PHPUnit's own separate-process result-capture code runs (the mechanism that serializes the test outcome back to the parent process), the parent may see "child process exited unexpectedly" rather than a clean pass/fail regardless of whether the assertion inside would have succeeded. If you hit this, don't fight it by weakening the assertion — investigate whether asserting on state that's already durable *before* the `exit()` call helps (e.g., session state is written to the session storage backend before `exit()`, so checking `$_SESSION` from a fresh read, or the session file/table directly, may be more robust than relying on the test process's own in-memory `$_SESSION` surviving past the child's `exit()`), and report back precisely what you find rather than guessing further.
+
 `tests/Integration/LegacyProcessHandlerTest.php`:
 
 ```php
@@ -1555,10 +1576,15 @@ declare(strict_types=1);
 namespace BCOEM\Tests\Integration;
 
 use Bcoem\Legacy\LegacyProcessHandler;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\TestCase;
 use Slim\Psr7\Factory\ServerRequestFactory;
 use Slim\Psr7\Factory\ResponseFactory;
 
-class LegacyProcessHandlerTest extends IntegrationTestCase
+#[RunInSeparateProcess]
+#[PreserveGlobalState(false)]
+class LegacyProcessHandlerTest extends TestCase
 {
     public function test_logout_action_clears_session_via_legacy_bridge(): void
     {
