@@ -156,7 +156,7 @@ $containerBuilder->addDefinitions([
      *
      * Dependency hierarchy:
      * - AdminPreferencesRepository: lowest level, database access only (depends on Connection)
-     * - PreferencesValidationService: pure logic, no dependencies
+     * - PreferencesValidationService: pure logic + command validation (depends on Validator)
      * - StyleCatalogService: style lookups (depends on Connection)
      * - AdminPreferencesService: orchestration layer (depends on all above)
      */
@@ -164,7 +164,11 @@ $containerBuilder->addDefinitions([
         new AdminPreferencesRepository($container->get(Connection::class)),
 
     PreferencesValidationService::class => static fn (): PreferencesValidationService =>
-        new PreferencesValidationService(),
+        new PreferencesValidationService(
+            (new \Symfony\Component\Validator\ValidatorBuilder())
+                ->addLoader(new \Symfony\Component\Validator\Mapping\Loader\AttributeLoader())
+                ->getValidator(),
+        ),
 
     StyleCatalogService::class => static fn (ContainerInterface $container): StyleCatalogService =>
         new StyleCatalogService($container->get(Connection::class)),
