@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 use Bcoem\Database\Connection;
+use Bcoem\Domain\AdminPreferences\Repository\AdminPreferencesRepository;
+use Bcoem\Domain\AdminPreferences\Service\AdminPreferencesService;
+use Bcoem\Domain\AdminPreferences\Service\PreferencesValidationService;
+use Bcoem\Domain\AdminPreferences\Service\StyleCatalogService;
 use Bcoem\Domain\Entry\Repository\EntryRepository;
 use Bcoem\Domain\Entry\Service\AuditLogger;
 use Bcoem\Domain\Entry\Service\EntryService;
@@ -17,6 +21,7 @@ use Monolog\Logger;
 use Monolog\Processor\PsrLogMessageProcessor;
 use OpenTelemetry\API\Globals;
 use OpenTelemetry\API\Trace\TracerInterface;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -140,6 +145,32 @@ $containerBuilder->addDefinitions([
             $container->get(EntryValidationService::class),
             $container->get(AuditLogger::class),
             $container->get(LoggerInterface::class),
+        ),
+
+    /**
+     * Phase 3.3: AdminPreferences domain services and repositories.
+     * Task 2: DI Container Wiring
+     *
+     * Dependency hierarchy:
+     * - AdminPreferencesRepository: lowest level, database access only (depends on Connection)
+     * - PreferencesValidationService: pure logic, no dependencies
+     * - StyleCatalogService: style lookups (depends on Connection)
+     * - AdminPreferencesService: orchestration layer (depends on all above)
+     */
+    AdminPreferencesRepository::class => static fn (ContainerInterface $container): AdminPreferencesRepository =>
+        new AdminPreferencesRepository($container->get(Connection::class)),
+
+    PreferencesValidationService::class => static fn (): PreferencesValidationService =>
+        new PreferencesValidationService(),
+
+    StyleCatalogService::class => static fn (ContainerInterface $container): StyleCatalogService =>
+        new StyleCatalogService($container->get(Connection::class)),
+
+    AdminPreferencesService::class => static fn (ContainerInterface $container): AdminPreferencesService =>
+        new AdminPreferencesService(
+            $container->get(AdminPreferencesRepository::class),
+            $container->get(PreferencesValidationService::class),
+            $container->get(StyleCatalogService::class),
         ),
 ]);
 
