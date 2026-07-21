@@ -78,7 +78,7 @@ class AdminPreferencesRepository
         );
 
         $this->connection->execute($sql, [
-            $preferences->state()->value,
+            $preferences->competitionState()->value,
             $preferences->styleSetConfig()->styleSet->value,
             json_encode($preferences->styleSetConfig()->allowedStyleIds),
             json_encode($preferences->styleSetConfig()->customExceptions),
@@ -148,11 +148,11 @@ class AdminPreferencesRepository
 
         return new AdminPreferences(
             id: new PreferencesId(1),
-            state: CompetitionState::from((string) $row['competitionState']),
             styleSetConfig: $styleSetConfig,
             entryConstraints: $entryConstraints,
             judgingConfig: $judgingConfig,
-            changedAt: new DateTime($row['changedAt'] ?? 'now')
+            competitionState: CompetitionState::from((string) $row['competitionState']),
+            stateChangedAt: new DateTime($row['changedAt'] ?? 'now')
         );
     }
 
@@ -163,7 +163,6 @@ class AdminPreferencesRepository
     {
         $defaults = new AdminPreferences(
             id: new PreferencesId(1),
-            state: CompetitionState::Planning,
             styleSetConfig: new StyleSetConfiguration(
                 styleSet: StyleSet::BJCP2025,
                 allowedStyleIds: [],
@@ -181,7 +180,8 @@ class AdminPreferencesRepository
                 maxBosPerStyle: 3,
                 maxRounds: 2
             ),
-            changedAt: new DateTime()
+            competitionState: CompetitionState::Planning,
+            stateChangedAt: new DateTime()
         );
 
         $sql = sprintf(
