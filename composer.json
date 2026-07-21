@@ -3,7 +3,12 @@
     "description": "Brew Competition Online Entry & Management",
     "type": "project",
     "require": {
+        "guzzlehttp/guzzle": "^8.0",
         "monolog/monolog": "^3.0",
+        "open-telemetry/api": "^1.10",
+        "open-telemetry/exporter-otlp": "^1.4",
+        "open-telemetry/opentelemetry-auto-mysqli": "^0.4.0",
+        "open-telemetry/sdk": "^1.15",
         "php-di/php-di": "^7.0",
         "php-di/slim-bridge": "^3.4",
         "pixel418/markdownify": "^2.3",
@@ -28,7 +33,11 @@
         }
     },
     "config": {
-        "sort-packages": true
+        "sort-packages": true,
+        "platform": {
+            "php": "8.2.32",
+            "ext-opentelemetry": "1.2.1"
+        }
     },
     "scripts": {
         "stan": "phpstan analyse --memory-limit=1G",
