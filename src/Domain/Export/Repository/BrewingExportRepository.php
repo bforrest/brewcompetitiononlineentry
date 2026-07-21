@@ -46,7 +46,7 @@ class BrewingExportRepository
 
         $params = [];
 
-        match ($filter) {
+        $match = match ($filter) {
             ExportFilter::PAID => [
                 'condition' => match ($view) {
                     'all' => 'brewPaid = ?',
@@ -75,14 +75,6 @@ class BrewingExportRepository
             ],
             default => ['condition' => '', 'values' => []],
         };
-
-        $match = $filter->value === 'paid'
-            ? ['condition' => 'brewPaid = ? AND brewReceived = ?', 'values' => [1, 1]]
-            : ($filter->value === 'nopay'
-                ? ['condition' => '(brewPaid <> ? OR brewPaid IS NULL) AND brewReceived = ?', 'values' => [1, 1]]
-                : ($filter->value === 'required'
-                    ? ['condition' => '(brewInfo IS NOT NULL OR brewComments IS NOT NULL OR brewInfoOptional IS NOT NULL)', 'values' => []]
-                    : ['condition' => '', 'values' => []]));
 
         if ($match['condition']) {
             $sql .= " AND " . $match['condition'];

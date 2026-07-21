@@ -195,12 +195,20 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
         $container->get(\Bcoem\Domain\Export\Service\ExportFormatterService::class)
     );
 
-    $app->get('/export', fn ($req, $res, $args) => $exportController->getExportForm($req, $res))
-        ->setName('export.form');
-    $app->post('/export', fn ($req, $res, $args) => $exportController->postExport($req, $res))
-        ->setName('export.download');
-    $app->get('/export/preview', fn ($req, $res, $args) => $exportController->getExportPreview($req, $res))
-        ->setName('export.preview');
+    $app->get('/export', function ($req, $res) use ($exportController) {
+        $user = $req->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
+        return $exportController->getExportForm($req, $user);
+    })->setName('export.form');
+
+    $app->post('/export', function ($req, $res) use ($exportController) {
+        $user = $req->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
+        return $exportController->postExport($req, $user);
+    })->setName('export.download');
+
+    $app->get('/export/preview', function ($req, $res) use ($exportController) {
+        $user = $req->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
+        return $exportController->getExportPreview($req, $user);
+    })->setName('export.preview');
 
     return $app;
 }

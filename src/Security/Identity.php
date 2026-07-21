@@ -25,4 +25,24 @@ final class Identity
             Role::fromUserLevel(isset($session['userLevel']) ? (string)$session['userLevel'] : null)
         );
     }
+
+    public function isAdmin(): bool
+    {
+        return $this->role->value <= Role::Admin->value;
+    }
+
+    public function userLevel(): int
+    {
+        return match ($this->role) {
+            Role::Anonymous => 2,
+            Role::Entrant => 1,
+            Role::Admin => 1,
+            Role::SuperAdmin => 0,
+        };
+    }
+
+    public function competitionId(): ?int
+    {
+        return isset($GLOBALS['session']['comp_id']) ? (int) $GLOBALS['session']['comp_id'] : null;
+    }
 }
