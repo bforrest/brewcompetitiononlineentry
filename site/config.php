@@ -2,7 +2,20 @@
 /**
  * Module:        config.php
  * Description:   This module houses configuration variables for DB connection, etc.
- * Last Modified: March 26, 2024
+ * Last Modified: July 21, 2026
+ *
+ * Task 13: this file is the single source of truth for deploy-varying
+ * configuration on EVERY installation type - shared hosting (hand-edited,
+ * no environment variables ever set) and Docker (real environment
+ * variables, no more bind-mounted override). Every value below follows the
+ * same pattern: `getenv('X') ?: <the literal that used to be hardcoded
+ * here>`. On a shared-hosting install where no env var is ever set,
+ * getenv() returns false for every one of these keys and every line below
+ * resolves to EXACTLY the literal a hand-edited install has always had -
+ * zero observable behavior change for that deployment type. Docker (see
+ * docker-compose.yml) sets the real env vars instead of bind-mounting a
+ * second copy of this file over it (the old docker/config.php, retired by
+ * this task).
  */
 
 /**
@@ -12,35 +25,39 @@
  */
 
 /**
- * Generally, 'localhost' will work for most environments. 
+ * Generally, 'localhost' will work for most environments.
  * However, some environments may require another hostname.
- * *** This has been confirmed for GO DADDY shared hosting users.         
- * *** This article details how to change "localhost" to suit your Go Daddy 
+ * *** This has been confirmed for GO DADDY shared hosting users.
+ * *** This article details how to change "localhost" to suit your Go Daddy
  *     enviornment.
  * *** https://www.godaddy.com/help/viewing-your-database-details-with-shared-hosting-accounts-39
+ *
+ * DB_HOST overrides this for installs that set real environment variables
+ * (e.g. Docker - see docker-compose.yml). Unset on shared hosting, so the
+ * hand-edited literal below is what actually takes effect there.
  */
 
-$hostname = 'localhost';
+$hostname = getenv('DB_HOST') ?: 'localhost';
 
 /**
- * Enter the username for your database (generally the same as your login code 
+ * Enter the username for your database (generally the same as your login code
  * for your web hosting company).
  * INSERT YOUR USERNAME BETWEEN THE SINGLE-QUOTATION MARKS ('').
- * For example, if your username is fred then the line should read 
+ * For example, if your username is fred then the line should read
  * $username = 'fred'.
  */
 
 
-$username = '';
+$username = getenv('DB_USER') ?: '';
 
 
 /**
  * INSERT YOUR PASSWORD BETWEEN THE SINGLE-QUOTATION MARKS ('').
- * For example, if your password is flintstone then the line should read 
+ * For example, if your password is flintstone then the line should read
  * $password = 'flintsone'.
  */
 
-$password = '';
+$password = getenv('DB_PASSWORD') ?: '';
 
 /**
  * The following line is the name of your MySQL database you set up already.
@@ -48,7 +65,7 @@ $password = '';
  * http://brewingcompetitions.com/install-instructions for setup instructions.
  */
 
-$database = '';
+$database = getenv('DB_NAME') ?: '';
 
 
 /**
@@ -69,20 +86,34 @@ $database = '';
 // TracingMiddleware's root span. See task-12-report.md's "Review fix round
 // 1" section for the full investigation. Also applies if $database_port is
 // hand-edited to a numeric string like '3308' per the example above.
-$database_port = (int) ini_get('mysqli.default_port');
+// DB_PORT is an additive override for installs whose MySQL runs on a
+// non-default port via a real environment variable; unset on shared
+// hosting, so ini_get()'s value (today's exact behavior) still wins there.
+$database_port = (int) (getenv('DB_PORT') ?: ini_get('mysqli.default_port'));
 
 /**
  * This line strings the information together and connects to MySQL.
  * If MySQL is not found or the username/password combo is not correct an
  * error will be returned.
+ *
+ * Reuse an existing connection if one is already set (the PHPUnit
+ * IntegrationTestCase injects its transactional connection via
+ * $GLOBALS['connection'] so library code shares the test's uncommitted
+ * state - see tests/Integration/IntegrationTestCase.php). Web requests and
+ * a real shared-hosting install never have one pre-set, so this is a
+ * harmless no-op there and they always take the normal connect branch.
  */
 
-$connection = new mysqli($hostname, $username, $password, $database, $database_port);
-mysqli_set_charset($connection,'utf8mb4');
-mysqli_query($connection, "SET NAMES 'utf8mb4';");
-mysqli_query($connection, "SET CHARACTER SET 'utf8mb4';");
-mysqli_query($connection, "SET COLLATION_CONNECTION = 'utf8mb4_unicode_ci';");
-mysqli_query($connection, "SET sql_mode = '';");
+if (isset($GLOBALS['connection']) && $GLOBALS['connection'] instanceof mysqli) {
+    $connection = $GLOBALS['connection'];
+} else {
+    $connection = new mysqli($hostname, $username, $password, $database, $database_port);
+    mysqli_set_charset($connection,'utf8mb4');
+    mysqli_query($connection, "SET NAMES 'utf8mb4';");
+    mysqli_query($connection, "SET CHARACTER SET 'utf8mb4';");
+    mysqli_query($connection, "SET COLLATION_CONNECTION = 'utf8mb4_unicode_ci';");
+    mysqli_query($connection, "SET sql_mode = '';");
+}
 
 /**
  * Do not change the following line.
@@ -114,9 +145,14 @@ $brewing = $connection;
  * $prefix = 'bcoem1_';
  * OR
  * $prefix = 'comp1_';
+ *
+ * DB_PREFIX overrides this for installs that set real environment
+ * variables (Docker's baseline schema uses 'baseline_' - see
+ * docker-compose.yml). Unset on shared hosting, so '' (today's default)
+ * still wins there.
  */
 
-$prefix = '';
+$prefix = getenv('DB_PREFIX') ?: '';
 
 /*
  * ******************************************************************************
@@ -128,9 +164,11 @@ $prefix = '';
  *
  * For single installations, the default below will be sufficient. Otherwise,
  * change the variable to something completely unique for each installation.
+ *
+ * INSTALLATION_ID overrides this the same way as every other value above.
  */
 
-$installation_id = '';
+$installation_id = getenv('INSTALLATION_ID') ?: '';
 
 /*
  * ******************************************************************************
@@ -152,9 +190,14 @@ $session_expire_after = 30;
  *
  * After finishing setup, be sure to open this file again and change the
  * TRUE back to a FALSE!
+ *
+ * SETUP_FREE_ACCESS=true overrides this for installs that set real
+ * environment variables (see docker-compose.install.yml, which flips this
+ * on for a fresh-install workflow without hand-editing this file). Unset
+ * on shared hosting, so FALSE (today's default) still wins there.
  */
 
-$setup_free_access = FALSE;
+$setup_free_access = (getenv('SETUP_FREE_ACCESS') === 'true');
 
 /*
  * ******************************************************************************
@@ -196,15 +239,28 @@ $sub_directory = '';
  * $base_url .= 'www.bluehost.com/~brewcompeition/bcoem/';
  * 
  * To override the SSL (HTTPS) check if SSL isn't implemented on your
- * server AND you're experiencing log in or session issues, or if pages are not 
+ * server AND you're experiencing log in or session issues, or if pages are not
  * rendering correctly, comment out the second line in the block below (the if
  * statement).
  * @fixes https://github.com/geoffhumphrey/brewcompetitiononlineentry/issues/1123
+ *
+ * BASE_URL_USE_HTTP_HOST is an additive override for installs (Docker - see
+ * docker-compose.yml) whose Apache-visible SERVER_NAME doesn't reflect the
+ * port the browser actually used (SERVER_NAME comes back as just
+ * "localhost" inside the container even though docker-compose.yml maps
+ * that to host port 8080; HTTP_HOST mirrors the client's real Host header,
+ * port included). Unset on shared hosting, so $_SERVER['SERVER_NAME']
+ * (today's exact behavior) still wins there. This replaces the old
+ * docker/config.php override, which hardcoded HTTP_HOST unconditionally
+ * for every Docker request instead of gating it behind an env var.
  */
 
 $base_url = 'http://';
 if (is_https()) $base_url = 'https://';
-$base_url .= $_SERVER['SERVER_NAME'].$sub_directory.'/';
+$base_url_host = (getenv('BASE_URL_USE_HTTP_HOST') === 'true')
+    ? ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'])
+    : $_SERVER['SERVER_NAME'];
+$base_url .= $base_url_host.$sub_directory.'/';
 
 /*
  * ******************************************************************************
