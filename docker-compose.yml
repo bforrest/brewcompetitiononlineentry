@@ -12,11 +12,29 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     environment:
       DB_HOST: db
       DB_USER: bcoem
       DB_PASSWORD: bcoem_password
       DB_NAME: bcoem
+
+  # Task 12: local trace viewer. jaeger-all-in-one has ingested OTLP natively
+  # since ~1.35, so a single container covers both collection and the UI -
+  # no separate otel-collector hop needed for "one trace visible locally".
+  # docker/apache/vhost.conf points OTEL_EXPORTER_OTLP_ENDPOINT at
+  # http://jaeger:4318 (the Docker-network service name; port 4318 is OTLP
+  # over HTTP, matching OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf - deliberately
+  # not the grpc port/transport, to avoid needing the much heavier grpc PECL
+  # extension in the Dockerfile just for local dev tracing).
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4318:4318"   # OTLP HTTP receiver
 
   db:
     image: mariadb:11
