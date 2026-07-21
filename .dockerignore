@@ -1,0 +1,17 @@
+# Task 13: the Dockerfile now COPYs the app source into the image (so a
+# `docker push`ed image is self-contained and runnable without the
+# docker-compose bind mount local dev relies on) and runs its own
+# `composer install --no-dev` at build time - so none of this needs to be
+# (or should be) part of that COPY's build context.
+.git
+.github
+.superpowers
+node_modules
+e2e/node_modules
+e2e/playwright-report
+e2e/test-results
+vendor
+tests
+e2e
+test-results
+.phpunit.cache

@@ -38,6 +38,10 @@
         "platform": {
             "php": "8.2.32",
             "ext-opentelemetry": "1.2.1"
+        },
+        "allow-plugins": {
+            "php-http/discovery": true,
+            "tbachert/spi": true
         }
     },
     "scripts": {
