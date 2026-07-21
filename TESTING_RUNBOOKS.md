@@ -130,9 +130,11 @@ git commit -m "Update style conversion snapshot after format change"
 
 ---
 
-### Tier 4: E2E Tests (90 seconds + stack)
+### Tier 4: E2E Tests (currently broken — see below)
 
 **Best for:** End-to-end user journeys; browser interaction.
+
+**⚠ Known-broken as of 2026-07-21:** every spec fails at the very first `page.goto()` with `net::ERR_SSL_PROTOCOL_ERROR`. `.htaccess` unconditionally redirects every request to HTTPS, but the Docker vhost never configures a TLS listener. Confirmed with `smoke.spec.ts` (simplest possible spec) — this is infrastructure, not test logic, and isn't specific to any one file. Check whether GitHub Actions CI hits the same issue before assuming this only affects local runs.
 
 **Prerequisites:**
 ```bash
@@ -367,7 +369,11 @@ git push
 ### "E2E tests failed" in GitHub Actions
 
 ```bash
-# 1. Check CI logs; look for "Timeout waiting for" or "Navigation failed"
+# 1. Check CI logs; look for "Timeout waiting for" or "Navigation failed" -
+#    or ERR_SSL_PROTOCOL_ERROR, which as of 2026-07-21 fails every spec
+#    locally (see Tier 4 runbook above) due to a .htaccess force-HTTPS rule
+#    with no TLS listener configured in Docker. Check whether CI is hitting
+#    the same thing before assuming it's a fresh regression.
 
 # 2. Reproduce locally
 docker-compose up -d
@@ -416,12 +422,7 @@ time docker-compose exec -T web vendor/bin/phpunit --testsuite Approval
 cd e2e && time npm test
 ```
 
-**Expected Times (from 2026-07-21):**
-- Unit: ~30s
-- Integration: ~60s
-- Approval: ~20s
-- E2E: ~90s
-- Total: ~3.5 min
+**Expected Times:** the figures previously here (Unit ~30s, Integration ~60s, Approval ~20s, E2E ~90s, total ~3.5 min) were not reverified this session and are presented as CI-runner estimates in `TESTING.md`/`TESTING_HEALTH_DASHBOARD.md` rather than repeated here as measured fact. On a warm local dev machine, Unit/Integration/Approval each complete in a few seconds — that's not representative of a cold CI runner, so don't use it to judge CI performance. E2E currently doesn't complete at all locally (see Tier 4 above).
 
 ---
 
@@ -432,8 +433,8 @@ cd e2e && time npm test
 ✓ **Unit tests fail** → PR cannot merge  
 ✓ **Integration tests fail** → PR cannot merge  
 ✓ **Approval tests fail** → PR cannot merge  
-✓ **E2E tests fail** → PR cannot merge  
-✓ **PHPStan errors** → PR cannot merge  
+✓ **E2E tests fail** → PR cannot merge (as configured — but if CI hits the same HTTPS/TLS issue found locally 2026-07-21, this gate would currently be unconditionally red; verify against the actual Actions history before relying on it)  
+✓ **PHPStan errors** → PR cannot merge (note: `phpstan.neon` is configured at level 0, not level 8 — an "error" here means a level-0 violation, which is a much lower bar than some docs in this repo previously implied)  
 
 ### Manual Triggers
 
