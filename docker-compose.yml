@@ -10,7 +10,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      jaeger:
+      tempo:
         condition: service_started
     environment:
       # Task 13: site/config.php reads these directly (getenv(...) ?: '<shared-hosting
@@ -34,21 +34,42 @@ services:
       # stays off there.
       APP_DEBUG: "1"
 
-  # Task 12: local trace viewer. jaeger-all-in-one has ingested OTLP natively
-  # since ~1.35, so a single container covers both collection and the UI -
-  # no separate otel-collector hop needed for "one trace visible locally".
+  # Task 12: local observability stack (Tempo traces + Prometheus metrics + Grafana dashboard)
+  # Tempo ingests OTLP over HTTP (4318), Prometheus scrapes metrics from /metrics endpoints,
+  # Grafana correlates traces/metrics/logs at http://localhost:3000.
   # docker/apache/vhost.conf points OTEL_EXPORTER_OTLP_ENDPOINT at
-  # http://jaeger:4318 (the Docker-network service name; port 4318 is OTLP
-  # over HTTP, matching OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf - deliberately
-  # not the grpc port/transport, to avoid needing the much heavier grpc PECL
-  # extension in the Dockerfile just for local dev tracing).
-  jaeger:
-    image: jaegertracing/all-in-one:1.60
-    environment:
-      COLLECTOR_OTLP_ENABLED: "true"
+  # http://tempo:4318 (same OTLP/http/protobuf as before, just swapped endpoints).
+
+  tempo:
+    image: grafana/tempo:latest
+    command: ["-config.file=/etc/tempo.yml"]
     ports:
-      - "16686:16686" # Jaeger UI
       - "4318:4318"   # OTLP HTTP receiver
+    volumes:
+      - ./docker/tempo.yml:/etc/tempo.yml:ro
+      - tempo_data:/var/tempo
+
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
 
   db:
     image: mariadb:11
@@ -76,4 +97,7 @@ services:
 
 volumes:
   bcoem_db:
+  tempo_data:
+  prometheus_data:
+  grafana_data:
   
