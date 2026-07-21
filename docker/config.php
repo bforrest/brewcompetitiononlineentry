@@ -11,7 +11,18 @@ $hostname = getenv('DB_HOST') ?: 'db';
 $username = getenv('DB_USER') ?: 'bcoem';
 $password = getenv('DB_PASSWORD') ?: 'bcoem_password';
 $database = getenv('DB_NAME') ?: 'bcoem';
-$database_port = ini_get('mysqli.default_port');
+// Cast to int (Task 12 review fix): ini_get() always returns a string, and
+// passing that straight to `new mysqli(...)` broke OpenTelemetry's mysqli
+// auto-instrumentation - MySqliTracker::storeMySqliAttributes()'s strict
+// `?int $port` parameter type-errors on a string port, and that TypeError is
+// thrown from INSIDE the extension's post-hook callback, aborting
+// constructPostHook() before it reaches endSpan(). The scope this connect's
+// span pushed onto OTel's ambient Context stack is then never detached -
+// every mysqli_query() span for the rest of the request nests under that
+// leaked, never-exported "ghost" span instead of directly under
+// TracingMiddleware's root span. See task-12-report.md's "Review fix round
+// 1" section for the full investigation.
+$database_port = (int) ini_get('mysqli.default_port');
 
 /**
  * Reuse an existing connection if one is already set (the PHPUnit

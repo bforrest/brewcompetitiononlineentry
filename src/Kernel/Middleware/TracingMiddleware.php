@@ -8,6 +8,7 @@ use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\API\Trace\TracerInterface;
+use OpenTelemetry\SDK\Trace\ReadableSpanInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -91,8 +92,31 @@ final class TracingMiddleware implements MiddlewareInterface
     private function tagFinalStatus(SpanInterface $span, int $statusCode): void
     {
         $span->setAttribute('http.status_code', $statusCode);
-        if ($statusCode >= 500) {
+        if ($statusCode >= 500 && !$this->alreadyHasAnErrorDescription($span)) {
             $span->setStatus(StatusCode::STATUS_ERROR);
         }
+    }
+
+    /**
+     * Task 12 review fix round 1 (minor finding): this middleware's own catch
+     * block, and ErrorHandler.php (which runs INNER to Tracing, via
+     * ErrorMiddleware, and so always executes first in practice - see this
+     * class's own docblock) both call setStatus(ERROR, $exception->getMessage())
+     * BEFORE this method's caller does. The SDK's Span::setStatus() happily
+     * overwrites an ERROR-with-description status with a later ERROR-with-
+     * no-description call (it only refuses to override STATUS_OK, not a
+     * second STATUS_ERROR) - so without this guard, tagFinalStatus() would
+     * silently clobber the specific exception message with a blank one on
+     * every 5xx response. SpanInterface (the API) is deliberately write-only
+     * with no getStatus(), so we opportunistically read back through the
+     * SDK's own ReadableSpanInterface::toSpanData() - real at runtime (every
+     * span here comes from the SDK's TracerProvider, see container.php),
+     * with the instanceof check keeping this a no-op if some future test or
+     * config ever attaches a bare API-only span.
+     */
+    private function alreadyHasAnErrorDescription(SpanInterface $span): bool
+    {
+        return $span instanceof ReadableSpanInterface
+            && $span->toSpanData()->getStatus()->getCode() === StatusCode::STATUS_ERROR;
     }
 }

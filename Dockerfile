@@ -40,7 +40,17 @@ RUN apt-get update && apt-get install -y \
 # native deps needed - the OTLP exporter is configured for the http/protobuf
 # transport, not grpc, specifically to avoid needing to also compile the much
 # heavier grpc PECL extension here).
-RUN pecl install opentelemetry \
+#
+# Pinned to 1.2.1 (Task 12 review fix round 1) - MUST match composer.json's
+# config.platform.ext-opentelemetry value exactly. Before this fix, this line
+# installed unpinned `pecl install opentelemetry` (always resolves whatever is
+# "latest" at build time) while composer.json separately claimed "1.2.1" for
+# dependency-resolution purposes - the two had no real relationship and could
+# silently drift the moment a new extension release shipped. 1.2.1 is what
+# was actually installed and running when this pin was added (confirmed via
+# `docker compose exec web php -r 'echo phpversion("opentelemetry");'`).
+# Bump both together, deliberately, when upgrading.
+RUN pecl install opentelemetry-1.2.1 \
   && docker-php-ext-enable opentelemetry
 
 # Use custom Apache vhost
