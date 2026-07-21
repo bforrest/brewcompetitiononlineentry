@@ -24,8 +24,8 @@ class EntryRepositoryTest extends TestCase
     public function test_row_to_entry_hydrates_entry_from_database_row(): void
     {
         $row = [
-            'brewID' => 1,
-            'brewBrewerId' => 10,
+            'id' => 1,
+            'brewBrewerID' => 10,
             'uid' => 10,
             'brewStyle' => '1A',
             'brewCategorySort' => '1',

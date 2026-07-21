@@ -33,12 +33,7 @@ final class Identity
 
     public function userLevel(): int
     {
-        return match ($this->role) {
-            Role::Anonymous => 2,
-            Role::Entrant => 1,
-            Role::Admin => 1,
-            Role::SuperAdmin => 0,
-        };
+        return $this->role->value;
     }
 
     public function competitionId(): ?int

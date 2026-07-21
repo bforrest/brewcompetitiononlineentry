@@ -13,6 +13,7 @@ use Bcoem\Domain\Judging\ValueObject\TableId;
 use Bcoem\Domain\Judging\ValueObject\TableState;
 use Bcoem\Domain\Entry\ValueObject\EntryId;
 use Bcoem\Security\Identity;
+use Bcoem\Security\Role;
 use Bcoem\Kernel\ResponseHelper;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -75,7 +76,7 @@ final class JudgingController
         }
     }
 
-    public function getTableDetail(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function getTableDetail(ServerRequestInterface $request, ResponseInterface $response, string $id): ResponseInterface
     {
         $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
@@ -83,7 +84,7 @@ final class JudgingController
         }
 
         try {
-            $id = (int) ($args['id'] ?? 0);
+            $id = (int) $id;
             $table = $this->tableService->getTable(new TableId($id));
             $scores = $this->scoreService->listScoresForTable(new TableId($id));
 
@@ -147,19 +148,19 @@ final class JudgingController
         }
     }
 
-    public function transitionTableState(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function transitionTableState(ServerRequestInterface $request, ResponseInterface $response, string $id): ResponseInterface
     {
         $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
             return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
-        if (!$identity->hasRole('admin')) {
+        if (!$identity->role->satisfies(Role::Admin)) {
             return ResponseHelper::json($response, ['error' => 'Forbidden: Admin role required'], 403);
         }
 
         try {
-            $id = (int) ($args['id'] ?? 0);
+            $id = (int) $id;
             $data = (array) json_decode($request->getBody()->getContents(), true);
             $newState = TableState::from($data['state']);
 
@@ -172,19 +173,19 @@ final class JudgingController
         }
     }
 
-    public function addFlight(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function addFlight(ServerRequestInterface $request, ResponseInterface $response, string $id): ResponseInterface
     {
         $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
             return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
-        if (!$identity->hasRole('admin')) {
+        if (!$identity->role->satisfies(Role::Admin)) {
             return ResponseHelper::json($response, ['error' => 'Forbidden: Admin role required'], 403);
         }
 
         try {
-            $id = (int) ($args['id'] ?? 0);
+            $id = (int) $id;
             $data = (array) json_decode($request->getBody()->getContents(), true);
 
             $flight = new Flight(
@@ -203,20 +204,20 @@ final class JudgingController
         }
     }
 
-    public function removeFlight(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function removeFlight(ServerRequestInterface $request, ResponseInterface $response, string $id, string $flightId): ResponseInterface
     {
         $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
             return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
-        if (!$identity->hasRole('admin')) {
+        if (!$identity->role->satisfies(Role::Admin)) {
             return ResponseHelper::json($response, ['error' => 'Forbidden: Admin role required'], 403);
         }
 
         try {
-            $id = (int) ($args['id'] ?? 0);
-            $flightId = (int) ($args['flightId'] ?? 0);
+            $id = (int) $id;
+            $flightId = (int) $flightId;
             $this->tableService->removeFlight(new TableId($id), new FlightId($flightId), $identity);
             return ResponseHelper::json($response, ['success' => true]);
         } catch (\Throwable $e) {
@@ -261,7 +262,7 @@ final class JudgingController
         }
     }
 
-    public function getTableDetailView(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function getTableDetailView(ServerRequestInterface $request, ResponseInterface $response, string $id): ResponseInterface
     {
         $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
@@ -269,7 +270,7 @@ final class JudgingController
         }
 
         try {
-            $id = (int) ($args['id'] ?? 0);
+            $id = (int) $id;
             $table = $this->tableService->getTable(new TableId($id));
             $scores = $this->scoreService->listScoresForTable(new TableId($id));
             $flights = $table->flights()->all();
@@ -286,7 +287,7 @@ final class JudgingController
         }
     }
 
-    public function getJudgeScoresheet(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    public function getJudgeScoresheet(ServerRequestInterface $request, ResponseInterface $response, string $id): ResponseInterface
     {
         $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
@@ -294,7 +295,7 @@ final class JudgingController
         }
 
         try {
-            $id = (int) ($args['id'] ?? 0);
+            $id = (int) $id;
             $table = $this->tableService->getTable(new TableId($id));
             $flights = $table->flights()->all();
             $scores = $this->scoreService->listScoresForTable(new TableId($id));
@@ -317,21 +318,21 @@ final class JudgingController
         }
     }
 
-    public function getTableForm(ServerRequestInterface $request, ResponseInterface $response, array $args = []): ResponseInterface
+    public function getTableForm(ServerRequestInterface $request, ResponseInterface $response, ?string $id = null): ResponseInterface
     {
         $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
             return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
-        if (!$identity->hasRole('admin')) {
+        if (!$identity->role->satisfies(Role::Admin)) {
             return ResponseHelper::json($response, ['error' => 'Forbidden: Admin role required'], 403);
         }
 
         try {
             $queryParams = $request->getQueryParams();
             $locationId = (int) ($queryParams['location'] ?? 0);
-            $id = (int) ($args['id'] ?? null);
+            $id = $id !== null ? (int) $id : null;
             $isEditMode = $id !== null;
             $table = $isEditMode ? $this->tableService->getTable(new TableId($id)) : null;
 

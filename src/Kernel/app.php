@@ -160,55 +160,120 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
     $app->map(['GET', 'POST'], '/includes/output.inc.php', new \Bcoem\Legacy\LegacyFileHandler('includes/output.inc.php'))
         ->setName('output');
 
-    // SEF catch-all: matches the old /section/go/action/id path shape. The
-    // app-level middleware registered above (right before Authorization)
-    // does the actual path-segment -> $_GET/query-param translation that
-    // LegacyPageHandler and downstream legacy code expect - see that
-    // middleware's own comment for why it can't live here as route-level
-    // middleware. Registered LAST so it never shadows the explicit routes
-    // above (Slim/FastRoute matches static routes before dynamic ones
-    // regardless, but registration order keeps the intent unambiguous).
-    $app->get('/{section}[/{go}[/{action}[/{id}]]]', new \Bcoem\Legacy\LegacyPageHandler())
-        ->setName('section');
-
-    // Phase 3: Entry (brewing) workflow routes
+    // Phase 3: Entry (brewing) workflow routes.
+    //
+    // MUST be registered before the SEF catch-all below, and this is NOT
+    // just a clarity convention (a prior comment on the catch-all claimed
+    // "Slim/FastRoute matches static routes before dynamic ones regardless"
+    // - that's false). nikic/fast-route compiles its dispatch table lazily
+    // on the first handle() call and throws
+    // FastRoute\BadRouteException("Static route ... is shadowed by
+    // previously defined variable route ...") if ANY static route is
+    // registered after a variable route that could match the same path
+    // shape - and that compile failure takes down EVERY route in the app,
+    // not just the conflicting one (confirmed empirically: with these
+    // blocks after the catch-all, even /__kernel_hello 500'd). Found while
+    // wiring Phase 3.2's Judging routes; moved this block and Export's
+    // above the catch-all to fix it for real, not just for the new routes.
     $entryController = new \Bcoem\Kernel\Controller\EntryController(
         $container->get(\Bcoem\Domain\Entry\Service\EntryService::class)
     );
 
-    $app->get('/entries', fn ($req, $res, $args) => $entryController->getCreateForm($req, $res))
+    // DI\Bridge\Slim\Bridge's ControllerInvoker resolves callable parameters
+    // BY NAME: it builds ['request' => ..., 'response' => ...] + the route's
+    // placeholder arguments spread individually (e.g. 'id' => '5', NOT a
+    // combined $args array) + request attributes, then invokes via PHP-DI's
+    // Invoker. A closure parameter named anything other than exactly $request/
+    // $response, or an $args catch-all instead of the placeholder's own name,
+    // is simply never bound -> NotEnoughParametersException on every real
+    // request. Found the same way as the routing-order bug above: these
+    // closures had never actually been dispatched before.
+    $app->get('/entries', fn ($request, $response) => $entryController->getCreateForm($request, $response))
         ->setName('entry.create.form');
-    $app->get('/entries/{id}/edit', fn ($req, $res, $args) => $entryController->getEditForm($req, $res, $args))
+    $app->get('/entries/{id}/edit', fn ($request, $response, $id) => $entryController->getEditForm($request, $response, ['id' => $id]))
         ->setName('entry.edit.form');
-    $app->post('/entries', fn ($req, $res, $args) => $entryController->postCreate($req, $res))
+    $app->post('/entries', fn ($request, $response) => $entryController->postCreate($request, $response))
         ->setName('entry.create');
-    $app->post('/entries/{id}', fn ($req, $res, $args) => $entryController->postUpdate($req, $res, $args))
+    $app->post('/entries/{id}', fn ($request, $response, $id) => $entryController->postUpdate($request, $response, ['id' => $id]))
         ->setName('entry.update');
-    $app->delete('/entries/{id}', fn ($req, $res, $args) => $entryController->postDelete($req, $res, $args))
+    $app->delete('/entries/{id}', fn ($request, $response, $id) => $entryController->postDelete($request, $response, ['id' => $id]))
         ->setName('entry.delete');
-    $app->get('/entries/my', fn ($req, $res, $args) => $entryController->listEntries($req, $res))
+    $app->get('/entries/my', fn ($request, $response) => $entryController->listEntries($request, $response))
         ->setName('entry.list');
 
-    // Phase 3: Export workflow routes
+    // Phase 3.4: Export workflow routes
     $exportController = new \Bcoem\Kernel\Controller\ExportController(
         $container->get(\Bcoem\Domain\Export\Service\ExportService::class),
         $container->get(\Bcoem\Domain\Export\Service\ExportFormatterService::class)
     );
 
-    $app->get('/export', function ($req, $res) use ($exportController) {
-        $user = $req->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
-        return $exportController->getExportForm($req, $res, $user);
+    $app->get('/export', function ($request, $response) use ($exportController) {
+        $user = $request->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
+        return $exportController->getExportForm($request, $response, $user);
     })->setName('export.form');
 
-    $app->post('/export', function ($req, $res) use ($exportController) {
-        $user = $req->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
-        return $exportController->postExport($req, $res, $user);
+    $app->post('/export', function ($request, $response) use ($exportController) {
+        $user = $request->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
+        return $exportController->postExport($request, $response, $user);
     })->setName('export.download');
 
-    $app->get('/export/preview', function ($req, $res) use ($exportController) {
-        $user = $req->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
-        return $exportController->getExportPreview($req, $res, $user);
+    $app->get('/export/preview', function ($request, $response) use ($exportController) {
+        $user = $request->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
+        return $exportController->getExportPreview($request, $response, $user);
     })->setName('export.preview');
+
+    // Phase 3.2: Judging workflow routes.
+    //
+    // NOTE: templates/Judging/table-form.php POSTs to /judging/tables (create)
+    // and /judging/tables/{id} (edit), and templates/Judging/*.php link to
+    // /judging/locations - none of those three have a controller method yet
+    // (JudgingController never got a postCreateTable/postUpdateTable/locations
+    // handler). Not registered here rather than inventing the handler logic;
+    // those links currently 404.
+    $judgingController = new \Bcoem\Kernel\Controller\JudgingController(
+        $container->get(\Bcoem\Domain\Judging\Service\JudgingTableService::class),
+        $container->get(\Bcoem\Domain\Judging\Service\JudgingScoreService::class)
+    );
+
+    // JSON API (not currently called by any template; kept under /api to avoid
+    // colliding with the HTML pages at the same /judging/tables[/{id}] paths).
+    $app->get('/api/judging/tables', [$judgingController, 'listTables'])
+        ->setName('judging.tables.list.api');
+    $app->get('/api/judging/tables/{id}', [$judgingController, 'getTableDetail'])
+        ->setName('judging.tables.detail.api');
+
+    // HTML admin/judge pages (paths match templates/Judging/*.php exactly).
+    $app->get('/judging/tables', [$judgingController, 'getTablesView'])
+        ->setName('judging.tables.view');
+    $app->get('/judging/tables/create', [$judgingController, 'getTableForm'])
+        ->setName('judging.tables.create.form');
+    $app->get('/judging/tables/{id}/edit', [$judgingController, 'getTableForm'])
+        ->setName('judging.tables.edit.form');
+    $app->get('/judging/tables/{id}', [$judgingController, 'getTableDetailView'])
+        ->setName('judging.tables.detail.view');
+    $app->get('/judging/tables/{id}/scoresheet', [$judgingController, 'getJudgeScoresheet'])
+        ->setName('judging.scoresheet.view');
+
+    $app->post('/judging/tables/{id}/flights', [$judgingController, 'addFlight'])
+        ->setName('judging.flights.add');
+    // Form uses method="post" + a hidden _method=DELETE field (no method-override
+    // middleware is registered), so both verbs must route to the same handler.
+    $app->map(['POST', 'DELETE'], '/judging/tables/{id}/flights/{flightId}', [$judgingController, 'removeFlight'])
+        ->setName('judging.flights.remove');
+    $app->post('/judging/tables/{id}/state', [$judgingController, 'transitionTableState'])
+        ->setName('judging.tables.state');
+    $app->post('/judging/scores', [$judgingController, 'recordScore'])
+        ->setName('judging.scores.record');
+
+    // SEF catch-all: matches the old /section/go/action/id path shape. The
+    // app-level middleware registered above (right before Authorization)
+    // does the actual path-segment -> $_GET/query-param translation that
+    // LegacyPageHandler and downstream legacy code expect - see that
+    // middleware's own comment for why it can't live here as route-level
+    // middleware. Registered LAST (after every static/explicit route above)
+    // because it MUST be - see the comment on the Entry routes block above.
+    $app->get('/{section}[/{go}[/{action}[/{id}]]]', new \Bcoem\Legacy\LegacyPageHandler())
+        ->setName('section');
 
     return $app;
 }

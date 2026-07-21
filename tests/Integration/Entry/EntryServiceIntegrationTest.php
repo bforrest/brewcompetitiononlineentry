@@ -29,15 +29,33 @@ class EntryServiceIntegrationTest extends IntegrationTestCase
     {
         parent::setUp();
 
+        // EntryValidationService defaults to closed when unset (fail-safe) -
+        // this suite exercises create/update, which both require it open.
+        $_SESSION['entry_window_open'] = 1;
+
         $connection = new Connection(self::$conn);
         $this->repository = new EntryRepository($connection);
-        $this->validationService = new EntryValidationService($this->repository);
+        $this->validationService = new EntryValidationService(
+            $this->repository,
+            (new \Symfony\Component\Validator\ValidatorBuilder())
+                ->addLoader(new \Symfony\Component\Validator\Mapping\Loader\AttributeLoader())
+                ->getValidator(),
+            new StyleService(),
+        );
         $this->auditLogger = new AuditLogger($connection);
         $this->service = new EntryService(
+            $connection,
             $this->repository,
             $this->validationService,
-            $this->auditLogger
+            $this->auditLogger,
+            new \Psr\Log\NullLogger(),
         );
+    }
+
+    protected function tearDown(): void
+    {
+        unset($_SESSION['entry_window_open']);
+        parent::tearDown();
     }
 
     public function test_create_entry_with_valid_command(): void
@@ -49,6 +67,7 @@ class EntryServiceIntegrationTest extends IntegrationTestCase
         ]);
 
         $command = new CreateEntryCommand([
+            'brewBrewerId' => $brewer['brewerId'],
             'brewName' => 'New Test Ale',
             'brewCategorySort' => '1',
             'brewSubCategory' => 'A',
@@ -74,6 +93,7 @@ class EntryServiceIntegrationTest extends IntegrationTestCase
         ]);
 
         $command = new CreateEntryCommand([
+            'brewBrewerId' => $brewer['brewerId'],
             'brewName' => 'Test Beer',
             'brewCategorySort' => '1',
             'brewSubCategory' => 'A',
@@ -145,8 +165,9 @@ class EntryServiceIntegrationTest extends IntegrationTestCase
 
         $this->service->delete(new EntryId($entryId), $identity);
 
-        $entry = $this->repository->getById(new EntryId($entryId));
-        $this->assertNull($entry);
+        // getById() throws when not found, it never returns null.
+        $this->expectException(EntryNotFoundException::class);
+        $this->repository->getById(new EntryId($entryId));
     }
 
     public function test_delete_entry_writes_audit_log(): void

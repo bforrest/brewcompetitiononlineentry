@@ -262,11 +262,21 @@ abstract class IntegrationTestCase extends TestCase
         int    $received  = 1,
         int    $confirmed = 1
     ): int {
+        // Style codes are digits (category group) + letters (subcategory),
+        // e.g. '1A' -> group '1', sub 'A'; '10A' -> group '10', sub 'A'.
+        // brewCategorySort/brewSubCategory are separate columns matching that
+        // split - EntryRepository::rowToEntry() reads them independently to
+        // build a StyleNumber, which throws if either half is empty.
+        preg_match('/^(\d+)([A-Za-z0-9]*)$/', $style, $matches);
+        $group = $matches[1] ?? $style;
+        $sub = $matches[2] ?? '';
+
         return $this->insert('brewing', [
             'brewBrewerID'    => $brewerId,
             'brewStyle'       => $style,
-            'brewCategory'    => substr($style, 0, 2),
-            'brewCategorySort'=> substr($style, 0, 2),
+            'brewCategory'    => $group,
+            'brewCategorySort'=> $group,
+            'brewSubCategory' => $sub,
             'brewPaid'        => $paid,
             'brewReceived'    => $received,
             'brewConfirmed'   => $confirmed,

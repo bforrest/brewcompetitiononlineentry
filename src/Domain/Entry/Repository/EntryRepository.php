@@ -41,7 +41,7 @@ class EntryRepository
             'SELECT b.*, br.uid, br.brewerFirstName as first_name, br.brewerLastName as last_name, br.brewerEmail as email
              FROM ' . $this->tablePrefix . 'brewing b
              LEFT JOIN ' . $this->tablePrefix . 'brewer br ON b.brewBrewerId = br.uid
-             WHERE b.brewID = ?',
+             WHERE b.id = ?',
             [$id->value()]
         );
 
@@ -78,7 +78,7 @@ class EntryRepository
              FROM ' . $this->tablePrefix . 'brewing b
              LEFT JOIN ' . $this->tablePrefix . 'brewer br ON b.brewBrewerId = br.uid
              WHERE b.brewBrewerId = ?
-             ORDER BY b.brewID DESC
+             ORDER BY b.id DESC
              LIMIT ? OFFSET ?',
             [$brewerId->value(), $limit, $offset]
         );
@@ -117,7 +117,7 @@ class EntryRepository
     public function insert(Entry $entry): EntryId
     {
         $row = $this->entryToRow($entry);
-        unset($row['brewID']); // auto-increment; entry doesn't have a real id yet
+        unset($row['id']); // auto-increment; entry doesn't have a real id yet
 
         $columns = implode(', ', array_keys($row));
         $placeholders = implode(', ', array_fill(0, count($row), '?'));
@@ -133,11 +133,11 @@ class EntryRepository
     public function update(Entry $entry): void
     {
         $row = $this->entryToRow($entry);
-        $id = $row['brewID'];
-        unset($row['brewID']); // id cannot be updated
+        $id = $row['id'];
+        unset($row['id']); // id cannot be updated
 
         $set = implode(', ', array_map(fn ($k) => $k . ' = ?', array_keys($row)));
-        $sql = 'UPDATE ' . $this->tablePrefix . 'brewing SET ' . $set . ' WHERE brewID = ?';
+        $sql = 'UPDATE ' . $this->tablePrefix . 'brewing SET ' . $set . ' WHERE id = ?';
 
         $this->connection->execute($sql, [...array_values($row), $id]);
     }
@@ -149,7 +149,7 @@ class EntryRepository
     public function delete(EntryId $id): void
     {
         $this->connection->execute(
-            'DELETE FROM ' . $this->tablePrefix . 'brewing WHERE brewID = ?',
+            'DELETE FROM ' . $this->tablePrefix . 'brewing WHERE id = ?',
             [$id->value()]
         );
     }
@@ -162,8 +162,8 @@ class EntryRepository
         $brewerInfo = BrewerInfo::fromDatabaseRow($row);
 
         return new Entry(
-            id: EntryId::from((int) $row['brewID']),
-            brewerId: BrewerId::from((int) $row['brewBrewerId']),
+            id: EntryId::from((int) $row['id']),
+            brewerId: BrewerId::from((int) $row['brewBrewerID']),
             style: StyleNumber::from($row['brewCategorySort'] ?? '', $row['brewSubCategory'] ?? ''),
             name: $row['brewName'] ?? '',
             brewer: $brewerInfo,
@@ -182,7 +182,7 @@ class EntryRepository
     {
         $style = $entry->style();
         return [
-            'brewID' => $entry->id()->value(),
+            'id' => $entry->id()->value(),
             'brewBrewerId' => $entry->brewerId()->value(),
             'brewCategorySort' => $style->group(),
             'brewSubCategory' => $style->num(),

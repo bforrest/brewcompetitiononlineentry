@@ -12,6 +12,11 @@ use Bcoem\Domain\Entry\Service\AuditLogger;
 use Bcoem\Domain\Entry\Service\EntryService;
 use Bcoem\Domain\Entry\Service\EntryValidationService;
 use Bcoem\Domain\Entry\Service\StyleService;
+use Bcoem\Domain\Judging\Repository\JudgingScoreRepository;
+use Bcoem\Domain\Judging\Repository\JudgingTableRepository;
+use Bcoem\Domain\Judging\Service\JudgingScoreService;
+use Bcoem\Domain\Judging\Service\JudgingTableService;
+use Bcoem\Domain\Judging\Service\JudgingValidationService;
 use Bcoem\Domain\Export\Repository\BrewingExportRepository;
 use Bcoem\Domain\Export\Repository\ParticipantExportRepository;
 use Bcoem\Domain\Export\Repository\JudgingExportRepository;
@@ -148,6 +153,36 @@ $containerBuilder->addDefinitions([
             $container->get(EntryValidationService::class),
             $container->get(AuditLogger::class),
             $container->get(LoggerInterface::class),
+        ),
+
+    /**
+     * Phase 3.2: Judging domain services and repositories.
+     * Dependency hierarchy:
+     * - JudgingTableRepository, JudgingScoreRepository: database access (depend on Connection)
+     * - JudgingValidationService: pure logic (no dependencies)
+     * - JudgingTableService: table/flight management (depends on JudgingTableRepository + validation)
+     * - JudgingScoreService: score recording (depends on both repositories + validation)
+     */
+    JudgingTableRepository::class => static fn (ContainerInterface $container): JudgingTableRepository =>
+        new JudgingTableRepository($container->get(Connection::class)),
+
+    JudgingScoreRepository::class => static fn (ContainerInterface $container): JudgingScoreRepository =>
+        new JudgingScoreRepository($container->get(Connection::class)),
+
+    JudgingValidationService::class => static fn (): JudgingValidationService =>
+        new JudgingValidationService(),
+
+    JudgingTableService::class => static fn (ContainerInterface $container): JudgingTableService =>
+        new JudgingTableService(
+            $container->get(JudgingTableRepository::class),
+            $container->get(JudgingValidationService::class),
+        ),
+
+    JudgingScoreService::class => static fn (ContainerInterface $container): JudgingScoreService =>
+        new JudgingScoreService(
+            $container->get(JudgingScoreRepository::class),
+            $container->get(JudgingTableRepository::class),
+            $container->get(JudgingValidationService::class),
         ),
 
     /**

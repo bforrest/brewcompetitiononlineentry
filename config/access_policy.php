@@ -308,4 +308,19 @@ return [
     'export.form' => Role::Admin,     // Export form (admin only)
     'export.download' => Role::Admin, // Export download (admin only; future: public for results)
     'export.preview' => Role::Admin,  // Preview before download (admin only)
+
+    // Phase 3.2: Judging routes
+    'judging.tables.list.api' => Role::Admin,
+    'judging.tables.detail.api' => Role::Admin,
+    'judging.tables.view' => Role::Admin,
+    'judging.tables.create.form' => Role::Admin,
+    'judging.tables.edit.form' => Role::Admin,
+    'judging.tables.detail.view' => Role::Admin,
+    'judging.flights.add' => Role::Admin,
+    'judging.flights.remove' => Role::Admin,
+    'judging.tables.state' => Role::Admin,
+    // Judge satisfies its own requirement here; Admin/SuperAdmin also satisfy
+    // it since Role::satisfies() treats a lower numeric value as more privileged.
+    'judging.scoresheet.view' => Role::Judge,
+    'judging.scores.record' => Role::Judge,
 ];

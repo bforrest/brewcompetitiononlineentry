@@ -43,7 +43,7 @@ class EntryRepositoryIntegrationTest extends IntegrationTestCase
 
         $id = $this->repository->insert($entry);
 
-        $retrieved = $this->repository->getById(new EntryId($id));
+        $retrieved = $this->repository->getById($id);
         $this->assertNotNull($retrieved);
         $this->assertSame('Test Pale Ale', $retrieved->name());
         $this->assertSame($brewerId->value(), $retrieved->brewerId()->value());
@@ -142,8 +142,10 @@ class EntryRepositoryIntegrationTest extends IntegrationTestCase
 
         $this->repository->delete(new EntryId($entryId));
 
-        $entry = $this->repository->getById(new EntryId($entryId));
-        $this->assertNull($entry);
+        // getById() throws when not found (see EntryRepository::getById()),
+        // it never returns null.
+        $this->expectException(\Bcoem\Domain\Entry\Exception\EntryNotFoundException::class);
+        $this->repository->getById(new EntryId($entryId));
     }
 
     public function test_list_by_brewer_id_with_pagination(): void

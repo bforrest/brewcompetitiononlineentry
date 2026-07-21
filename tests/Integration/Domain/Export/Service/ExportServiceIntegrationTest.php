@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bcoem\Tests\Integration\Domain\Export\Service;
+namespace BCOEM\Tests\Integration;
 
 use Bcoem\Database\Connection;
 use Bcoem\Domain\Export\Command\GenerateExportCommand;
@@ -13,35 +13,26 @@ use Bcoem\Domain\Export\Service\ExportService;
 use Bcoem\Domain\Export\Service\ExportValidationService;
 use Bcoem\Domain\Export\ValueObject\ExportFormat;
 use Bcoem\Security\Identity;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\Validator\Validator\RecursiveValidator;
-use Symfony\Component\Validator\Mapping\ClassMetadataFactory;
+use Symfony\Component\Validator\ValidatorBuilder;
 use Symfony\Component\Validator\Mapping\Loader\AttributeLoader;
 
-class ExportServiceIntegrationTest extends TestCase
+class ExportServiceIntegrationTest extends IntegrationTestCase
 {
     private ExportService $service;
-    private Connection $connection;
-    private \mysqli $mysqli;
 
     protected function setUp(): void
     {
-        $this->mysqli = $GLOBALS['connection'] ?? null;
+        parent::setUp();
 
-        if (!$this->mysqli instanceof \mysqli) {
-            $this->markTestSkipped('Database connection not available');
-        }
+        $connection = new Connection(self::$conn);
 
-        $this->connection = new Connection($this->mysqli);
+        $brewingRepo = new BrewingExportRepository($connection);
+        $participantRepo = new ParticipantExportRepository($connection);
+        $judgingRepo = new JudgingExportRepository($connection);
 
-        $brewingRepo = new BrewingExportRepository($this->connection);
-        $participantRepo = new ParticipantExportRepository($this->connection);
-        $judgingRepo = new JudgingExportRepository($this->connection);
-
-        $validator = new RecursiveValidator(
-            new ClassMetadataFactory(new AttributeLoader()),
-            []
-        );
+        $validator = (new ValidatorBuilder())
+            ->addLoader(new AttributeLoader())
+            ->getValidator();
         $validation = new ExportValidationService($validator);
 
         $this->service = new ExportService(
@@ -55,7 +46,7 @@ class ExportServiceIntegrationTest extends TestCase
     public function testExecuteGeneratesCsvExportWithRealData(): void
     {
         // Check if database has data
-        $result = $this->mysqli->query("SELECT COUNT(*) as cnt FROM baseline_brewing");
+        $result = self::$conn->query("SELECT COUNT(*) as cnt FROM baseline_brewing");
         $row = $result->fetch_assoc();
         if ((int)$row['cnt'] === 0) {
             $this->markTestSkipped('No brewing data in database');
@@ -76,7 +67,7 @@ class ExportServiceIntegrationTest extends TestCase
 
     public function testExecuteGeneratesHtmlExport(): void
     {
-        $result = $this->mysqli->query("SELECT COUNT(*) as cnt FROM baseline_brewing");
+        $result = self::$conn->query("SELECT COUNT(*) as cnt FROM baseline_brewing");
         $row = $result->fetch_assoc();
         if ((int)$row['cnt'] === 0) {
             $this->markTestSkipped('No brewing data in database');
@@ -96,7 +87,7 @@ class ExportServiceIntegrationTest extends TestCase
 
     public function testExecuteGeneratesXmlExport(): void
     {
-        $result = $this->mysqli->query("SELECT COUNT(*) as cnt FROM baseline_brewing");
+        $result = self::$conn->query("SELECT COUNT(*) as cnt FROM baseline_brewing");
         $row = $result->fetch_assoc();
         if ((int)$row['cnt'] === 0) {
             $this->markTestSkipped('No brewing data in database');
@@ -117,7 +108,7 @@ class ExportServiceIntegrationTest extends TestCase
     public function testExecuteRespectsPaidFilter(): void
     {
         // Check database
-        $result = $this->mysqli->query("SELECT COUNT(*) as cnt FROM baseline_brewing WHERE brewPaid = 1");
+        $result = self::$conn->query("SELECT COUNT(*) as cnt FROM baseline_brewing WHERE brewPaid = 1");
         $row = $result->fetch_assoc();
         if ((int)$row['cnt'] === 0) {
             $this->markTestSkipped('No paid entries in database');
@@ -136,7 +127,7 @@ class ExportServiceIntegrationTest extends TestCase
 
     public function testExecuteMetadataIsPopulated(): void
     {
-        $result = $this->mysqli->query("SELECT COUNT(*) as cnt FROM baseline_brewing");
+        $result = self::$conn->query("SELECT COUNT(*) as cnt FROM baseline_brewing");
         $row = $result->fetch_assoc();
         if ((int)$row['cnt'] === 0) {
             $this->markTestSkipped('No brewing data in database');
