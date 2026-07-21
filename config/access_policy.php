@@ -211,6 +211,7 @@ return [
     'file:maintenance.php' => Role::Anonymous,
     'file:setup.php' => Role::Anonymous, // matches today's reality (unauthenticated) - flagged as a P2 finding, not fixed by this phase (no behavior change), tracked separately
     'file:update.php' => Role::Anonymous, // pre-setup wizard exposure matches setup.php; post-setup body is internally gated, unchanged
+    'file:phinx-migrate.php' => Role::SuperAdmin, // Task 13: browser-triggered Phinx migration runner for shared hosting; matches its own internal userLevel==0 check
     'file:400.php' => Role::Anonymous, 'file:401.php' => Role::Anonymous,
     'file:403.php' => Role::Anonymous, 'file:404.php' => Role::Anonymous,
     'file:500.php' => Role::Anonymous,

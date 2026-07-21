@@ -1,3 +1,5 @@
+FROM composer:2 AS composer
+
 FROM php:8.2-apache
 
 # Enable required Apache modules ('env' lets vhost.conf's SetEnv directives
@@ -15,6 +17,7 @@ RUN apt-get update && apt-get install -y \
   && docker-php-ext-configure gd --with-freetype --with-jpeg \
   && docker-php-ext-install -j$(nproc) \
   mysqli \
+  pdo_mysql \
   mbstring \
   gd \
   zip \
@@ -67,3 +70,31 @@ RUN { \
   } > /usr/local/etc/php/conf.d/bcoem.ini
 
 WORKDIR /var/www/html
+
+# Task 13: bake the app + its production-only dependencies into the image
+# itself. Previously this image shipped NO application code at all - local
+# dev only ever worked because docker-compose.yml bind-mounts the checked-out
+# repo (`.:/var/www/html`) over this directory at container start, supplying
+# both the code and vendor/ from the host. That's fine for local dev but
+# means a `docker build`+`docker push`ed copy of this image (see the `build`
+# job in .github/workflows/ci.yml) would be empty and unrunnable on its own.
+# COPY-ing the source and running composer install here fixes that for a
+# standalone `docker run`, while changing nothing about local dev: the bind
+# mount still shadows everything below at container start, exactly as
+# before this task. .dockerignore keeps vendor/tests/e2e/.git/etc. out of
+# the build context, so this always installs a clean, lock-consistent,
+# no-dev vendor/ regardless of whatever partial tree exists on the host
+# (see the CI workflow's own comment on the committed vendor/ being partial).
+COPY --from=composer /usr/bin/composer /usr/bin/composer
+COPY . .
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress
+
+# Task 13: run `vendor/bin/phinx migrate` before Apache starts. The base
+# image's own entrypoint (docker-php-entrypoint -> apache2-foreground) is
+# preserved unmodified and still invoked at the end of this script - see
+# docker/entrypoint.sh's own header comment for why it's structured this
+# way rather than replacing that behavior outright.
+COPY docker/entrypoint.sh /usr/local/bin/bcoem-entrypoint.sh
+RUN chmod +x /usr/local/bin/bcoem-entrypoint.sh
+ENTRYPOINT ["bcoem-entrypoint.sh"]
+CMD ["apache2-foreground"]

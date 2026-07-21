@@ -104,4 +104,16 @@ class AccessPolicyTest extends TestCase
     {
         $this->assertNull($this->policy()->requiredRoleForFile('some_new_side_door.php'));
     }
+
+    /**
+     * Task 13: the Phinx migration runner side door (phinx-migrate.php) is
+     * a destructive, schema-altering action on shared hosting installs with
+     * no other way to trigger it - it must require the top role, same as
+     * the other SuperAdmin-only side doors (practice_session.ajax.php,
+     * purge.ajax.php, regenerate.ajax.php).
+     */
+    public function test_phinx_migrate_side_door_requires_super_admin(): void
+    {
+        $this->assertSame(Role::SuperAdmin, $this->policy()->requiredRoleForFile('phinx-migrate.php'));
+    }
 }
