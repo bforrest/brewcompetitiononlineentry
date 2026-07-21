@@ -92,10 +92,10 @@ final class JudgingScoreService
                 }
 
                 return;
-            } catch (ConcurrentModificationException) {
+            } catch (ConcurrentModificationException $e) {
                 $attempt++;
                 if ($attempt >= self::MAX_RETRY_ATTEMPTS) {
-                    throw;
+                    throw $e;
                 }
             }
         }

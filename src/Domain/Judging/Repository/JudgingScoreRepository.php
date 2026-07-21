@@ -167,7 +167,7 @@ final class JudgingScoreRepository
     {
         $sql = sprintf('SELECT COUNT(*) as count FROM %s WHERE scoreTable = ?', $this->table);
         $row = $this->connection->selectOne($sql, [$tableId->value()]);
-        return (int) $row['count'];
+        return (int) ($row['count'] ?? 0);
     }
 
     /**

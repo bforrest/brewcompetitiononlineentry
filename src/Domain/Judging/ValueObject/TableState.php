@@ -131,4 +131,20 @@ enum TableState: string
             TableState::Locked, TableState::Archived => false,
         };
     }
+
+    /**
+     * Get all allowed target states for this state.
+     *
+     * @return array<TableState>
+     */
+    public function getAllowedTransitions(): array
+    {
+        return match ($this) {
+            TableState::Planning => [TableState::Active, TableState::Archived],
+            TableState::Active => [TableState::Planning, TableState::Judged, TableState::Archived],
+            TableState::Judged => [TableState::Locked, TableState::Archived],
+            TableState::Locked => [TableState::Archived],
+            TableState::Archived => [],
+        };
+    }
 }

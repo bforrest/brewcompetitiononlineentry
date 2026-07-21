@@ -84,7 +84,7 @@ final class JudgingTableRepository
     {
         $sql = sprintf('SELECT COUNT(*) as count FROM %s WHERE tableState = ?', $this->table);
         $row = $this->connection->selectOne($sql, [$state->value]);
-        return (int) $row['count'];
+        return (int) ($row['count'] ?? 0);
     }
 
     /**
