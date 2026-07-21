@@ -110,6 +110,51 @@ class PhinxMigrationTest extends IntegrationTestCase
         $this->assertContains('uid', $this->indexedColumns('brewer'));
     }
 
+    // ── Third migration: admin_preferences + admin_preferences_events ──────
+
+    public function testAdminPreferencesTableExistsWithExpectedColumns(): void
+    {
+        $expected = [
+            'id', 'competitionState', 'styleSet', 'allowedStyleIds', 'customStyleExceptions',
+            'globalEntryLimit', 'perStyleLimits', 'perTableLimit', 'subCategoryLimits',
+            'isQueued', 'maxFlightEntries', 'maxBosPerStyle', 'maxRounds', 'changedAt', 'changedBy',
+        ];
+        $actual = $this->columns('admin_preferences');
+
+        $this->assertNotEmpty(
+            $actual,
+            "{$this->prefixedName('admin_preferences')} does not exist - has `vendor/bin/phinx migrate` "
+            . "(or docker/entrypoint.sh, which runs it automatically) been run against this database?"
+        );
+
+        foreach ($expected as $column) {
+            $this->assertContains($column, $actual, "admin_preferences is missing expected column '{$column}'");
+        }
+    }
+
+    public function testAdminPreferencesEventsTableExistsWithExpectedColumns(): void
+    {
+        $expected = ['id', 'action', 'beforeJson', 'afterJson', 'changedAt'];
+        $actual = $this->columns('admin_preferences_events');
+
+        $this->assertNotEmpty(
+            $actual,
+            "{$this->prefixedName('admin_preferences_events')} does not exist - has `vendor/bin/phinx migrate` "
+            . "been run against this database?"
+        );
+
+        foreach ($expected as $column) {
+            $this->assertContains($column, $actual, "admin_preferences_events is missing expected column '{$column}'");
+        }
+    }
+
+    public function testAdminPreferencesEventsHasActionAndChangedAtIndexes(): void
+    {
+        $indexed = $this->indexedColumns('admin_preferences_events');
+        $this->assertContains('action', $indexed);
+        $this->assertContains('changedAt', $indexed);
+    }
+
     private function prefixedName(string $table): string
     {
         return self::$pfx . $table;

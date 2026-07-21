@@ -8,7 +8,7 @@ namespace Bcoem\Domain\Entry\Service;
  * Service for style-related queries and formatting.
  * Delegates to legacy code temporarily; later extracts styles into proper service.
  */
-final class StyleService
+class StyleService
 {
     public function __construct()
     {

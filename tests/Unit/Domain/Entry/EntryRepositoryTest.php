@@ -25,7 +25,8 @@ class EntryRepositoryTest extends TestCase
     {
         $row = [
             'brewID' => 1,
-            'brewBrewerID' => 10,
+            'brewBrewerId' => 10,
+            'uid' => 10,
             'brewStyle' => '1A',
             'brewCategorySort' => '1',
             'brewSubCategory' => 'A',
@@ -35,9 +36,9 @@ class EntryRepositoryTest extends TestCase
             'brewConfirmed' => 1,
             'brewPaid' => 1,
             'brewReceived' => 1,
-            'brewerFirstName' => 'Test',
-            'brewerLastName' => 'Brewer',
-            'brewerEmail' => 'test@example.com',
+            'first_name' => 'Test',
+            'last_name' => 'Brewer',
+            'email' => 'test@example.com',
             'brewCreated' => '2026-01-01 00:00:00',
             'brewUpdated' => '2026-01-02 00:00:00',
         ];
@@ -91,7 +92,7 @@ class EntryRepositoryTest extends TestCase
             new BrewerId(10),
             new StyleNumber('1', 'A'),
             'Test Beer',
-            new BrewerInfo('Test', 'Brewer', 'test@example.com'),
+            new BrewerInfo(10, 'Test', 'Brewer', 'test@example.com'),
             false,
             false,
             false,
@@ -109,7 +110,7 @@ class EntryRepositoryTest extends TestCase
 
         $id = $this->repository->insert($entry);
 
-        $this->assertSame(123, $id);
+        $this->assertSame(123, $id->value());
     }
 
     public function test_update_calls_connection_execute(): void
@@ -119,7 +120,7 @@ class EntryRepositoryTest extends TestCase
             new BrewerId(10),
             new StyleNumber('1', 'A'),
             'Updated Beer',
-            new BrewerInfo('Test', 'Brewer', 'test@example.com'),
+            new BrewerInfo(10, 'Test', 'Brewer', 'test@example.com'),
             true,
             true,
             true,

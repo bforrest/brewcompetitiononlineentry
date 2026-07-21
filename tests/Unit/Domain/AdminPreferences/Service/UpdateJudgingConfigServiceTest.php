@@ -55,7 +55,7 @@ final class UpdateJudgingConfigServiceTest extends TestCase
             maxBosPerStyle: 5,
             maxRounds: 2
         );
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 
@@ -68,11 +68,9 @@ final class UpdateJudgingConfigServiceTest extends TestCase
 
     public function test_invalid_config_throws_exception(): void
     {
-        $preferences = $this->createMockPreferences(CompetitionState::Planning);
-        $this->repository->expects($this->once())
-            ->method('getById')
-            ->with(1)
-            ->willReturn($preferences);
+        // Range violation is caught by command validation, before the
+        // aggregate is fetched - so getById() is never called here.
+        $this->repository->expects($this->never())->method('getById');
 
         // Invalid: maxFlightEntries = 0
         $command = new UpdateJudgingConfigCommand(
@@ -81,7 +79,7 @@ final class UpdateJudgingConfigServiceTest extends TestCase
             maxBosPerStyle: 7,
             maxRounds: 3
         );
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $this->expectException(InvalidConstraintException::class);
         $this->service->execute($command, $admin);
@@ -96,7 +94,7 @@ final class UpdateJudgingConfigServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new UpdateJudgingConfigCommand(true, 12, 7, 3);
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $this->expectException(PreferencesLockedForCompetitionException::class);
         $this->service->execute($command, $admin);
@@ -111,7 +109,7 @@ final class UpdateJudgingConfigServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new UpdateJudgingConfigCommand(true, 15, 8, 4);
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 

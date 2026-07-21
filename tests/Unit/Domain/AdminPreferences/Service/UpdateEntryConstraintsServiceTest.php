@@ -50,7 +50,7 @@ final class UpdateEntryConstraintsServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new UpdateEntryConstraintsCommand(10, [1 => 3, 2 => 5]);
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 
@@ -61,15 +61,13 @@ final class UpdateEntryConstraintsServiceTest extends TestCase
 
     public function test_mutually_exclusive_constraint_rejected(): void
     {
-        $preferences = $this->createMockPreferences(CompetitionState::Planning);
-        $this->repository->expects($this->once())
-            ->method('getById')
-            ->with(1)
-            ->willReturn($preferences);
+        // Mutual-exclusivity is checked right after command validation, before
+        // the aggregate is fetched - so getById() is never called here.
+        $this->repository->expects($this->never())->method('getById');
 
         // Both perStyleLimits and perTableLimit set - should fail
         $command = new UpdateEntryConstraintsCommand(10, [1 => 3], 5);
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $this->expectException(InvalidConstraintException::class);
         $this->service->execute($command, $admin);
@@ -77,15 +75,13 @@ final class UpdateEntryConstraintsServiceTest extends TestCase
 
     public function test_range_validation_enforced(): void
     {
-        $preferences = $this->createMockPreferences(CompetitionState::Planning);
-        $this->repository->expects($this->once())
-            ->method('getById')
-            ->with(1)
-            ->willReturn($preferences);
+        // Range violation is caught by command validation, before the
+        // aggregate is fetched - so getById() is never called here.
+        $this->repository->expects($this->never())->method('getById');
 
         // globalEntryLimit < 1 should fail validation
         $command = new UpdateEntryConstraintsCommand(0);
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $this->expectException(InvalidConstraintException::class);
         $this->service->execute($command, $admin);
@@ -100,7 +96,7 @@ final class UpdateEntryConstraintsServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new UpdateEntryConstraintsCommand(15);
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 
@@ -118,7 +114,7 @@ final class UpdateEntryConstraintsServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new UpdateEntryConstraintsCommand(15);
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $this->expectException(PreferencesLockedForCompetitionException::class);
         $this->service->execute($command, $admin);
@@ -133,7 +129,7 @@ final class UpdateEntryConstraintsServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new UpdateEntryConstraintsCommand(10, [], 3);
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 

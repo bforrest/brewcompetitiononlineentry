@@ -49,7 +49,7 @@ final class TransitionCompetitionStateServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new TransitionCompetitionStateCommand('active');
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 
@@ -66,7 +66,7 @@ final class TransitionCompetitionStateServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new TransitionCompetitionStateCommand('closed');
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 
@@ -82,7 +82,7 @@ final class TransitionCompetitionStateServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new TransitionCompetitionStateCommand('planning');
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 
@@ -99,7 +99,7 @@ final class TransitionCompetitionStateServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new TransitionCompetitionStateCommand('planning');
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $this->expectException(InvalidConstraintException::class);
         $this->service->execute($command, $admin);
@@ -107,12 +107,6 @@ final class TransitionCompetitionStateServiceTest extends TestCase
 
     public function test_invalid_transition_rejected(): void
     {
-        $preferences = $this->createMockPreferences(CompetitionState::Planning);
-        $this->repository->expects($this->once())
-            ->method('getById')
-            ->with(1)
-            ->willReturn($preferences);
-
         // Closed is terminal, cannot transition to planning
         $preferences = $this->createMockPreferences(CompetitionState::Closed);
         $this->repository->expects($this->once())
@@ -121,7 +115,7 @@ final class TransitionCompetitionStateServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new TransitionCompetitionStateCommand('planning');
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $this->expectException(InvalidConstraintException::class);
         $this->service->execute($command, $admin);
@@ -136,7 +130,7 @@ final class TransitionCompetitionStateServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new TransitionCompetitionStateCommand('active');
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 
@@ -156,7 +150,7 @@ final class TransitionCompetitionStateServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new TransitionCompetitionStateCommand('active');
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 

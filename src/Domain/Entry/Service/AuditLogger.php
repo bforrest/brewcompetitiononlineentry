@@ -11,7 +11,7 @@ use Bcoem\Security\Identity;
  * Writes audit log entries to the audit_log table.
  * Called from services whenever a domain event (create/update/delete) completes.
  */
-final class AuditLogger
+class AuditLogger
 {
     private string $tablePrefix;
 

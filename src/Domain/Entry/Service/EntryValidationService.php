@@ -10,6 +10,7 @@ use Bcoem\Domain\Entry\Command\CreateEntryCommand;
 use Bcoem\Domain\Entry\Command\UpdateEntryCommand;
 use Bcoem\Domain\Entry\Exception\BreweryNameRequiredException;
 use Bcoem\Domain\Entry\Exception\EntryLimitReachedException;
+use Bcoem\Domain\Entry\Exception\EntryWindowClosedException;
 use Bcoem\Domain\Entry\Exception\InvalidStyleSelectionException;
 use Bcoem\Domain\Entry\Repository\EntryRepository;
 use Bcoem\Domain\Entry\ValueObject\BrewerId;
@@ -21,7 +22,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * Validates entry commands against business rules before they reach EntryService.
  * Checks: entry windows, limits, style validity, brewery requirements.
  */
-final class EntryValidationService
+class EntryValidationService
 {
     public function __construct(
         private EntryRepository $repository,
@@ -53,7 +54,7 @@ final class EntryValidationService
 
         // 1. Entry window must be open
         if (!$this->isEntryWindowOpen()) {
-            throw new \RuntimeException('Entry submission window is closed');
+            throw new EntryWindowClosedException('Entry submission window is closed');
         }
 
         // 2. Check style validity
@@ -112,7 +113,7 @@ final class EntryValidationService
 
         // Entry window check
         if (!$this->isEntryWindowOpen()) {
-            throw new \RuntimeException('Entry editing window is closed');
+            throw new EntryWindowClosedException('Entry editing window is closed');
         }
 
         // TODO: add ownership check once Identity has brewer association

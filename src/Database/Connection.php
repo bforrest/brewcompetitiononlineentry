@@ -16,7 +16,7 @@ namespace Bcoem\Database;
  * Legacy code continues to use that global; Phase 3+ code uses this wrapper exclusively.
  * This allows the front controller to boot once (index.php) instead of per-request (old model).
  */
-final class Connection
+class Connection
 {
     public function __construct(private \mysqli $mysqli)
     {

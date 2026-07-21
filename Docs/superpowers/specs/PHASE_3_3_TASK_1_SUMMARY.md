@@ -123,3 +123,70 @@ Both preferences tables are single-row by application design (id=1 is the canoni
 ## Files Modified/Created
 - ✅ Created: `/Users/barryforrest/Projects/brewcompetitiononlineentry/db/migrations/20260721170001_ensure_preferences_audit.php`
 - ✅ Created: `/Users/barryforrest/Projects/brewcompetitiononlineentry/db/migrations/20260721170002_ensure_judging_preferences_audit.php`
+
+---
+
+## Correction (reviewed 2026-07-21): "COMPLETE" was wrong — wrong tables entirely
+
+A follow-up review found that the two migrations above added audit columns to the
+**legacy** `preferences`/`judging_preferences` tables, but
+`AdminPreferencesRepository` (the class this task was supposed to lay a DB
+foundation for) reads/writes two entirely different tables —
+`admin_preferences` and `admin_preferences_events` — that **no migration
+anywhere created**. Confirmed by grepping every migration file for the
+repository's actual column names (`competitionState`, `styleSet`,
+`globalEntryLimit`, `isQueued`, etc.) — zero matches. This was also flagged as
+an open item in the independent `PHASE_3_3_CODE_REVIEW.md` ("Migration
+creating `admin_preferences` table — not yet done"), which this task should
+have closed and didn't.
+
+**Impact confirmed against the live Docker dev DB:** every real call to
+`AdminPreferencesRepository::getById()`/`save()` threw `Table
+'bcoem.baseline_admin_preferences' doesn't exist`. Not caught earlier because
+all `AdminPreferences` unit tests mock the repository, and no integration
+test existed for it.
+
+**While fixing this, testing against the live DB also surfaced two more bugs:**
+
+1. **The entire migration chain was silently broken** since Phase 3.2:
+   `db/migrations/20260721160003_add_judging_indexes.php` passed `'comment'`
+   as an `addIndex()` option, which Phinx rejects (`"comment" is not a valid
+   index option`) — this blocked every migration after it, including both of
+   this task's own migrations, from ever applying to a real database. The
+   same migration also indexed a column, `assignJudge`, that doesn't exist on
+   `judging_assignments` (the real judge/brewer reference column is `bid`).
+   Both fixed.
+
+2. **`AdminPreferencesRepository::save()` and `::preferencesToArray()` had
+   never worked** — they accessed value-object properties directly
+   (`$prefs->styleSetConfig()->styleSet->value`) when every property on
+   `StyleSetConfiguration`/`EntryConstraints`/`JudgingConfiguration` is
+   `private readonly` with a getter method, and called two undefined methods
+   (`AdminPreferences::state()`, `::changedAt()` — the real methods are
+   `competitionState()` and `stateChangedAt()`). Fixed all of it.
+
+**What was added:**
+- `db/migrations/20260721170003_create_admin_preferences.php` — creates
+  `admin_preferences` (14 columns matching the repository's actual
+  read/write shape) and `admin_preferences_events`.
+- `tests/Integration/PhinxMigrationTest.php` — three new tests asserting
+  both tables' columns/indexes exist (matching this repo's established
+  convention for verifying migrations against the real schema).
+- `tests/Integration/AdminPreferences/AdminPreferencesRepositoryIntegrationTest.php`
+  — exercises `getById()` (self-healing default row), `save()`, and
+  `recordEvent()` against the real DB. This is the test that would have
+  caught all of the above on day one.
+
+**Verified:** ran `vendor/bin/phinx migrate` against the local Docker DB
+clean from scratch; all 3 new integration tests + all `PhinxMigrationTest`
+tests pass; full Unit suite and `phpstan analyse` show no regressions.
+
+**Also discovered, NOT fixed (out of scope for this task):**
+`EntryRepositoryIntegrationTest::test_count_by_brewer_id_and_style` fails
+against a real DB — `IntegrationTestCase::insertEntry()`'s
+`brewCategorySort` fixture value (`substr($style, 0, 2)`) doesn't match how
+`StyleNumber::group()` splits a style code, so 2-character styles like
+`'1A'` store `brewCategorySort = '1A'` instead of `'1'`. This is the first
+time this Integration test suite has actually been run against a live DB in
+this engagement — pre-existing, unrelated to AdminPreferences, flagged for
+separate follow-up.

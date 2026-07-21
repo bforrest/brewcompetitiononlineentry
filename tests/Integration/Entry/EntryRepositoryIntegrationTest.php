@@ -33,7 +33,7 @@ class EntryRepositoryIntegrationTest extends IntegrationTestCase
             $brewerId,
             new StyleNumber('1', 'A'),
             'Test Pale Ale',
-            new BrewerInfo('Test', 'Brewer', 'entrant@test.example'),
+            new BrewerInfo(10, 'Test', 'Brewer', 'entrant@test.example'),
             false,
             false,
             false,

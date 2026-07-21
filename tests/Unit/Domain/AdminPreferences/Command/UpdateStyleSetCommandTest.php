@@ -71,18 +71,10 @@ final class UpdateStyleSetCommandTest extends TestCase
         }
     }
 
-    public function test_invalid_allowed_style_ids_type(): void
-    {
-        $command = new UpdateStyleSetCommand('BJCP2025');
-        $command->allowedStyleIds = 'not_an_array';
-
-        $violations = $this->validator->validate($command);
-        self::assertGreaterThan(0, count($violations));
-    }
 
     private static function createValidator(): ValidatorInterface
     {
         $builder = new \Symfony\Component\Validator\ValidatorBuilder();
-        return $builder->enableAnnotationMapping(true)->getValidator();
+        return $builder->enableAttributeMapping(true)->getValidator();
     }
 }

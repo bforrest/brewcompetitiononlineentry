@@ -19,7 +19,7 @@ use Bcoem\Domain\Entry\ValueObject\StyleNumber;
  * Table prefix is handled by the Table prefix adapter in phinx.php and legacy globals.
  * This repository receives only logical table names (e.g., 'brewing', 'brewer').
  */
-final class EntryRepository
+class EntryRepository
 {
     private string $tablePrefix;
 
@@ -101,12 +101,12 @@ final class EntryRepository
     /**
      * Count entries by brewer and category.
      */
-    public function countByBrewerIdAndStyle(BrewerId $brewerId, string $styleNumber): int
+    public function countByBrewerIdAndStyle(BrewerId $brewerId, StyleNumber $styleNumber): int
     {
         $row = $this->connection->selectOne(
             'SELECT COUNT(*) as count FROM ' . $this->tablePrefix . 'brewing
              WHERE brewBrewerId = ? AND brewCategorySort = ?',
-            [$brewerId->value(), $styleNumber]
+            [$brewerId->value(), $styleNumber->group()]
         );
         return (int) ($row['count'] ?? 0);
     }
@@ -117,6 +117,7 @@ final class EntryRepository
     public function insert(Entry $entry): EntryId
     {
         $row = $this->entryToRow($entry);
+        unset($row['brewID']); // auto-increment; entry doesn't have a real id yet
 
         $columns = implode(', ', array_keys($row));
         $placeholders = implode(', ', array_fill(0, count($row), '?'));
@@ -182,7 +183,7 @@ final class EntryRepository
         $style = $entry->style();
         return [
             'brewID' => $entry->id()->value(),
-            'brewBrewerID' => $entry->brewerId()->value(),
+            'brewBrewerId' => $entry->brewerId()->value(),
             'brewCategorySort' => $style->group(),
             'brewSubCategory' => $style->num(),
             'brewName' => $entry->name(),

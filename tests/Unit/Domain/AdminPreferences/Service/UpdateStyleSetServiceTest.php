@@ -59,7 +59,7 @@ final class UpdateStyleSetServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new UpdateStyleSetCommand('BJCP2025', [1, 2, 3]);
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 
@@ -70,14 +70,12 @@ final class UpdateStyleSetServiceTest extends TestCase
 
     public function test_invalid_style_set_throws_exception(): void
     {
-        $preferences = $this->createMockPreferences(CompetitionState::Planning);
-        $this->repository->expects($this->once())
-            ->method('getById')
-            ->with(1)
-            ->willReturn($preferences);
+        // Invalid enum value is rejected during command validation, before the
+        // aggregate is ever fetched - so getById() is never called here.
+        $this->repository->expects($this->never())->method('getById');
 
         $command = new UpdateStyleSetCommand('INVALID_SET');
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $this->expectException(InvalidConstraintException::class);
         $this->service->execute($command, $admin);
@@ -92,7 +90,7 @@ final class UpdateStyleSetServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new UpdateStyleSetCommand('BJCP2025');
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $this->expectException(PreferencesLockedForCompetitionException::class);
         $this->service->execute($command, $admin);
@@ -116,7 +114,7 @@ final class UpdateStyleSetServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new UpdateStyleSetCommand('BJCP2025');
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 
@@ -143,7 +141,7 @@ final class UpdateStyleSetServiceTest extends TestCase
             ->willReturn($preferences);
 
         $command = new UpdateStyleSetCommand('BJCP2025', [], [100, 101]);
-        $admin = new Identity(true, 'admin', \Bcoem\Security\Role::Admin);
+        $admin = Identity::fromSession(['loginUsername' => 'admin', 'userLevel' => '1']);
 
         $result = $this->service->execute($command, $admin);
 

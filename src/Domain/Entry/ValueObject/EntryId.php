@@ -11,8 +11,10 @@ final class EntryId
 {
     public function __construct(private int $id)
     {
-        if ($id <= 0) {
-            throw new \InvalidArgumentException('EntryId must be a positive integer');
+        // 0 is a legitimate sentinel for "not yet persisted" (see EntryService::create(),
+        // which builds an Entry before the repository has assigned a real auto-increment id).
+        if ($id < 0) {
+            throw new \InvalidArgumentException('EntryId cannot be negative');
         }
     }
 
