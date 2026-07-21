@@ -33,6 +33,14 @@ services:
       # behavior of logging only. Shared hosting never sets this, so it
       # stays off there.
       APP_DEBUG: "1"
+      # Stripe payments (includes/stripe_payment.inc.php) are unconfigured
+      # by default - the app works fine without them. To test the Stripe
+      # path locally, uncomment and fill in test-mode keys from your own
+      # Stripe dashboard (https://dashboard.stripe.com/test/apikeys).
+      # Never commit real values here.
+      # STRIPE_PRODUCT_KEY: ""
+      # STRIPE_API_KEY_PUBLIC: ""
+      # STRIPE_API_KEY_SECRET: ""
 
   # Task 12: local observability stack (Tempo traces + Prometheus metrics + Grafana dashboard)
   # Tempo ingests OTLP over HTTP (4318), Prometheus scrapes metrics from /metrics endpoints,

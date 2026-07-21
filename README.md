@@ -39,6 +39,13 @@ Step by step [installation](https://info.brewingcompetitions.com/install-instruc
 
 After configuration to your environment, installation is a breeze via the online setup interface.
 
+## Configuration & Secrets
+Deploy-varying configuration (database credentials, the installation ID, optional Stripe API keys, etc.) is read from real environment variables, with `site/config.php` as the single source of truth — see that file's own comments for the full list. On shared hosting where no environment variables are set, `site/config.php` falls back to values you hand-edit directly in that file (which is git-ignored and never committed). Under Docker, the same variables are supplied via `docker-compose.yml`'s `environment:` block.
+
+**Never hardcode credentials, API keys, or passwords directly into a PHP file that gets committed.** If you need a new piece of deploy-specific configuration, add it to `site/config.php` following the existing `getenv('X') ?: <default>` pattern, and document it in `docker-compose.yml`.
+
+Optional Stripe payment support (`includes/stripe_payment.inc.php`) reads `STRIPE_PRODUCT_KEY`, `STRIPE_API_KEY_PUBLIC`, and `STRIPE_API_KEY_SECRET` the same way; unset, Stripe payments are simply unconfigured.
+
 ## Fallback Installation
 There are times when the online setup encounters issues that prevent the installation from successfully completing. That's why there's a [Fallback Installation](https://info.brewingcompetitions.com/install-instructions) method. For those experiencing any issues related to the initial browser-based setup, the bcoem_baseline_3.X.X.sql document is available in the package's /sql/ folder. This document contains the necessary database structure and dummy data for a new installation that can be installed manually via phpMyAdmin or shell access. Be sure to follow the directions in the document **BEFORE** use.
 

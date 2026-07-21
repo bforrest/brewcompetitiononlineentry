@@ -8,12 +8,16 @@
  * In Site Preferences, provide:
  *  - API Keys
  *  - Entry fee "product"
- * 
- *  
+ *
+ * These values are account-specific credentials and must never be
+ * hardcoded here. Set them as real environment variables (same pattern
+ * as DB_HOST/DB_USER/etc. in site/config.php - see docker-compose.yml
+ * for a local example, or your hosting control panel for shared hosting).
+ * With none of the three set, Stripe payments are simply unconfigured.
  */
 
-$stripe_product_key = "price_1JeTKqFEb4Q4EIfcGkFprDuT";
-$stripe_api_key_public = "pk_test_51JeRMBFEb4Q4EIfcbdGOAB2mDe3KyqlqOXolpUg8XclmdTnfvdS7urt7oksjy34IPzSzCcDj9dLz46iCA2eE6naj00ODB9SsDj";
-$stripe_api_key_secret = "sk_test_51JeRMBFEb4Q4EIfcaszKf116MWtoMgF3Sn9r0MzwgAcZm794vyyZ8cAf7ftqyfXHnlfHwJOlHfm99i8mRvjWRYEw00e0umuBM2";
+$stripe_product_key = getenv('STRIPE_PRODUCT_KEY') ?: '';
+$stripe_api_key_public = getenv('STRIPE_API_KEY_PUBLIC') ?: '';
+$stripe_api_key_secret = getenv('STRIPE_API_KEY_SECRET') ?: '';
 
 ?>
