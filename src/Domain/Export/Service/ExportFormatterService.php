@@ -6,7 +6,7 @@ namespace Bcoem\Domain\Export\Service;
 use Bcoem\Domain\Export\ValueObject\ExportFormat;
 use Bcoem\Domain\Export\ValueObject\ReportData;
 
-final class ExportFormatterService
+class ExportFormatterService
 {
     /**
      * Format report data for output.

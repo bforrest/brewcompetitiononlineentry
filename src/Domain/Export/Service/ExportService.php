@@ -15,7 +15,7 @@ use Bcoem\Domain\Export\ValueObject\ReportData;
 use Bcoem\Security\Identity;
 use DateTime;
 
-final class ExportService
+class ExportService
 {
     public function __construct(
         private readonly BrewingExportRepository $brewingRepository,

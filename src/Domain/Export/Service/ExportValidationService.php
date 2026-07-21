@@ -7,7 +7,7 @@ use Bcoem\Domain\Export\Command\GenerateExportCommand;
 use Bcoem\Domain\Export\Exception\InvalidExportFilterException;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-final class ExportValidationService
+class ExportValidationService
 {
     public function __construct(
         private readonly ValidatorInterface $validator
