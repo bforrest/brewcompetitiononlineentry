@@ -197,17 +197,17 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
 
     $app->get('/export', function ($req, $res) use ($exportController) {
         $user = $req->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
-        return $exportController->getExportForm($req, $user);
+        return $exportController->getExportForm($req, $res, $user);
     })->setName('export.form');
 
     $app->post('/export', function ($req, $res) use ($exportController) {
         $user = $req->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
-        return $exportController->postExport($req, $user);
+        return $exportController->postExport($req, $res, $user);
     })->setName('export.download');
 
     $app->get('/export/preview', function ($req, $res) use ($exportController) {
         $user = $req->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
-        return $exportController->getExportPreview($req, $user);
+        return $exportController->getExportPreview($req, $res, $user);
     })->setName('export.preview');
 
     return $app;

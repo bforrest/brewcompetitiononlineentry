@@ -23,6 +23,7 @@ class JudgingExportRepository
      * Get judging scores for export.
      *
      * @throws InvalidArchiveException if archive suffix is invalid
+     * @return array<int, array<string, mixed>>
      */
     public function getJudgingScores(
         bool $bosOnly = false,

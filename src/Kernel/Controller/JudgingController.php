@@ -12,10 +12,10 @@ use Bcoem\Domain\Judging\ValueObject\LocationId;
 use Bcoem\Domain\Judging\ValueObject\TableId;
 use Bcoem\Domain\Judging\ValueObject\TableState;
 use Bcoem\Domain\Entry\ValueObject\EntryId;
-use Bcoem\Kernel\Identity;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\JsonResponse;
+use Bcoem\Security\Identity;
+use Bcoem\Kernel\ResponseHelper;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * JudgingController handles HTTP requests for judging operations.
@@ -38,15 +38,16 @@ final class JudgingController
     ) {
     }
 
-    public function listTables(Request $request): Response
+    public function listTables(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
-        $identity = $request->attributes->get('identity');
+        $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
-            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
-        $locationId = $request->query->getInt('location');
-        $state = $request->query->get('state');
+        $queryParams = $request->getQueryParams();
+        $locationId = (int) ($queryParams['location'] ?? 0);
+        $state = $queryParams['state'] ?? null;
 
         try {
             if ($state) {
@@ -68,20 +69,21 @@ final class JudgingController
                 'flights_count' => $table->flights()->count(),
             ], $tables);
 
-            return new JsonResponse(['tables' => $data]);
+            return ResponseHelper::json($response, ['tables' => $data]);
         } catch (\Throwable $e) {
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+            return ResponseHelper::json($response, ['error' => $e->getMessage()], 400);
         }
     }
 
-    public function getTableDetail(Request $request, int $id): Response
+    public function getTableDetail(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
-        $identity = $request->attributes->get('identity');
+        $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
-            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
         try {
+            $id = (int) ($args['id'] ?? 0);
             $table = $this->tableService->getTable(new TableId($id));
             $scores = $this->scoreService->listScoresForTable(new TableId($id));
 
@@ -100,7 +102,7 @@ final class JudgingController
                 'version' => $score->version(),
             ], $scores);
 
-            return new JsonResponse([
+            return ResponseHelper::json($response, [
                 'table' => [
                     'id' => $table->id()->value(),
                     'name' => $table->name(),
@@ -112,19 +114,19 @@ final class JudgingController
                 'scores' => $scoresData,
             ]);
         } catch (\Throwable $e) {
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+            return ResponseHelper::json($response, ['error' => $e->getMessage()], 400);
         }
     }
 
-    public function recordScore(Request $request): Response
+    public function recordScore(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
-        $identity = $request->attributes->get('identity');
+        $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
-            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
         try {
-            $data = json_decode($request->getContent(), true);
+            $data = (array) json_decode($request->getBody()->getContents(), true);
 
             $command = new RecordScoreCommand(
                 entryId: (int) $data['entry_id'],
@@ -138,50 +140,52 @@ final class JudgingController
 
             $this->scoreService->recordScore($command, $identity);
 
-            return new JsonResponse(['success' => true], Response::HTTP_OK);
+            return ResponseHelper::json($response, ['success' => true]);
         } catch (\Throwable $e) {
-            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : Response::HTTP_BAD_REQUEST;
-            return new JsonResponse(['error' => $e->getMessage()], $status);
+            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : 400;
+            return ResponseHelper::json($response, ['error' => $e->getMessage()], $status);
         }
     }
 
-    public function transitionTableState(Request $request, int $id): Response
+    public function transitionTableState(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
-        $identity = $request->attributes->get('identity');
+        $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
-            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
         if (!$identity->hasRole('admin')) {
-            return new JsonResponse(['error' => 'Forbidden: Admin role required'], Response::HTTP_FORBIDDEN);
+            return ResponseHelper::json($response, ['error' => 'Forbidden: Admin role required'], 403);
         }
 
         try {
-            $data = json_decode($request->getContent(), true);
+            $id = (int) ($args['id'] ?? 0);
+            $data = (array) json_decode($request->getBody()->getContents(), true);
             $newState = TableState::from($data['state']);
 
             $this->tableService->transitionTableState(new TableId($id), $newState, $identity);
 
-            return new JsonResponse(['success' => true, 'state' => $newState->value]);
+            return ResponseHelper::json($response, ['success' => true, 'state' => $newState->value]);
         } catch (\Throwable $e) {
-            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : Response::HTTP_BAD_REQUEST;
-            return new JsonResponse(['error' => $e->getMessage()], $status);
+            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : 400;
+            return ResponseHelper::json($response, ['error' => $e->getMessage()], $status);
         }
     }
 
-    public function addFlight(Request $request, int $id): Response
+    public function addFlight(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
-        $identity = $request->attributes->get('identity');
+        $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
-            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
         if (!$identity->hasRole('admin')) {
-            return new JsonResponse(['error' => 'Forbidden: Admin role required'], Response::HTTP_FORBIDDEN);
+            return ResponseHelper::json($response, ['error' => 'Forbidden: Admin role required'], 403);
         }
 
         try {
-            $data = json_decode($request->getContent(), true);
+            $id = (int) ($args['id'] ?? 0);
+            $data = (array) json_decode($request->getBody()->getContents(), true);
 
             $flight = new Flight(
                 id: new FlightId((int) ($data['flight_id'] ?? 0)),
@@ -192,43 +196,46 @@ final class JudgingController
 
             $this->tableService->addFlight(new TableId($id), $flight, $identity);
 
-            return new JsonResponse(['success' => true]);
+            return ResponseHelper::json($response, ['success' => true]);
         } catch (\Throwable $e) {
-            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : Response::HTTP_BAD_REQUEST;
-            return new JsonResponse(['error' => $e->getMessage()], $status);
+            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : 400;
+            return ResponseHelper::json($response, ['error' => $e->getMessage()], $status);
         }
     }
 
-    public function removeFlight(Request $request, int $id, int $flightId): Response
+    public function removeFlight(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
-        $identity = $request->attributes->get('identity');
+        $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
-            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
         if (!$identity->hasRole('admin')) {
-            return new JsonResponse(['error' => 'Forbidden: Admin role required'], Response::HTTP_FORBIDDEN);
+            return ResponseHelper::json($response, ['error' => 'Forbidden: Admin role required'], 403);
         }
 
         try {
+            $id = (int) ($args['id'] ?? 0);
+            $flightId = (int) ($args['flightId'] ?? 0);
             $this->tableService->removeFlight(new TableId($id), new FlightId($flightId), $identity);
-            return new JsonResponse(['success' => true]);
+            return ResponseHelper::json($response, ['success' => true]);
         } catch (\Throwable $e) {
-            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : Response::HTTP_BAD_REQUEST;
-            return new JsonResponse(['error' => $e->getMessage()], $status);
+            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : 400;
+            return ResponseHelper::json($response, ['error' => $e->getMessage()], $status);
         }
     }
 
-    public function getTablesView(Request $request): Response
+    public function getTablesView(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
-        $identity = $request->attributes->get('identity');
+        $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
-            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
         try {
-            $locationId = $request->query->getInt('location');
-            $state = $request->query->get('state');
+            $queryParams = $request->getQueryParams();
+            $locationId = (int) ($queryParams['location'] ?? 0);
+            $state = $queryParams['state'] ?? null;
             $selectedState = null;
 
             if ($state) {
@@ -248,20 +255,21 @@ final class JudgingController
             include __DIR__ . '/../../templates/Judging/admin-table-list.php';
             $html = ob_get_clean();
 
-            return new Response($html, Response::HTTP_OK, ['Content-Type' => 'text/html']);
+            return ResponseHelper::html($response, $html);
         } catch (\Throwable $e) {
-            return new Response('Error: ' . $e->getMessage(), Response::HTTP_BAD_REQUEST);
+            return ResponseHelper::text($response, 'Error: ' . $e->getMessage(), 400);
         }
     }
 
-    public function getTableDetailView(Request $request, int $id): Response
+    public function getTableDetailView(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
-        $identity = $request->attributes->get('identity');
+        $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
-            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
         try {
+            $id = (int) ($args['id'] ?? 0);
             $table = $this->tableService->getTable(new TableId($id));
             $scores = $this->scoreService->listScoresForTable(new TableId($id));
             $flights = $table->flights()->all();
@@ -271,21 +279,22 @@ final class JudgingController
             include __DIR__ . '/../../templates/Judging/admin-table-detail.php';
             $html = ob_get_clean();
 
-            return new Response($html, Response::HTTP_OK, ['Content-Type' => 'text/html']);
+            return ResponseHelper::html($response, $html);
         } catch (\Throwable $e) {
-            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : Response::HTTP_BAD_REQUEST;
-            return new Response('Error: ' . $e->getMessage(), $status);
+            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : 400;
+            return ResponseHelper::text($response, 'Error: ' . $e->getMessage(), $status);
         }
     }
 
-    public function getJudgeScoresheet(Request $request, int $id): Response
+    public function getJudgeScoresheet(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
-        $identity = $request->attributes->get('identity');
+        $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
-            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
         try {
+            $id = (int) ($args['id'] ?? 0);
             $table = $this->tableService->getTable(new TableId($id));
             $flights = $table->flights()->all();
             $scores = $this->scoreService->listScoresForTable(new TableId($id));
@@ -301,26 +310,28 @@ final class JudgingController
             include __DIR__ . '/../../templates/Judging/judge-scoresheet.php';
             $html = ob_get_clean();
 
-            return new Response($html, Response::HTTP_OK, ['Content-Type' => 'text/html']);
+            return ResponseHelper::html($response, $html);
         } catch (\Throwable $e) {
-            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : Response::HTTP_BAD_REQUEST;
-            return new Response('Error: ' . $e->getMessage(), $status);
+            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : 400;
+            return ResponseHelper::text($response, 'Error: ' . $e->getMessage(), $status);
         }
     }
 
-    public function getTableForm(Request $request, ?int $id = null): Response
+    public function getTableForm(ServerRequestInterface $request, ResponseInterface $response, array $args = []): ResponseInterface
     {
-        $identity = $request->attributes->get('identity');
+        $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
-            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            return ResponseHelper::json($response, ['error' => 'Unauthorized'], 401);
         }
 
         if (!$identity->hasRole('admin')) {
-            return new JsonResponse(['error' => 'Forbidden: Admin role required'], Response::HTTP_FORBIDDEN);
+            return ResponseHelper::json($response, ['error' => 'Forbidden: Admin role required'], 403);
         }
 
         try {
-            $locationId = $request->query->getInt('location');
+            $queryParams = $request->getQueryParams();
+            $locationId = (int) ($queryParams['location'] ?? 0);
+            $id = (int) ($args['id'] ?? null);
             $isEditMode = $id !== null;
             $table = $isEditMode ? $this->tableService->getTable(new TableId($id)) : null;
 
@@ -328,10 +339,10 @@ final class JudgingController
             include __DIR__ . '/../../templates/Judging/table-form.php';
             $html = ob_get_clean();
 
-            return new Response($html, Response::HTTP_OK, ['Content-Type' => 'text/html']);
+            return ResponseHelper::html($response, $html);
         } catch (\Throwable $e) {
-            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : Response::HTTP_BAD_REQUEST;
-            return new Response('Error: ' . $e->getMessage(), $status);
+            $status = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : 400;
+            return ResponseHelper::text($response, 'Error: ' . $e->getMessage(), $status);
         }
     }
 }

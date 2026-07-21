@@ -27,6 +27,7 @@ class BrewingExportRepository
      * Replaces sprintf logic from output_entries_export.db.php with parameterized queries.
      *
      * @throws \InvalidArgumentException if filter is invalid
+     * @return array<int, array<string, mixed>>
      */
     public function getEntriesByFilter(
         ExportFilter $filter,
@@ -93,6 +94,7 @@ class BrewingExportRepository
 
     /**
      * Get all entries for export.
+     * @return array<int, array<string, mixed>>
      */
     public function getAllEntries(?int $competitionId = null, ?string $archiveSuffix = null): array
     {
@@ -119,6 +121,7 @@ class BrewingExportRepository
      * Get winner data for export.
      *
      * Safely constructs query using archive suffix validation.
+     * @return array<int, array<string, mixed>>
      */
     public function getWinnerData(?string $archiveSuffix = null, ?int $competitionId = null): array
     {

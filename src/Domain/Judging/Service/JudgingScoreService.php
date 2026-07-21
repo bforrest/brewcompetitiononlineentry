@@ -10,7 +10,7 @@ use Bcoem\Domain\Judging\Repository\JudgingTableRepository;
 use Bcoem\Domain\Judging\ValueObject\Score;
 use Bcoem\Domain\Judging\ValueObject\TableId;
 use Bcoem\Domain\Entry\ValueObject\EntryId;
-use Bcoem\Kernel\Identity;
+use Bcoem\Security\Identity;
 
 /**
  * JudgingScoreService orchestrates score recording with optimistic locking.

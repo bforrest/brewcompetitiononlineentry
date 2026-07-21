@@ -135,12 +135,9 @@ $containerBuilder->addDefinitions([
     EntryValidationService::class => static fn (ContainerInterface $container): EntryValidationService =>
         new EntryValidationService(
             $container->get(EntryRepository::class),
-            new \Symfony\Component\Validator\Validator\RecursiveValidator(
-                new \Symfony\Component\Validator\Mapping\ClassMetadataFactory(
-                    new \Symfony\Component\Validator\Mapping\Loader\AttributeLoader()
-                ),
-                []
-            ),
+            (new \Symfony\Component\Validator\ValidatorBuilder())
+                ->addLoader(new \Symfony\Component\Validator\Mapping\Loader\AttributeLoader())
+                ->getValidator(),
             $container->get(StyleService::class),
         ),
 
@@ -198,12 +195,9 @@ $containerBuilder->addDefinitions([
 
     ExportValidationService::class => static fn (): ExportValidationService =>
         new ExportValidationService(
-            new \Symfony\Component\Validator\Validator\RecursiveValidator(
-                new \Symfony\Component\Validator\Mapping\ClassMetadataFactory(
-                    new \Symfony\Component\Validator\Mapping\Loader\AttributeLoader()
-                ),
-                []
-            )
+            (new \Symfony\Component\Validator\ValidatorBuilder())
+                ->addLoader(new \Symfony\Component\Validator\Mapping\Loader\AttributeLoader())
+                ->getValidator()
         ),
 
     ExportService::class => static fn (ContainerInterface $container): ExportService =>

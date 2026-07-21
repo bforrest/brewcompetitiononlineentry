@@ -8,9 +8,8 @@ use Bcoem\Domain\Export\Exception\ExportException;
 use Bcoem\Domain\Export\Service\ExportService;
 use Bcoem\Domain\Export\Service\ExportFormatterService;
 use Bcoem\Security\Identity;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 
 final class ExportController
 {
@@ -23,84 +22,95 @@ final class ExportController
     /**
      * Render export form.
      */
-    public function getExportForm(Request $request, Identity $user): Response
+    public function getExportForm(ServerRequestInterface $request, ResponseInterface $response, Identity $user): ResponseInterface
     {
         if ($user->userLevel() > 1) {
-            return new Response('Unauthorized', 403);
+            $response->getBody()->write('Unauthorized');
+            return $response->withStatus(403);
         }
 
         $html = $this->renderExportForm();
-
-        return new Response($html, 200, ['Content-Type' => 'text/html']);
+        $response->getBody()->write($html);
+        return $response
+            ->withStatus(200)
+            ->withHeader('Content-Type', 'text/html; charset=utf-8');
     }
 
     /**
      * Generate and stream export file.
      */
-    public function postExport(Request $request, Identity $user): Response
+    public function postExport(ServerRequestInterface $request, ResponseInterface $response, Identity $user): ResponseInterface
     {
         if ($user->userLevel() > 1) {
-            return new Response('Unauthorized', 403);
+            $response->getBody()->write('Unauthorized');
+            return $response->withStatus(403);
         }
 
         try {
-            $format = $request->request->getString('format', 'csv');
-            $filter = $request->request->getString('filter', 'all');
-            $view = $request->request->getString('view', 'default');
-            $archiveSuffix = $request->request->getString('archive_suffix') ?: null;
+            $parsedBody = (array) ($request->getParsedBody() ?? []);
+            $format = $parsedBody['format'] ?? 'csv';
+            $filter = $parsedBody['filter'] ?? 'all';
+            $view = $parsedBody['view'] ?? 'default';
+            $archiveSuffix = $parsedBody['archive_suffix'] ?? null;
+            if ($archiveSuffix === '') {
+                $archiveSuffix = null;
+            }
 
             $command = new GenerateExportCommand($format, $filter, $view, $archiveSuffix);
             $report = $this->exportService->execute($command, $user);
             $content = $this->formatterService->format($report);
 
-            $response = new StreamedResponse();
-            $response->setCallback(function () use ($content) {
-                echo $content;
-            });
-
-            $response->headers->set('Content-Type', $report->format()->mimeType());
-            $response->headers->set(
-                'Content-Disposition',
-                'attachment; filename="' . $report->format()->fileExtension() . '"'
-            );
-
-            return $response;
+            $response->getBody()->write($content);
+            return $response
+                ->withStatus(200)
+                ->withHeader('Content-Type', $report->format()->mimeType())
+                ->withHeader(
+                    'Content-Disposition',
+                    'attachment; filename="export.' . $report->format()->fileExtension() . '"'
+                );
         } catch (ExportException $e) {
-            return new Response(
-                sprintf('Error: %s', $e->getMessage()),
-                $e->getHttpStatus(),
-                ['Content-Type' => 'text/plain']
-            );
+            $response->getBody()->write(sprintf('Error: %s', $e->getMessage()));
+            return $response
+                ->withStatus($e->getHttpStatus())
+                ->withHeader('Content-Type', 'text/plain');
         } catch (\Exception $e) {
-            return new Response('Internal error', 500);
+            $response->getBody()->write('Internal error');
+            return $response->withStatus(500);
         }
     }
 
     /**
      * Preview export without download.
      */
-    public function getExportPreview(Request $request, Identity $user): Response
+    public function getExportPreview(ServerRequestInterface $request, ResponseInterface $response, Identity $user): ResponseInterface
     {
         if ($user->userLevel() > 1) {
-            return new Response('Unauthorized', 403);
+            $response->getBody()->write('Unauthorized');
+            return $response->withStatus(403);
         }
 
         try {
-            $format = $request->query->getString('format', 'html');
-            $filter = $request->query->getString('filter', 'all');
-            $view = $request->query->getString('view', 'default');
+            $queryParams = $request->getQueryParams();
+            $format = $queryParams['format'] ?? 'html';
+            $filter = $queryParams['filter'] ?? 'all';
+            $view = $queryParams['view'] ?? 'default';
 
             $command = new GenerateExportCommand($format, $filter, $view);
             $report = $this->exportService->execute($command, $user);
             $content = $this->formatterService->format($report);
 
-            return new Response($content, 200, ['Content-Type' => $report->format()->mimeType()]);
+            $response->getBody()->write($content);
+            return $response
+                ->withStatus(200)
+                ->withHeader('Content-Type', $report->format()->mimeType());
         } catch (ExportException $e) {
-            return new Response(
-                sprintf('Error: %s', $e->getMessage()),
-                $e->getHttpStatus(),
-                ['Content-Type' => 'text/plain']
-            );
+            $response->getBody()->write(sprintf('Error: %s', $e->getMessage()));
+            return $response
+                ->withStatus($e->getHttpStatus())
+                ->withHeader('Content-Type', 'text/plain');
+        } catch (\Exception $e) {
+            $response->getBody()->write('Internal error');
+            return $response->withStatus(500);
         }
     }
 

@@ -22,7 +22,6 @@ final class GenerateExportCommand
     #[Assert\Choice(choices: ['default', 'all', 'not_received'])]
     public string $view = 'default';
 
-    #[Assert\Optional]
     #[Assert\Type(type: 'string')]
     public ?string $archiveSuffix = null;
 

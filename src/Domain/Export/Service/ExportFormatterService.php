@@ -106,7 +106,7 @@ class ExportFormatterService
     /**
      * Escape CSV line values.
      *
-     * @param array<string> $values
+     * @param array<int, string> $values
      */
     private function escapeCsvLine(array $values): string
     {

@@ -7,6 +7,7 @@ final class ReportData
 {
     /**
      * @param array<int, array<string, mixed>> $rows Query result rows
+     * @param array<int, string> $columnHeaders Column header names
      */
     public function __construct(
         private readonly ExportFormat $format,

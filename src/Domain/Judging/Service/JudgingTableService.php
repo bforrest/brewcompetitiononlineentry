@@ -11,7 +11,7 @@ use Bcoem\Domain\Judging\ValueObject\FlightQueue;
 use Bcoem\Domain\Judging\ValueObject\LocationId;
 use Bcoem\Domain\Judging\ValueObject\TableId;
 use Bcoem\Domain\Judging\ValueObject\TableState;
-use Bcoem\Kernel\Identity;
+use Bcoem\Security\Identity;
 use DateTime;
 
 /**

@@ -26,6 +26,7 @@ class ParticipantExportRepository
      * Get participants filtered by role/availability.
      *
      * Replaces sprintf logic from output_participants_export.db.php with parameterized queries.
+     * @return array<int, array<string, mixed>>
      */
     public function getParticipantsByFilter(
         ExportFilter $filter,
@@ -45,6 +46,9 @@ class ParticipantExportRepository
         return $this->connection->select($sql, $params);
     }
 
+    /**
+     * @param array<int, int|string|null> &$params Query parameters to be populated
+     */
     private function getJudgesQuery(?int $competitionId, array &$params): string
     {
         $sql = "SELECT a.brewerEmail, a.brewerFirstName, a.brewerLastName, a.brewerJudgeLocation,
@@ -65,6 +69,9 @@ class ParticipantExportRepository
         return $sql;
     }
 
+    /**
+     * @param array<int, int|string|null> &$params Query parameters to be populated
+     */
     private function getStewardsQuery(?int $competitionId, array &$params): string
     {
         $sql = "SELECT a.brewerEmail, a.brewerFirstName, a.brewerLastName, a.uid, a.brewerJudgeRank,
@@ -85,6 +92,9 @@ class ParticipantExportRepository
         return $sql;
     }
 
+    /**
+     * @param array<int, int|string|null> &$params Query parameters to be populated
+     */
     private function getStaffQuery(?int $competitionId, array &$params): string
     {
         $sql = "SELECT a.brewerEmail, a.brewerFirstName, a.brewerLastName, a.uid, a.brewerJudgeRank,
@@ -104,6 +114,9 @@ class ParticipantExportRepository
         return $sql;
     }
 
+    /**
+     * @param array<int, int|string|null> &$params Query parameters to be populated
+     */
     private function getAvailableJudgesQuery(array &$params): string
     {
         $sql = "SELECT uid, brewerFirstName, brewerLastName, brewerEmail, brewerJudge, brewerJudgeRank,
@@ -119,6 +132,9 @@ class ParticipantExportRepository
         return $sql;
     }
 
+    /**
+     * @param array<int, int|string|null> &$params Query parameters to be populated
+     */
     private function getAvailableStewardsQuery(array &$params): string
     {
         $sql = "SELECT uid, brewerFirstName, brewerLastName, brewerEmail, brewerJudge, brewerJudgeRank,
