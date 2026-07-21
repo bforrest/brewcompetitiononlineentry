@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+use Bcoem\Database\Connection;
+use Bcoem\Domain\Entry\Repository\EntryRepository;
+use Bcoem\Domain\Entry\Service\AuditLogger;
+use Bcoem\Domain\Entry\Service\EntryService;
+use Bcoem\Domain\Entry\Service\EntryValidationService;
+use Bcoem\Domain\Entry\Service\StyleService;
 use Bcoem\Kernel\Logging\TraceIdProcessor;
 use DI\ContainerBuilder;
 use Monolog\Formatter\LineFormatter;
@@ -88,6 +94,53 @@ $containerBuilder->addDefinitions([
      */
     'tracer' => static fn (): TracerInterface => Globals::tracerProvider()->getTracer('bcoem'),
     TracerInterface::class => \DI\get('tracer'),
+
+    /**
+     * Phase 3: Database connection wrapper for prepared statements.
+     * The legacy $GLOBALS['connection'] (mysqli) is set by site/config.php
+     * during bootstrap. This wrapper enforces prepared statements only
+     * and serves as the single point of database access for all Phase 3+
+     * code (repositories, services, etc.).
+     */
+    Connection::class => static function (): Connection {
+        if (isset($GLOBALS['connection']) && $GLOBALS['connection'] instanceof \mysqli) {
+            return new Connection($GLOBALS['connection']);
+        }
+        throw new \RuntimeException('mysqli connection not initialized in $GLOBALS[\'connection\']');
+    },
+
+    /**
+     * Phase 3: Entry domain services and repositories.
+     */
+    AuditLogger::class => static fn (ContainerInterface $container): AuditLogger =>
+        new AuditLogger($container->get(Connection::class)),
+
+    EntryRepository::class => static fn (ContainerInterface $container): EntryRepository =>
+        new EntryRepository($container->get(Connection::class)),
+
+    StyleService::class => static fn (): StyleService =>
+        new StyleService(),
+
+    EntryValidationService::class => static fn (ContainerInterface $container): EntryValidationService =>
+        new EntryValidationService(
+            $container->get(EntryRepository::class),
+            new \Symfony\Component\Validator\Validator\RecursiveValidator(
+                new \Symfony\Component\Validator\Mapping\ClassMetadataFactory(
+                    new \Symfony\Component\Validator\Mapping\Loader\AttributeLoader()
+                ),
+                []
+            ),
+            $container->get(StyleService::class),
+        ),
+
+    EntryService::class => static fn (ContainerInterface $container): EntryService =>
+        new EntryService(
+            $container->get(Connection::class),
+            $container->get(EntryRepository::class),
+            $container->get(EntryValidationService::class),
+            $container->get(AuditLogger::class),
+            $container->get(LoggerInterface::class),
+        ),
 ]);
 
 return $containerBuilder->build();

@@ -171,5 +171,23 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
     $app->get('/{section}[/{go}[/{action}[/{id}]]]', new \Bcoem\Legacy\LegacyPageHandler())
         ->setName('section');
 
+    // Phase 3: Entry (brewing) workflow routes
+    $entryController = new \Bcoem\Kernel\Controller\EntryController(
+        $container->get(\Bcoem\Domain\Entry\Service\EntryService::class)
+    );
+
+    $app->get('/entries', fn ($req, $res, $args) => $entryController->getCreateForm($req, $res))
+        ->setName('entry.create.form');
+    $app->get('/entries/{id}/edit', fn ($req, $res, $args) => $entryController->getEditForm($req, $res, $args))
+        ->setName('entry.edit.form');
+    $app->post('/entries', fn ($req, $res, $args) => $entryController->postCreate($req, $res))
+        ->setName('entry.create');
+    $app->post('/entries/{id}', fn ($req, $res, $args) => $entryController->postUpdate($req, $res, $args))
+        ->setName('entry.update');
+    $app->delete('/entries/{id}', fn ($req, $res, $args) => $entryController->postDelete($req, $res, $args))
+        ->setName('entry.delete');
+    $app->get('/entries/my', fn ($req, $res, $args) => $entryController->listEntries($req, $res))
+        ->setName('entry.list');
+
     return $app;
 }

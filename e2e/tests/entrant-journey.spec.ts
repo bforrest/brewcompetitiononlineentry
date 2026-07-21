@@ -9,7 +9,7 @@ import { chooseStyle } from '../helpers/entries';
  */
 
 test.describe.serial('entrant journey', () => {
-  test('register, create, edit, and see an entry through to payment', async ({ page }) => {
+  test('register, create, edit, and see an entry through to payment (legacy)', async ({ page }) => {
     await registerEntrant(page);
 
     // — My Account entry list, then the Add Entry button —
@@ -42,5 +42,39 @@ test.describe.serial('entrant journey', () => {
     // — Payment page lists the entry/fee (PayPal itself is out of scope) —
     await page.goto('/index.php?section=pay');
     await expect(page.locator('body')).toContainText(/total|fee|pay/i);
+  });
+
+  test('register, create, edit, and see an entry via modern routes', async ({ page }) => {
+    await registerEntrant(page);
+
+    // — My Entries list (modern route) —
+    await page.goto('/entries/my');
+    await expect(page.locator('h1')).toContainText(/my entries/i);
+
+    // — New Entry button —
+    await page.getByRole('link', { name: /new entry|\+ new entry/i }).click();
+    await expect(page.locator('input[name="brewName"]')).toBeVisible();
+
+    // — Create —
+    const entryName = `E2E Modern Ale ${Date.now()}`;
+    await page.fill('input[name="brewName"]', entryName);
+    await page.selectOption('select[name="brewCategorySort"]', { label: /IPA|Pale Ale|Amber|Lager/i });
+    await page.fill('input[name="brewSubCategory"]', 'A');
+    await page.locator('button[type="submit"]').first().click();
+
+    // — Verify in modern list —
+    await page.goto('/entries/my');
+    await expect(page.getByText(entryName).first()).toBeVisible();
+
+    // — Edit via modern route —
+    await page.getByRole('link', { name: /edit/i }).first().click();
+    await expect(page.locator('input[name="brewName"]')).toBeVisible();
+    const revisedName = `${entryName} (revised)`;
+    await page.fill('input[name="brewName"]', revisedName);
+    await page.locator('button[type="submit"]').first().click();
+
+    // — Verify revision in modern list —
+    await page.goto('/entries/my');
+    await expect(page.getByText(revisedName).first()).toBeVisible();
   });
 });

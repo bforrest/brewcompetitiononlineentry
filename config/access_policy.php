@@ -295,4 +295,12 @@ return [
     // per-record ownership (own brewerEmail, or userLevel<=1 admin bypass)
     // is enforced internally, unchanged.
     'output:section:scoresheet' => Role::Entrant, // output/scoresheets.output.php:19-25,69-74
+
+    // ── Phase 3: Entry (brewing) workflow routes ──
+    'entry.create.form' => Role::Entrant,
+    'entry.edit.form' => Role::Entrant,
+    'entry.create' => Role::Entrant,
+    'entry.update' => Role::Entrant,
+    'entry.delete' => Role::Entrant,
+    'entry.list' => Role::Entrant,
 ];
