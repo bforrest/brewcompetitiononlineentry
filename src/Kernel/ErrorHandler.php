@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Bcoem\Kernel;
 
+use Bcoem\Kernel\Middleware\TracingMiddleware;
+use OpenTelemetry\API\Trace\SpanInterface;
+use OpenTelemetry\API\Trace\StatusCode;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -58,6 +61,19 @@ final class ErrorHandler
     ): ResponseInterface {
         $referenceId = bin2hex(random_bytes(4));
         $status = $this->statusFor($exception);
+
+        // TracingMiddleware (Task 12) is the OUTERMOST middleware, wrapping
+        // even ErrorMiddleware (see app.php) - so by the time an exception
+        // lands here, the request already carries the root span it attached
+        // before dispatch. Recording it here, rather than relying on
+        // TracingMiddleware's own defensive catch, is what actually fires in
+        // practice: ErrorMiddleware (INNER than Tracing) catches every real
+        // exception before Tracing's process() ever sees a throw.
+        $span = $request->getAttribute(TracingMiddleware::SPAN_ATTRIBUTE);
+        if ($span instanceof SpanInterface) {
+            $span->recordException($exception, ['reference_id' => $referenceId]);
+            $span->setStatus(StatusCode::STATUS_ERROR, $exception->getMessage());
+        }
 
         $this->logger->error($exception->getMessage(), [
             'reference_id' => $referenceId,

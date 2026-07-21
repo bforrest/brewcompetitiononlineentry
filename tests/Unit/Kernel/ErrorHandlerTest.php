@@ -3,8 +3,13 @@
 declare(strict_types=1);
 
 use Bcoem\Kernel\ErrorHandler;
+use Bcoem\Kernel\Middleware\TracingMiddleware;
 use Monolog\Handler\TestHandler;
 use Monolog\Logger;
+use OpenTelemetry\API\Trace\StatusCode;
+use OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter;
+use OpenTelemetry\SDK\Trace\SpanProcessor\SimpleSpanProcessor;
+use OpenTelemetry\SDK\Trace\TracerProvider;
 use PHPUnit\Framework\TestCase;
 use Slim\Exception\HttpNotFoundException;
 use Slim\Psr7\Factory\ServerRequestFactory;
@@ -108,5 +113,39 @@ class ErrorHandlerTest extends TestCase
         $response = ($handler)($request, new HttpNotFoundException($request), false, true, true);
 
         $this->assertSame(404, $response->getStatusCode());
+    }
+
+    public function test_the_active_root_span_records_the_exception_task_12(): void
+    {
+        $exporter = new InMemoryExporter();
+        $tracerProvider = new TracerProvider(new SimpleSpanProcessor($exporter));
+        $span = $tracerProvider->getTracer('test')->spanBuilder('root')->startSpan();
+
+        $log = new TestHandler();
+        $handler = new ErrorHandler(new Logger('app', [$log]), displayErrorDetails: false);
+
+        $request = $this->request()->withAttribute(TracingMiddleware::SPAN_ATTRIBUTE, $span);
+        $exception = new \RuntimeException('boom for the span');
+        ($handler)($request, $exception, false, true, true);
+        $span->end();
+
+        $exported = $exporter->getSpans()[0];
+        $this->assertSame(StatusCode::STATUS_ERROR, $exported->getStatus()->getCode());
+        $events = $exported->getEvents();
+        $this->assertNotEmpty($events);
+        $this->assertSame('exception', $events[0]->getName());
+    }
+
+    public function test_no_root_span_on_the_request_is_a_harmless_no_op(): void
+    {
+        $log = new TestHandler();
+        $handler = new ErrorHandler(new Logger('app', [$log]), displayErrorDetails: false);
+
+        // No TracingMiddleware::SPAN_ATTRIBUTE attached - simulates every
+        // pre-Task-12 request, and any environment where tracing never
+        // activated (see TracingMiddleware's own docblock).
+        $response = ($handler)($this->request(), new \RuntimeException('no span here'), false, true, true);
+
+        $this->assertSame(500, $response->getStatusCode());
     }
 }

@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+use Bcoem\Kernel\Logging\TraceIdProcessor;
 use DI\ContainerBuilder;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\StreamHandler;
 use Monolog\Level;
 use Monolog\Logger;
 use Monolog\Processor\PsrLogMessageProcessor;
+use OpenTelemetry\API\Globals;
+use OpenTelemetry\API\Trace\TracerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -52,6 +55,10 @@ $logChannel = static function (string $channel): Logger {
     $logger = new Logger($channel);
     $logger->pushHandler($handler);
     $logger->pushProcessor(new PsrLogMessageProcessor());
+    // Task 12: stamps the active OTel trace ID (if any) onto every record,
+    // so a request's logs and its Jaeger trace can be correlated. A no-op
+    // outside a traced HTTP request (see TraceIdProcessor's own docblock).
+    $logger->pushProcessor(new TraceIdProcessor());
 
     return $logger;
 };
@@ -62,6 +69,25 @@ $containerBuilder->addDefinitions([
     'logger.legacy'   => static fn (): Logger => $logChannel('legacy'),
     // Default PSR-3 logger for any new code that type-hints LoggerInterface.
     LoggerInterface::class => \DI\get('logger.app'),
+
+    /**
+     * OpenTelemetry tracer (Task 12). Deliberately NOT a manually-built
+     * TracerProvider/exporter here - Globals::tracerProvider() resolves to
+     * whatever open-telemetry/sdk's own env-driven autoloader configured
+     * (OTEL_PHP_AUTOLOAD_ENABLED + OTEL_* env vars, set only for real Apache
+     * requests - see docker-compose.yml/docker/apache/vhost.conf), which is
+     * the SAME global TracerProvider instance the mysqli auto-instrumentation
+     * package uses. Building a second, separate SDK instance here would give
+     * this container's spans and the auto-instrumented mysqli spans two
+     * different trace pipelines that could never nest into one trace.
+     * Outside that env (CLI/PHPUnit/PHPStan, or a shared-hosting deploy with
+     * no OTEL_PHP_AUTOLOAD_ENABLED and no native extension), this resolves to
+     * the API's built-in no-op TracerProvider - every call below becomes a
+     * free no-op, same as every other binding in this file being unaffected
+     * by tracing.
+     */
+    'tracer' => static fn (): TracerInterface => Globals::tracerProvider()->getTracer('bcoem'),
+    TracerInterface::class => \DI\get('tracer'),
 ]);
 
 return $containerBuilder->build();

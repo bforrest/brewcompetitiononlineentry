@@ -31,6 +31,13 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
         \Bcoem\Security\AccessPolicy::fromFile(__DIR__ . '/../../config/access_policy.php'),
         $container->get('logger.security')
     ));
+    // Task 12: tags TracingMiddleware's root span (see that middleware's own
+    // docblock for why it can't tag itself) with the matched route name and
+    // resolved Identity. Same execution slot as the SEF-translation closure
+    // immediately below - both run after Slim's routing and Authentication,
+    // strictly before Authorization - so it's placed here, right after
+    // AuthorizationMiddleware's own add() call, for the same LIFO reasons.
+    $app->add(new \Bcoem\Kernel\Middleware\SpanEnrichmentMiddleware());
     // Translates SEF path segments (/{section}/{go}/{action}/{id}, matched
     // by the catch-all route registered below) into $_GET/query params
     // BEFORE AuthorizationMiddleware runs. Deliberately an APP-level
@@ -89,6 +96,13 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
     $errorMiddleware->setDefaultErrorHandler(
         new \Bcoem\Kernel\ErrorHandler($container->get('logger.app'), $displayErrorDetails)
     );
+
+    // Task 12: the TRUE outermost middleware - added last, after even
+    // addErrorMiddleware() above, so per the same LIFO rule this wraps
+    // ErrorMiddleware too (see TracingMiddleware's own docblock for why that
+    // matters: it lets the root span's final status code reflect anything
+    // ErrorMiddleware did, e.g. turning an uncaught exception into a 500).
+    $app->add(new \Bcoem\Kernel\Middleware\TracingMiddleware($container->get('tracer')));
 
     $app->get('/__kernel_hello', function ($request, $response) {
         $response->getBody()->write('ok');
