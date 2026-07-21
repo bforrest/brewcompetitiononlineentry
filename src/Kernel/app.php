@@ -189,5 +189,18 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
     $app->get('/entries/my', fn ($req, $res, $args) => $entryController->listEntries($req, $res))
         ->setName('entry.list');
 
+    // Phase 3: Export workflow routes
+    $exportController = new \Bcoem\Kernel\Controller\ExportController(
+        $container->get(\Bcoem\Domain\Export\Service\ExportService::class),
+        $container->get(\Bcoem\Domain\Export\Service\ExportFormatterService::class)
+    );
+
+    $app->get('/export', fn ($req, $res, $args) => $exportController->getExportForm($req, $res))
+        ->setName('export.form');
+    $app->post('/export', fn ($req, $res, $args) => $exportController->postExport($req, $res))
+        ->setName('export.download');
+    $app->get('/export/preview', fn ($req, $res, $args) => $exportController->getExportPreview($req, $res))
+        ->setName('export.preview');
+
     return $app;
 }

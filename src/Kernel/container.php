@@ -12,6 +12,12 @@ use Bcoem\Domain\Entry\Service\AuditLogger;
 use Bcoem\Domain\Entry\Service\EntryService;
 use Bcoem\Domain\Entry\Service\EntryValidationService;
 use Bcoem\Domain\Entry\Service\StyleService;
+use Bcoem\Domain\Export\Repository\BrewingExportRepository;
+use Bcoem\Domain\Export\Repository\ParticipantExportRepository;
+use Bcoem\Domain\Export\Repository\JudgingExportRepository;
+use Bcoem\Domain\Export\Service\ExportService;
+use Bcoem\Domain\Export\Service\ExportValidationService;
+use Bcoem\Domain\Export\Service\ExportFormatterService;
 use Bcoem\Kernel\Logging\TraceIdProcessor;
 use DI\ContainerBuilder;
 use Monolog\Formatter\LineFormatter;
@@ -172,6 +178,44 @@ $containerBuilder->addDefinitions([
             $container->get(PreferencesValidationService::class),
             $container->get(StyleCatalogService::class),
         ),
+
+    /**
+     * Phase 3.4: Export domain services and repositories.
+     * Dependency hierarchy:
+     * - BrewingExportRepository, ParticipantExportRepository, JudgingExportRepository: database access (depend on Connection)
+     * - ExportValidationService: validation logic (depends on Validator)
+     * - ExportService: orchestration (depends on repositories + validation)
+     * - ExportFormatterService: output formatting (no dependencies)
+     */
+    BrewingExportRepository::class => static fn (ContainerInterface $container): BrewingExportRepository =>
+        new BrewingExportRepository($container->get(Connection::class)),
+
+    ParticipantExportRepository::class => static fn (ContainerInterface $container): ParticipantExportRepository =>
+        new ParticipantExportRepository($container->get(Connection::class)),
+
+    JudgingExportRepository::class => static fn (ContainerInterface $container): JudgingExportRepository =>
+        new JudgingExportRepository($container->get(Connection::class)),
+
+    ExportValidationService::class => static fn (): ExportValidationService =>
+        new ExportValidationService(
+            new \Symfony\Component\Validator\Validator\RecursiveValidator(
+                new \Symfony\Component\Validator\Mapping\ClassMetadataFactory(
+                    new \Symfony\Component\Validator\Mapping\Loader\AttributeLoader()
+                ),
+                []
+            )
+        ),
+
+    ExportService::class => static fn (ContainerInterface $container): ExportService =>
+        new ExportService(
+            $container->get(BrewingExportRepository::class),
+            $container->get(ParticipantExportRepository::class),
+            $container->get(JudgingExportRepository::class),
+            $container->get(ExportValidationService::class),
+        ),
+
+    ExportFormatterService::class => static fn (): ExportFormatterService =>
+        new ExportFormatterService(),
 ]);
 
 return $containerBuilder->build();

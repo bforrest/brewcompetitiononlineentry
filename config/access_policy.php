@@ -303,4 +303,9 @@ return [
     'entry.update' => Role::Entrant,
     'entry.delete' => Role::Entrant,
     'entry.list' => Role::Entrant,
+
+    // Phase 3.4: Export routes
+    'export.form' => Role::Admin,     // Export form (admin only)
+    'export.download' => Role::Admin, // Export download (admin only; future: public for results)
+    'export.preview' => Role::Admin,  // Preview before download (admin only)
 ];
