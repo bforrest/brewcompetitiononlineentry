@@ -1,0 +1,139 @@
+import { test, expect } from '@playwright/test';
+import { ADMIN, login, loginAsAdmin, registerEntrant } from '../helpers/auth';
+
+/**
+ * Authorization invariants from the design spec (Section 5). Invariants that
+ * already hold are plain tests and MUST stay green forever. Invariants that
+ * current code violates are `test.fixme` — Phase 1 removes the annotation as
+ * each security fix lands, turning these into its acceptance tests.
+ */
+
+test('anonymous user cannot reach the admin section', async ({ page }) => {
+  // Stale expectation corrected (Task 10): this spec predates the Slim
+  // shell and originally expected index.php's own inline ?msg=0 redirect.
+  // Post-Task-8a/9, AuthorizationMiddleware runs first as a global gate and
+  // returns 403 directly, without ever invoking the route handler - the
+  // legacy page's own inline redirect check never executes for a denied
+  // request. A direct 403 (not a redirect) is the correct, verified
+  // behavior (Task 9's review and Task 10's own curl checks both confirm
+  // this live).
+  const resp = await page.goto('/index.php?section=admin');
+  expect(resp?.status()).toBe(403);
+  await expect(page.locator('a[href*="go=judging_tables"]')).toHaveCount(0);
+});
+
+test('anonymous user cannot reach account pages', async ({ page }) => {
+  // Stale expectation corrected (Task 10) - see the admin-section test
+  // above for the full explanation. Was ?msg=99; is now a direct 403.
+  const resp = await page.goto('/index.php?section=list');
+  expect(resp?.status()).toBe(403);
+});
+
+test('entrant cannot reach the admin section', async ({ page }) => {
+  // Stale expectation corrected (Task 10) - see the anonymous-admin test
+  // above for the full explanation. Was ?msg=4; is now a direct 403.
+  await registerEntrant(page);
+  const resp = await page.goto('/index.php?section=admin');
+  expect(resp?.status()).toBe(403);
+  await expect(page.locator('a[href*="go=judging_tables"]')).toHaveCount(0);
+});
+
+test('pdf download denies an anonymous request', async ({ page }) => {
+  // Stale expectation corrected (Task 10): file:handle.php requires at
+  // least Role::Entrant, so AuthorizationMiddleware denies an anonymous hit
+  // centrally, before handle.php's own not-logged-in guard (which used to
+  // redirect to 403.php) ever runs - same "central gate wins" pattern as
+  // the admin-section tests above. A direct 403, not a redirect.
+  const resp = await page.goto(
+    '/handle.php?section=pdf-download&id=' + encodeURIComponent('../../../../etc/passwd'));
+  expect(resp?.status()).toBe(403);
+});
+
+// P1-SEC-005: fixed — handle.php now restricts $id to a safe character set
+// (no separators, no "..") and independently confirms the resolved realpath()
+// still falls inside USER_DOCS before reading anything.
+test('pdf download rejects path traversal for a logged-in user', async ({ page }) => {
+  await registerEntrant(page); // endpoint requires any authenticated session
+  const resp = await page.request.get(
+    '/handle.php?section=pdf-download&id=' + encodeURIComponent('../../../../etc/passwd'));
+  expect([400, 403, 404]).toContain(resp.status());
+});
+
+test('pdf download rejects a bare ".." id', async ({ page }) => {
+  await registerEntrant(page);
+  const resp = await page.request.get('/handle.php?section=pdf-download&id=..');
+  expect([400, 403, 404]).toContain(resp.status());
+});
+
+test('pdf download rejects backslash traversal', async ({ page }) => {
+  await registerEntrant(page);
+  const resp = await page.request.get(
+    '/handle.php?section=pdf-download&id=' + encodeURIComponent('..\\..\\windows\\win.ini'));
+  expect([400, 403, 404]).toContain(resp.status());
+});
+
+test('save endpoint rejects an anonymous write', async ({ page }) => {
+  // ajax/save.ajax.php must not persist anything for an unauthenticated caller.
+  const resp = await page.request.get('/ajax/save.ajax.php');
+  const body = await resp.text();
+  // It returns a rejection envelope (status 9, no query executed) rather than
+  // a saved/success payload.
+  expect(body).not.toMatch(/"status":\s*"?0"?/);
+  expect(body).not.toMatch(/success|saved/i);
+});
+
+// P1-SEC-002 / critical auth-bypass: the login POST's "section=update" branch
+// (a leftover 1.3.0.0 migration path) used to compute the real password check
+// and then unconditionally overwrite it to success — any existing username +
+// ANY password logged in as that user, no injection required. Fixed by
+// parameterizing the lookup and removing the `$check = 1` override.
+test('login rejects a wrong password via the legacy section=update bypass path', async ({ page }) => {
+  await page.goto('/index.php?section=register&go=entrant');
+  const token = await page.locator('input[name="user_session_token"]').first().inputValue();
+
+  const resp = await page.request.post('/includes/process.inc.php?section=update&action=login', {
+    headers: { referer: page.url() },
+    form: {
+      loginUsername: ADMIN.email,
+      loginPassword: 'definitely-not-the-real-password',
+      user_session_token: token,
+    },
+  });
+  expect(resp.url()).toMatch(/msg=11/);
+});
+
+// P1-SEC-001: the seeded admin's stored hash is legacy-scheme (phpass over
+// md5(password)) — this proves the legacy-scheme fallback still authenticates
+// correctly post-fix, not just that a wrong password is rejected.
+test('the seeded admin (legacy-scheme hash) can still log in with the correct password', async ({ page }) => {
+  await loginAsAdmin(page);
+});
+
+// P1-SEC-001 round-trip: a freshly registered entrant's password is hashed
+// with the new scheme (no md5 pre-hash) — proves the write path and the
+// read path (login) agree on the same scheme.
+test('a freshly registered entrant can log out and log back in (new-scheme hash round-trips)', async ({ page }) => {
+  const { email, password } = await registerEntrant(page);
+  await page.locator('a[href*="logout"], a:has-text("Log Out")').first().click();
+  await login(page, email, password);
+});
+
+// P1-SEC-006: session fixation — the session id must change on login, not
+// just the authentication state within the same session.
+test('login regenerates the session id (prevents fixation)', async ({ page }) => {
+  await page.goto('/index.php');
+  const cookiesBefore = await page.context().cookies();
+  // The app names its session cookie md5(installation_id) — deterministic
+  // per install but not hardcoded here; there is exactly one cookie for a
+  // fresh anonymous context.
+  const sessionCookieName = cookiesBefore[0]?.name;
+  expect(sessionCookieName).toBeTruthy();
+  const before = cookiesBefore[0]?.value;
+
+  await loginAsAdmin(page);
+
+  const cookiesAfter = await page.context().cookies();
+  const after = cookiesAfter.find(c => c.name === sessionCookieName)?.value;
+  expect(after).toBeDefined();
+  expect(after).not.toBe(before);
+});

@@ -76,7 +76,7 @@ CREATE TABLE `baseline_archive` (
   `archiveWinnerMethod` tinyint(1) DEFAULT NULL COMMENT 'Method comp uses to choose winners: 0=by table; 1=by category; 2=by sub-category',
   `archiveDisplayWinners` char(1) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -95,7 +95,7 @@ CREATE TABLE `baseline_bcoem_sys` (
   `update_summary` longtext DEFAULT NULL,
   `update_date` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `baseline_bcoem_sys`
@@ -148,7 +148,7 @@ CREATE TABLE `baseline_brewer` (
   `brewerBreweryInfo` text DEFAULT NULL COMMENT 'Store various info about the organization.',
   `brewerMHP` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `baseline_brewer`
@@ -201,7 +201,7 @@ CREATE TABLE `baseline_brewing` (
   `brewStyleType` tinyint(3) DEFAULT NULL,
   `brewPackaging` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL COMMENT 'Allow entrants to specify packaging size.',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -217,7 +217,7 @@ CREATE TABLE `baseline_contacts` (
   `contactPosition` varchar(255) DEFAULT NULL,
   `contactEmail` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `baseline_contacts`
@@ -275,7 +275,7 @@ CREATE TABLE `baseline_contest_info` (
   `contestEntryEditDeadline` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   `contestWinnerLink` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `baseline_contest_info`
@@ -299,7 +299,7 @@ CREATE TABLE `baseline_drop_off` (
   `dropLocationWebsite` varchar(255) DEFAULT NULL,
   `dropLocationNotes` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `baseline_drop_off`
@@ -361,7 +361,7 @@ CREATE TABLE `baseline_evaluation` (
   `evalPosition` varchar(15) DEFAULT NULL COMMENT 'Position in flight - separated by comma',
   `evalPlace` smallint(5) DEFAULT NULL COMMENT 'Place awarded',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -381,7 +381,7 @@ CREATE TABLE `baseline_judging_assignments` (
   `assignRoles` varchar(25) DEFAULT NULL,
   `assignPlanning` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -398,7 +398,7 @@ CREATE TABLE `baseline_judging_flights` (
   `flightRound` int(11) DEFAULT NULL,
   `flightPlanning` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -417,7 +417,7 @@ CREATE TABLE `baseline_judging_locations` (
   `judgingRounds` int(11) DEFAULT 1 COMMENT 'number of rounds at location',
   `judgingLocNotes` mediumtext DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -442,7 +442,7 @@ CREATE TABLE `baseline_judging_preferences` (
   `jPrefsScoreDispMax` tinyint(2) DEFAULT NULL COMMENT 'Maximum disparity of entry scores between judges',
   `jPrefsTablePlanning` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `baseline_judging_preferences`
@@ -468,7 +468,7 @@ CREATE TABLE `baseline_judging_scores` (
   `scoreType` int(3) DEFAULT NULL COMMENT 'Relational to id in style_types table',
   `scoreMiniBOS` int(4) DEFAULT NULL COMMENT 'Did the entry go to the MiniBOS? 1=Yes, 0=No',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -485,7 +485,7 @@ CREATE TABLE `baseline_judging_scores_bos` (
   `scorePlace` varchar(3) DEFAULT NULL,
   `scoreType` int(3) DEFAULT NULL COMMENT 'Relational to id in style_types table',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -503,7 +503,7 @@ CREATE TABLE `baseline_judging_tables` (
   `tableEntryLimit` int(11) DEFAULT NULL,
   `tableStewards` varchar(255) DEFAULT NULL COMMENT 'Array of ids from brewer table',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -525,7 +525,7 @@ CREATE TABLE `baseline_mods` (
   `mod_display_rank` tinyint(1) DEFAULT NULL COMMENT '0=normal 1=above default content',
   `mod_enable` tinyint(1) DEFAULT NULL COMMENT '1=yes 0=no',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -613,7 +613,7 @@ CREATE TABLE `baseline_preferences` (
   `prefsMHPDisplay` tinyint(1) DEFAULT NULL,
   `prefsStyleLimits` text DEFAULT NULL COMMENT 'JSON array of entry limits for the selected style set',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `baseline_preferences`
@@ -638,7 +638,7 @@ CREATE TABLE `baseline_special_best_data` (
   `sbd_place` int(11) DEFAULT NULL,
   `sbd_comments` mediumtext DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -655,7 +655,7 @@ CREATE TABLE `baseline_special_best_info` (
   `sbi_rank` int(11) DEFAULT NULL,
   `sbi_display_places` int(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -674,7 +674,7 @@ CREATE TABLE `baseline_sponsors` (
   `sponsorLevel` tinyint(1) DEFAULT NULL,
   `sponsorEnable` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -692,7 +692,7 @@ CREATE TABLE `baseline_staff` (
   `staff_organizer` int(2) DEFAULT 0 COMMENT '0=no; 1=yes',
   `staff_staff` int(2) DEFAULT 0 COMMENT '0=no; 1=yes',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -732,7 +732,7 @@ CREATE TABLE `baseline_styles` (
   `brewStyleEntry` mediumtext DEFAULT NULL,
   `brewStyleAtLimit` int(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `baseline_styles`
@@ -1440,7 +1440,7 @@ CREATE TABLE `baseline_style_types` (
   `styleTypeBOSMethod` int(11) DEFAULT NULL,
   `styleTypeEntryLimit` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `baseline_style_types`
@@ -1478,7 +1478,7 @@ CREATE TABLE `baseline_users` (
   `userFailedLoginTime` varchar(255) DEFAULT NULL,
   `userAdminObfuscate` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `baseline_users`

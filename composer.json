@@ -1,0 +1,76 @@
+{
+    "name": "bcoem/brewcompetitiononlineentry",
+    "description": "Brew Competition Online Entry & Management",
+    "type": "project",
+    "require": {
+        "guzzlehttp/guzzle": "^8.0",
+        "monolog/monolog": "^3.0",
+        "open-telemetry/api": "^1.10",
+        "open-telemetry/exporter-otlp": "^1.4",
+        "open-telemetry/opentelemetry-auto-mysqli": "^0.4.0",
+        "open-telemetry/sdk": "^1.15",
+        "php-di/php-di": "^7.0",
+        "php-di/slim-bridge": "^3.4",
+        "pixel418/markdownify": "^2.3",
+        "robmorgan/phinx": "^0.16",
+        "slim/psr7": "^1.7",
+        "slim/slim": "^4.14",
+        "symfony/validator": "^7.0"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^2.2",
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Bcoem\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "BCOEM\\Tests\\Approval\\": "tests/Approval/",
+            "BCOEM\\Tests\\Integration\\": "tests/Integration/",
+            "BCOEM\\Tests\\Unit\\": "tests/Unit/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "platform": {
+            "php": "8.2.32",
+            "ext-opentelemetry": "1.2.1"
+        },
+        "allow-plugins": {
+            "php-http/discovery": true,
+            "tbachert/spi": true
+        }
+    },
+    "scripts": {
+        "stan": "phpstan analyse --memory-limit=1G",
+        "test": "docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit",
+        "test:unit": "phpunit --testsuite Unit",
+        "test:db": [
+            "docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration",
+            "docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Approval"
+        ],
+        "e2e": "sh -c 'cd e2e && npx playwright test \"$@\"' --",
+        "e2e:install": "sh -c 'cd e2e && npm install && npx playwright install chromium'",
+        "db:reset": "docker compose down -v && docker compose up -d",
+        "ci": [
+            "@stan",
+            "@test",
+            "@e2e"
+        ],
+        "report": "cd e2e && npx playwright show-report"
+    },
+    "scripts-descriptions": {
+        "stan": "Run PHPStan on the host (level 0 over lib/).",
+        "test": "Run the full 3-tier PHPUnit suite inside the web container (stack must be up).",
+        "test:unit": "Run just the DB-free Unit tier on the host (no Docker needed).",
+        "test:db": "Run the Integration + Approval tiers inside the web container.",
+        "e2e": "Run the Playwright e2e suite against the running stack (passes extra args through).",
+        "e2e:install": "One-time: install e2e npm deps and the Chromium browser.",
+        "db:reset": "Wipe and re-seed the Docker DB volume (clean fixtures).",
+        "ci": "Run everything CI runs: PHPStan, full PHPUnit, and e2e.",
+        "report": "Generate a report of the current project dependencies and their licenses."
+    }
+}

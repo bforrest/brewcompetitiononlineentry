@@ -1,0 +1,278 @@
+name: CI
+
+on:
+  push:
+    branches: [docker-baseline-db, develop, master]
+    # Task 13: the build/package + shared-hosting-smoke jobs below only run
+    # for an actual version tag push (see each job's own `if:`) - this does
+    # NOT add a new trigger for the two existing jobs above, which still run
+    # on every push to the branches above and every PR, unchanged.
+    tags: ['v*']
+  pull_request:
+  # Also allow a manually-published GitHub Release (e.g. drafted first, then
+  # published through the UI/API rather than via a fresh `git push --tags`)
+  # to (re-)run the same build/package/smoke pipeline against that release.
+  release:
+    types: [published]
+
+jobs:
+  # Static analysis + the DB-free unit tier run on a bare PHP runner: the
+  # PHPUnit bootstrap stubs out every path/DB dependency, so no database or
+  # site/config.php is needed here.
+  static-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli, mbstring, gd, zip, intl, exif
+          ini-values: memory_limit=1G
+      # The committed vendor/ is a partial tree; remove it so composer builds a
+      # clean, lock-consistent install (avoids stale classmaps / missing srcs).
+      - run: rm -rf vendor && composer install --no-interaction --no-progress
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --no-progress
+      - name: Unit tier
+        run: vendor/bin/phpunit --testsuite Unit
+
+  # DB-dependent tiers + Playwright run against the real Docker stack. The
+  # integration tests reach library code that includes site/config.php, which
+  # (Task 13) reads its DB connection info from the real environment
+  # variables docker-compose.yml sets on the `web` service (and which also
+  # shares the test's transactional connection via $GLOBALS['connection']) —
+  # so these MUST run in the container, not on a bare runner. Playwright
+  # drives the same stack from the host.
+  integration-and-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli, mbstring, gd, zip, intl, exif
+      - name: Build a clean vendor/ on the runner (bind-mounted into container)
+        # The committed vendor/ is a partial tree; remove it and reinstall so
+        # the compose bind-mount (.:/var/www/html) exposes a complete,
+        # lock-consistent vendor (incl. vendor/bin symlinks) in the container.
+        run: rm -rf vendor && composer install --no-interaction --no-progress
+      - name: Start the app stack (seeds a fresh InnoDB baseline DB)
+        run: |
+          docker compose up -d --build
+          timeout 180 sh -c 'until curl -sf http://localhost:8080/index.php > /dev/null; do sleep 3; done'
+      - name: Integration + Approval tiers (in container)
+        run: |
+          docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration
+          docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Approval
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Playwright e2e (host → stack)
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 14
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
+
+  # Task 13: builds + publishes the two deployment artifacts the design
+  # spec's Section 6 (deployment pipeline) calls for. Deliberately gated to
+  # only run for a real version tag push or a published GitHub Release -
+  # NOT on every push/PR the way the two jobs above do - via the `if:`
+  # below (this job is unreachable through the `pull_request` trigger at
+  # all, since a PR event never has a tag ref or a release payload).
+  build:
+    needs: [static-and-unit, integration-and-e2e]
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    outputs:
+      zip_name: ${{ steps.package.outputs.zip_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive a version string from the pushed tag (if any)
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # GHCR requires a lowercase image path; github.repository preserves
+      # whatever case the repo owner/name actually has.
+      - name: Lowercase the repository name for GHCR
+        id: repo
+        run: echo "name=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Compute Docker image tags (always the SHA; also the version on a real tag push)
+        id: tags
+        run: |
+          TAGS="ghcr.io/${{ steps.repo.outputs.name }}:${{ github.sha }}"
+          if [ -n "${{ steps.version.outputs.version }}" ]; then
+            TAGS="$TAGS,ghcr.io/${{ steps.repo.outputs.name }}:${{ steps.version.outputs.version }}"
+          fi
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli, mbstring, gd, zip, intl, exif
+          ini-values: memory_limit=1G
+
+      - name: Install production-only dependencies (no dev tooling in the shipped package)
+        run: |
+          rm -rf vendor
+          composer install --no-dev --optimize-autoloader --no-interaction --no-progress
+
+      - name: Package the shared-hosting release zip
+        id: package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ZIP_NAME="bcoem-${VERSION:-${GITHUB_SHA::12}}.zip"
+          # Excludes tests/e2e (Task 13 brief, verbatim) and everything else
+          # that's Docker/CI/dev-only, not needed to run the app on shared
+          # hosting: .git history, CI workflow yaml, Docker build context
+          # (the shared-hosting install has no Apache vhost/entrypoint.sh/
+          # local-dev SQL fixtures to run), PHPStan/PHPUnit config+baseline,
+          # this task's own planning docs, and Playwright's own artifacts.
+          # phinx.php + db/ (migrations) + vendor/bin/phinx DO ship - that's
+          # exactly what file:phinx-migrate.php needs to work on a fresh
+          # shared-hosting install (see that file + config/access_policy.php).
+          zip -rq "$ZIP_NAME" . \
+            -x '.git/*' \
+            -x '.github/*' \
+            -x '.superpowers/*' \
+            -x 'tests/*' \
+            -x 'e2e/*' \
+            -x 'docker/*' \
+            -x 'docker-compose*.yml' \
+            -x 'phpunit.xml' \
+            -x 'phpstan.neon' \
+            -x 'phpstan-baseline.neon' \
+            -x 'test-results/*' \
+            -x '.phpunit.cache/*'
+          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the zip as a workflow artifact (consumed by shared-hosting-smoke below)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-zip
+          path: ${{ steps.package.outputs.zip_name }}
+          retention-days: 14
+
+      - name: Attach the zip to the GitHub Release for this tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.package.outputs.zip_name }}
+
+  # Task 13: proves the packaged release genuinely runs on a shared-hosting-
+  # shaped environment - no Apache, no Docker, and critically NO OpenTelemetry
+  # extension (the setup-php step below deliberately omits it) - by serving
+  # it under plain `php -S` and hitting a health-check endpoint. This is the
+  # empirical half of Task 12's claim that the whole OTel/tracing story
+  # no-ops rather than fatal-errors when the extension is absent: both
+  # container.php's `tracer` binding (falls back to the OTel API's own
+  # NoopTracerProvider) and every open-telemetry/opentelemetry-auto-*
+  # package's own _register.php (checks extension_loaded('opentelemetry')
+  # and merely trigger_error()s a warning, never fatals, if it's missing).
+  shared-hosting-smoke:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      # Only for docker/php-server-router.php (a dev/CI-only router script
+      # for PHP's built-in server, deliberately excluded from the shipped
+      # zip above as Docker-only tooling) - the app itself under test comes
+      # entirely from the downloaded release-zip artifact below, not this
+      # checkout.
+      - uses: actions/checkout@v4
+
+      - name: Download the packaged release zip from the build job
+        uses: actions/download-artifact@v4
+        with:
+          name: release-zip
+
+      - name: Set up PHP WITHOUT the OpenTelemetry extension
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli, mbstring, gd, zip, intl, exif
+          ini-values: memory_limit=1G
+
+      - name: Unpack the release zip
+        run: |
+          mkdir release
+          ZIP_NAME=$(ls ./*.zip | head -n1)
+          unzip -q "$ZIP_NAME" -d release
+
+      - name: Serve the packaged release under php -S (no Apache, no OTel extension)
+        run: |
+          php -S 127.0.0.1:8000 -t release docker/php-server-router.php \
+            > php-server.log 2>&1 &
+          echo $! > /tmp/php-server.pid
+          for i in $(seq 1 15); do
+            if curl -sf http://127.0.0.1:8000/__kernel_hello > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "php -S never became reachable" >&2
+          cat php-server.log >&2
+          exit 1
+
+      - name: Hit the health-check endpoint and confirm a real response
+        run: |
+          STATUS=$(curl -s -o health.out -w '%{http_code}' http://127.0.0.1:8000/__kernel_hello)
+          echo "HTTP status: $STATUS"
+          cat health.out
+          test "$STATUS" = "200"
+          grep -qx 'ok' health.out
+
+      - name: Confirm the OTel extension really is absent (this is the point of this job)
+        run: |
+          if php -m | grep -qix 'opentelemetry'; then
+            echo "opentelemetry extension is loaded - this job no longer proves what it's meant to" >&2
+            exit 1
+          fi
+          echo "confirmed: opentelemetry extension is not loaded"
+
+      - name: Server log (always shown - confirms the OTel no-op warning, not a fatal error)
+        if: always()
+        run: cat php-server.log || true
+
+      - name: Stop php -S
+        if: always()
+        run: kill "$(cat /tmp/php-server.pid)" 2>/dev/null || true

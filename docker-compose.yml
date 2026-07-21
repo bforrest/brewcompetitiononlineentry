@@ -1,0 +1,103 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      # Override .htaccess to disable the HTTPS redirect for local dev
+      - ./docker/.htaccess:/var/www/html/.htaccess:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      tempo:
+        condition: service_started
+    environment:
+      # Task 13: site/config.php reads these directly (getenv(...) ?: '<shared-hosting
+      # default>') - Docker is now just another consumer of that single file via real
+      # environment variables, not a bind-mounted override of it (docker/config.php,
+      # retired by this task). A shared-hosting install with none of these set falls
+      # through to config.php's own hardcoded literals, unchanged.
+      DB_HOST: db
+      DB_USER: bcoem
+      DB_PASSWORD: bcoem_password
+      DB_NAME: bcoem
+      DB_PREFIX: baseline_
+      INSTALLATION_ID: docker-local
+      # SERVER_NAME inside the container reflects Apache's own idea of itself
+      # (port 80), not the host port docker-compose maps it to (8080) - see
+      # config.php's own comment on this flag for the full explanation.
+      BASE_URL_USE_HTTP_HOST: "true"
+      # Dev-friendly default: shows in-browser error details (Slim's
+      # ErrorMiddleware/ErrorHandler, Task 11) instead of the production
+      # behavior of logging only. Shared hosting never sets this, so it
+      # stays off there.
+      APP_DEBUG: "1"
+
+  # Task 12: local observability stack (Tempo traces + Prometheus metrics + Grafana dashboard)
+  # Tempo ingests OTLP over HTTP (4318), Prometheus scrapes metrics from /metrics endpoints,
+  # Grafana correlates traces/metrics/logs at http://localhost:3000.
+  # docker/apache/vhost.conf points OTEL_EXPORTER_OTLP_ENDPOINT at
+  # http://tempo:4318 (same OTLP/http/protobuf as before, just swapped endpoints).
+
+  tempo:
+    image: grafana/tempo:latest
+    command: ["-config.file=/etc/tempo.yml"]
+    ports:
+      - "4318:4318"   # OTLP HTTP receiver
+    volumes:
+      - ./docker/tempo.yml:/etc/tempo.yml:ro
+      - tempo_data:/var/tempo
+
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: root_password
+      MARIADB_DATABASE: bcoem
+      MARIADB_USER: bcoem
+      MARIADB_PASSWORD: bcoem_password
+    volumes:
+      - bcoem_db:/var/lib/mysql
+      # Load the baseline schema on first run (only applied when data volume is empty)
+      - ./sql/bcoem_baseline_3.0.X.sql:/docker-entrypoint-initdb.d/01-baseline.sql:ro
+      # Push the baseline's 2023 contest deadlines into the future so registration/entry are open
+      - ./docker/02-open-registration.sql:/docker-entrypoint-initdb.d/02-open-registration.sql:ro
+      # E2E test fixtures: pin prefsCAPTCHA=0 so automated registration works (see file header)
+      - ./docker/03-e2e-fixtures.sql:/docker-entrypoint-initdb.d/03-e2e-fixtures.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    ports:
+      - "3306:3306"
+
+volumes:
+  bcoem_db:
+  tempo_data:
+  prometheus_data:
+  grafana_data:
+  

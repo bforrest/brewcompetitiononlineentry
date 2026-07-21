@@ -23,6 +23,46 @@ function csrf_token_generate($force_regenerate = false) {
 	return $_SESSION['user_session_token'];
 }
 
+/**
+ * Verifies a plaintext password against a stored hash, transparently
+ * supporting both the current scheme (password_hash() over the raw
+ * plaintext, "$2y$" prefix) and the legacy scheme used before this fix
+ * (phpass HashPassword() over md5($plaintext), always "$2a$" prefix).
+ * Returns 1 on match, 0 otherwise, matching this codebase's existing
+ * $check convention.
+ */
+function password_verify_legacy($entered_password, $stored_hash) {
+	if (empty($stored_hash)) return 0;
+	if (password_verify($entered_password, $stored_hash)) return 1;
+	if ((strpos($stored_hash, '$2a$') === 0) && (password_verify(md5($entered_password), $stored_hash))) return 1;
+	return 0;
+}
+
+/**
+ * A stored hash needs upgrading if it was produced by the legacy
+ * md5-then-phpass scheme, identifiable by its "$2a$" prefix (phpass in
+ * this codebase is always configured to produce "$2a$" bcrypt hashes,
+ * never the portable "$P$" format). New hashes from password_hash()
+ * use PASSWORD_BCRYPT, which produces a "$2y$" prefix.
+ */
+function password_needs_legacy_upgrade($stored_hash) {
+	return (strpos($stored_hash, '$2a$') === 0);
+}
+
+/**
+ * Replaces a legacy password hash with a freshly-computed one now that
+ * the plaintext password is available (a successful login/verification
+ * is the only time the plaintext is ever in hand). Called after
+ * password_verify_legacy() succeeds via the legacy branch, so each
+ * account is upgraded once, on its next successful login.
+ */
+function upgrade_legacy_password_hash($connection, $table, $id_column, $id_value, $plaintext_password) {
+	$new_hash = password_hash($plaintext_password, PASSWORD_BCRYPT);
+	$stmt = mysqli_prepare($connection, sprintf("UPDATE %s SET password = ? WHERE %s = ?", $table, $id_column));
+	mysqli_stmt_bind_param($stmt, "si", $new_hash, $id_value);
+	mysqli_stmt_execute($stmt);
+}
+
 /** ------------------ VERSION CHECK ------------------
  * Change version in system table if does not match in DB
  * If there are NO database structure or data updates for the current version,
@@ -50,29 +90,24 @@ function version_check($version,$current_version,$current_version_date_display) 
 
 }
 
-function search_array($array, $key, $value) { 
-    // https://www.geeksforgeeks.org/how-to-search-by-keyvalue-in-a-multidimensional-array-in-php/?ref=rp
-    // RecursiveArrayIterator to traverse an unknown amount of sub arrays within the outer array. 
-    $arrIt = new RecursiveArrayIterator($array); 
-   
-    // RecursiveIteratorIterator used to iterate through recursive iterators 
-    $it = new RecursiveIteratorIterator($arrIt); 
-   
-    foreach ($it as $sub) { 
-        // Current active sub iterator 
-        $subArray = $it->getSubIterator(); 
-        if ($subArray[$key] === $value) { 
-            $result[] = iterator_to_array($subArray); 
-         } 
-    } 
-    return $result; 
+function search_array($array, $key, $value) {
+    // Returns the first element of $array whose $key matches $value (loose ==),
+    // or null if no match is found.
+    foreach ($array as $sub) {
+        if (is_array($sub) && array_key_exists($key, $sub) && $sub[$key] == $value) {
+            return $sub;
+        }
+    }
+    return null;
 }
 
 function in_string($haystack,$needle) {
-	if (strpos($haystack,$needle) !== false) return TRUE;
+	if (strpos($haystack,$needle) !== false) return true;
+	return false;
 }
 
 function designations($judge_array,$display) {
+	if (trim($judge_array) === "") return "";
 	$return = "";
 	$rank1 = explode(",",$judge_array);
 	foreach ($rank1 as $rank2) {
@@ -163,9 +198,12 @@ function build_form_action($base_url,$section,$go,$action,$filter,$id,$dbTable,$
 	return $return;
 }
 
-function build_public_url($section="default",$go="default",$action="default",$id="default",$sef,$base_url,$view="default") {
-	
-	if ($_SESSION['prefsSEF'] == 'Y') {
+function build_public_url($section="default",$go="default",$action="default",$id="default",$sef="",$base_url="",$view="default") {
+
+	// $sef param overrides the session value when explicitly provided (non-empty/non-false)
+	$use_sef = !empty($sef) ? $sef : ($_SESSION['prefsSEF'] ?? '');
+
+	if ($use_sef == 'Y') {
 		$url = $base_url."";
 		if ($section != "default") $url .= $section."/";
 		if ($go != "default") $url .= $go."/";
@@ -183,32 +221,10 @@ function build_public_url($section="default",$go="default",$action="default",$id
 		if ($id != "default") $url .= "&amp;id=".$id;
 		return $url;
 	}
-	
+
 }
 
-/*
-function build_admin_url ($section="default",$go="default",$action="default",$id="default",$filter="default",$view="default",$sef="true",$base_url) {
-	if ($sef == "true") {
-		$url = $base_url."";
-		if ($section != "default") $url .= $section."/";
-		if ($go != "default") $url .= $go."/";
-		if ($action != "default") $url .= $action."/";
-		if ($id != "default") $url .= $id."/";
-		if ($filter != "default") $url .= $filter."/";
-		if ($view != "default") $url .= $view."/";
-		return $url;
-	}
-	else {
-		$url = $base_url."index.php?section=".$section;
-		if ($go != "default") $url .= "&amp;go=".$go;
-		if ($action != "default") $url .= "&amp;action=".$action;
-		if ($id != "default") $url .= "&amp;id=".$id;
-		if ($filter != "default") $url .= "&amp;filter=".$filter;
-		if ($view != "default") $url .= "&amp;view=".$view."/";
-		return $url;
-	}
-}
-*/
+// build_admin_url() was removed — function body was commented out with no active call sites.
 
 function display_array_content($arrayname,$method) {
 	$a = "";
@@ -221,9 +237,7 @@ function display_array_content($arrayname,$method) {
 		if ($method == "2") $a .= ", ";
 		if ($method == "3") $a .= ",";
 	}
-	$b = rtrim($a, ",&nbsp;");
 	$b = rtrim($a, ", ");
-	$b = rtrim($a, ",");
 	return $b;
 }
 
@@ -394,37 +408,22 @@ function purge_entries($type, $interval) {
 }
 
 // function to generate random number
-function random_generator($digits,$method){
-	srand ((double) microtime() * 10000000);
+function random_generator($digits, $method) {
+	// Method "3" always returns a single digit 0–4 (preserves legacy behaviour)
+	if ($method == "3") {
+		return (string)random_int(0, 4);
+	}
 
-	//Array of alphabet
-	if ($method == "1") $input = array ("a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","t","d","y","u","b","w","x","y","z","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","0","1","2","3","4","5","6","7","8","9");
-	if ($method == "2") $input = array ("0","1","2","3","4","5","6","7","8","9");
-	if ($method == "3") $input = array ("0","1","2","3","4");
+	// Method "1" = alphanumeric; method "2" = numeric only
+	$pool = ($method == "2")
+		? '0123456789'
+		: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
-	$random_generator = "";// Initialize the string to store random numbers
-
-	for ($i=1;$i<$digits+1;$i++) { // Loop the number of times of required digits
-
-		if(rand(1,2) == 1){ // to decide the digit should be numeric or alphabet
-			// Add one random alphabet
-			$rand_index = array_rand($input);
-			$random_generator .=$input[$rand_index]; // One char is added
-		}
-
-		if ($method == "3") {
-			// Add one numeric digit between 0 and 4
-			$random_generator = rand(1,4); // one number is added
-		}
-
-		else {
-			// Add one numeric digit between 0 and 9
-			$random_generator .=rand(1,10); // one number is added
-		} // end of if else
-
-	} // end of for loop
-
-	return $random_generator;
+	$random = '';
+	for ($i = 0; $i < $digits; $i++) {
+		$random .= $pool[random_int(0, strlen($pool) - 1)];
+	}
+	return $random;
 } // end of function
 
 function relocate($referer,$page,$msg,$id,$keep_id="default") {
@@ -2641,8 +2640,6 @@ function get_participant_count($type,$filter="") {
 
 function display_place($place,$method) {
 
-	require(CONFIG.'config.php');
-
 	if ($method == "0") {
 		$place = addOrdinalNumberSuffix($place);
 	}
@@ -2849,11 +2846,11 @@ function brewer_assignment($user_id,$method,$id,$dbTable,$filter,$archive="defau
 		$r[] = "";
 			switch($method) {
 				case "1": //
-					if ($row_staff_check['staff_organizer'] == "1") $r[] .= strtolower($label_organizer);
-					if ($row_staff_check['staff_judge_bos'] == "1") $r[] .= "BOS";
-					if ($row_staff_check['staff_judge'] == "1") $r[] .= $label_judge;
-					if ($row_staff_check['staff_steward'] == "1") $r[] .= $label_steward;
-					if ($row_staff_check['staff_staff'] == "1") $r[] .= $label_staff;
+					if ($row_staff_check['staff_organizer'] == "1") $r[] = strtolower($label_organizer);
+					if ($row_staff_check['staff_judge_bos'] == "1") $r[] = "BOS";
+					if ($row_staff_check['staff_judge'] == "1") $r[] = $label_judge;
+					if ($row_staff_check['staff_steward'] == "1") $r[] = $label_steward;
+					if ($row_staff_check['staff_staff'] == "1") $r[] = $label_staff;
 				break;
 				case "staff_judge": // for $filter URL variable
 					if ($row_staff_check['staff_judge'] == "1") $r = "CHECKED";
@@ -3147,7 +3144,7 @@ function readable_number($a){
 
 	for($i=count($bits_a); $i>0; $i--) {
 		$p = pow(1000, $i);
-		if ($a > $p){
+		if ($a >= $p){
 			$b = floor($a/$p);
 			$a -= $p * $b;
 			$out .= readable_number($b).' '.$bits_a[$i-1];
@@ -3155,7 +3152,7 @@ function readable_number($a){
 		}
 	}
 
-	if ($a > 100){
+	if ($a >= 100){
 		$b = floor($a/100);
 		$a -= 100 * $b;
 		$out .= readable_number($b).' hundred'.(($a)?' and ':' ');

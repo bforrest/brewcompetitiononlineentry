@@ -1,0 +1,23 @@
+apiVersion: 1
+
+datasources:
+  - name: Tempo
+    type: tempo
+    access: proxy
+    orgId: 1
+    url: http://tempo:3200
+    jsonData:
+      nodeGraph:
+        enabled: true
+      lokiSearch:
+        enabled: true
+    isDefault: true
+
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    orgId: 1
+    url: http://prometheus:9090
+    jsonData:
+      timeInterval: 15s
+    isDefault: false

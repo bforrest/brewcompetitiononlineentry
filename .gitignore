@@ -31,3 +31,9 @@ templates/simple-us-entry.html
 brewingcompetitions.com
 site/config.php
 *.claude
+.phpunit.cache/
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+.phpstan.cache/
+vendor/

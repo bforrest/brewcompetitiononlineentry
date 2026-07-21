@@ -59,7 +59,57 @@ if ($setup_success) {
 	if (SINGLE) require_once(SSO.'sso.inc.php');
 	require (LIB.'common.lib.php');
 	require (INCLUDES.'db_tables.inc.php');
-	if ($force_update) include (UPDATE.'run_update.php');
+
+	if ($force_update) {
+
+		/**
+		 * run_update.php runs unconditional ALTER TABLE / UPDATE statements
+		 * against shared tables. Without mutual exclusion, every concurrent
+		 * request from a session that hasn't yet set $_SESSION['currentVersion']
+		 * (e.g. many users hitting the site right after a version bump) would
+		 * try to run it at the same time, piling up on MySQL/MariaDB metadata
+		 * locks and stalling the whole site. A named lock serializes that.
+		 */
+
+		$update_lock_name = $prefix.'run_update';
+		$update_lock_acquired = FALSE;
+
+		$query_update_lock = sprintf("SELECT GET_LOCK('%s', 60) AS lock_acquired", $update_lock_name);
+		$update_lock_result = mysqli_query($connection, $query_update_lock) or die (mysqli_error($connection));
+		$row_update_lock = mysqli_fetch_assoc($update_lock_result);
+		if ($row_update_lock['lock_acquired'] == 1) $update_lock_acquired = TRUE;
+
+		if ($update_lock_acquired) {
+
+			// Another request may have already finished the update while this
+			// one was waiting for the lock - re-check before running it again.
+			$query_system_recheck = sprintf("SELECT version, version_date FROM `%s` WHERE id='1'", $prefix."bcoem_sys");
+			$system_recheck = mysqli_query($connection, $query_system_recheck) or die (mysqli_error($connection));
+			$row_system_recheck = mysqli_fetch_assoc($system_recheck);
+
+			$still_needs_update = TRUE;
+			if (($row_system_recheck['version'] == $current_version) && (strtotime($row_system_recheck['version_date']) >= $current_version_date)) {
+				$still_needs_update = FALSE;
+			}
+
+			if ($still_needs_update) include (UPDATE.'run_update.php');
+			else {
+				$force_update = FALSE;
+				$no_updates_needed = TRUE;
+			}
+
+			$query_update_unlock = sprintf("SELECT RELEASE_LOCK('%s')", $update_lock_name);
+			mysqli_query($connection, $query_update_unlock) or die (mysqli_error($connection));
+
+		}
+
+		// If the lock couldn't be acquired within the timeout, another request
+		// is already running the update - don't pile another full run on top
+		// of it. $_SESSION['currentVersion'] is left unset below, so this
+		// session will simply re-check on its next request.
+
+	}
+
 	require (LIB.'help.lib.php');
 	require (INCLUDES.'styles.inc.php'); // Establishing session vars depends upon arrays here
 	require (DB.'common.db.php');

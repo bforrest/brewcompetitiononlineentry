@@ -1,0 +1,2306 @@
+# Phase 2 — Slim Shell + Central Authorization Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Introduce a single Slim 4 front controller in front of every existing route — legacy and new — with a central, deny-by-default authorization policy map (design spec success criterion 1). This is the upstream-divergence point: nothing in `sections/`, `admin/`, `includes/process/`, `lib/` changes behavior; they run exactly as today, just reached through one gate instead of dozens of independent entry points.
+
+**Architecture:** A single front controller (`index.php`, ~10 lines) boots a Slim 4 app via PHP-DI. A middleware pipeline runs on every request (session → identity → **authorization**, deny-by-default) before anything else executes. Legacy pages/scripts are wrapped by thin bridge handlers that `require` the existing file — its output, `header()` calls, and `exit()` all behave exactly as they do today; the bridge's job is only to guarantee the authorization check ran first and that whatever must survive an in-script `exit()` (audit trail, tracing span close) does so via `register_shutdown_function()`. No attempt is made to convert legacy output into a "clean" PSR-7 response — that would require intercepting `header()`/`exit()`, which isn't reliably possible in userland PHP and isn't necessary for the goal (central authorization), only for a cosmetic uniformity Phase 3 doesn't need either.
+
+**Tech Stack:** Slim 4 (`slim/slim`, `slim/psr7`), PHP-DI (`php-di/php-di`, `php-di/slim-bridge`), symfony/validator (installed now, used starting Phase 3), PHP 8.2, MariaDB 11, Docker.
+
+## Global Constraints
+
+- **Role hierarchy is the app's existing numeric `userLevel` convention, unchanged** — lower number = more privileged. Verified against real checks in the codebase (`process_users.inc.php:23,158`, `ajax/save.ajax.php:41,70`, `sections/brew.sec.php:14,66`, `admin/*.admin.php` gates found in the route inventory below): `0` = super-admin, `1` = admin (checks are almost always `userLevel <= 1`, i.e. 0 or 1 both pass), `2` = judge/steward (checks are `userLevel <= 2` when admins-and-judges both qualify, or `== 2` when judge-only), anything else (including `NULL`, which is what public registration leaves the column as) = entrant. A role "satisfies" a required role if its ordinal is `<=` the required ordinal — this is a direct, verified translation of the existing convention, not a new hierarchy.
+- **`$logged_in` today is `isset($_SESSION['loginUsername'])`** (`includes/constants.inc.php:487`). `Identity::fromSession()` must use exactly this key, plus `$_SESSION['userLevel']`.
+- **The session cookie name is `md5($installation_id)`** (or `md5(__FILE__)` if unset), set via `session_name()` in `paths.php:222,239` — `SessionMiddleware` must call `session_name()` with the same value before `session_start()`, or the bridge will silently start a *different* session than legacy code expects.
+- **The `?admin=` GET parameter forces `index.legacy.php` rendering for an otherwise-public `$section`** (`index.php:177`, confirmed by Explore agent research 2026-07-19) — this is exactly why the policy map is keyed on request parameters (section/go/action), evaluated by middleware *before* either legacy render path runs, not on which file happens to execute. This ambiguity cannot cause a lockout-bypass because deny-by-default doesn't care which file would have rendered.
+- **`includes/output.inc.php` is a self-bootstrapping dispatcher with no auth check of its own** — each of its five `output/*.output.php` targets checks independently. The policy map must declare each reachable `$section` value under `output.inc.php` individually (see Task 3), not rely on one blanket rule for the dispatcher file.
+- **Composer additions** (append to existing `require`, keep `pixel418/markdownify`): `slim/slim:^4.14`, `slim/psr7:^1.7`, `php-di/php-di:^7.0`, `php-di/slim-bridge:^3.4`, `symfony/validator:^7.0`. Install inside the container: `docker compose exec web sh -c "curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer"` (skip if already present from Phase 0), then `docker compose exec web composer require slim/slim:^4.14 slim/psr7:^1.7 php-di/php-di:^7.0 php-di/slim-bridge:^3.4 symfony/validator:^7.0`.
+- **`vendor/` stops being committed to git in this phase** (design spec Section 6, now that CI installs it fresh every run per the Phase 0 CI gotcha) — Task 1 removes it from git tracking once the new dependencies are in, to stop bloating history with Slim/PHP-DI's dependency tree.
+- New PHP code lives under `src/` (PSR-4 `Bcoem\`) and `config/`; `templates/` is Phase 3 (no page has been extracted into a template yet). Nothing under `src/` outside `src/Legacy/` may reference legacy globals (`$connection`, `$prefix`, `$_SESSION` directly) or call `common.lib.php` functions — enforce this with a PHPStan custom rule in the task that adds it (Task 9).
+- **This phase's acceptance gate**: the full Phase 0/1 e2e suite (`cd e2e && npx playwright test`) and the full 3-tier PHPUnit suite must pass **identically** once the shell is in front of everything — same assertions, same commands, zero spec changes. Any spec change needed to make this phase pass is a signal the bridge changed observable behavior and must be treated as a bug, not accommodated in the test.
+- Docker/DB/e2e conventions are unchanged from Phase 0/1 (`Docs/superpowers/plans/2026-07-18-phase0-e2e-safety-net.md` Global Constraints apply — app URL, DB creds, seeded admin, reseed command).
+
+---
+
+## Task Group A — Foundation: shell, identity, and the central gate
+
+### Task 1: Composer scaffold + directory layout + "hello world" route
+
+**Files:**
+- Modify: `composer.json` (add deps, PSR-4 autoload for `Bcoem\`), `.gitignore` (stop ignoring nothing extra — vendor removal is a git-rm, not a gitignore change alone)
+- Create: `src/Kernel/container.php`, `src/Kernel/app.php`, `tests/Unit/Kernel/HelloWorldRouteTest.php`
+
+**Interfaces:**
+- Produces: a working PHP-DI-backed Slim app object from `src/Kernel/app.php`, reusable by every later task in this group.
+
+- [ ] **Step 1: Add dependencies**
+
+```bash
+docker compose exec web sh -c "curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer" 2>/dev/null || true
+docker compose exec web composer require slim/slim:^4.14 slim/psr7:^1.7 php-di/php-di:^7.0 php-di/slim-bridge:^3.4 symfony/validator:^7.0
+```
+
+- [ ] **Step 2: Add the `Bcoem\` PSR-4 autoload entry**
+
+Add to `composer.json`'s top level (sibling to `autoload-dev`):
+
+```json
+    "autoload": {
+        "psr-4": {
+            "Bcoem\\": "src/"
+        }
+    },
+```
+
+```bash
+docker compose exec web composer dump-autoload
+```
+
+- [ ] **Step 3: Write the container**
+
+`src/Kernel/container.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use DI\ContainerBuilder;
+
+/**
+ * PHP-DI container. Legacy globals (mysqli connection, table prefix) are
+ * NOT wired here - src/Legacy/ reads them directly from $GLOBALS, exactly
+ * as legacy code always has. Only genuinely new (Phase 3+) services get
+ * container entries.
+ */
+$containerBuilder = new ContainerBuilder();
+$containerBuilder->addDefinitions([
+    // Populated starting Phase 3 (Bcoem\Database\Connection, Bcoem\Audit\AuditLogger, ...).
+]);
+
+return $containerBuilder->build();
+```
+
+- [ ] **Step 4: Write the Slim app factory**
+
+`src/Kernel/app.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use DI\Bridge\Slim\Bridge;
+use Slim\App;
+
+/**
+ * Builds the Slim app. Does NOT run it - callers (index.php, tests) decide
+ * whether to ->run() against real superglobals or ->handle() a constructed
+ * PSR-7 request.
+ */
+function buildApp(): App
+{
+    $container = require __DIR__ . '/container.php';
+    $app = Bridge::create($container);
+
+    $app->get('/__kernel_hello', function ($request, $response) {
+        $response->getBody()->write('ok');
+        return $response;
+    });
+
+    return $app;
+}
+```
+
+- [ ] **Step 5: Write the failing test**
+
+`tests/Unit/Kernel/HelloWorldRouteTest.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+use Slim\Psr7\Factory\ServerRequestFactory;
+
+require_once ROOT . 'src/Kernel/app.php';
+
+class HelloWorldRouteTest extends TestCase
+{
+    public function test_kernel_hello_route_responds_ok(): void
+    {
+        $app = buildApp();
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/__kernel_hello');
+        $response = $app->handle($request);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('ok', (string)$response->getBody());
+    }
+}
+```
+
+- [ ] **Step 6: Run — verify it fails, then passes**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter HelloWorldRouteTest
+```
+
+Expected first run (before Steps 3-4 exist): class/function-not-found error. After implementing: `OK (1 test)`.
+
+- [ ] **Step 6a: Extend PHPStan's scope to cover the new `src/` tree**
+
+`phpstan.neon` currently restricts analysis to `paths: [lib]` (a deliberate prior scope decision — the rest of the legacy tree isn't gated yet). None of this phase's new code lives under `lib/`, so every later task's "run PHPStan, expect clean" step is meaningless unless `src/` is added now. Modify the **existing** `parameters:` block's `paths:` list (do not add a second `parameters:` key):
+
+```yaml
+    paths:
+        - lib
+        - src
+```
+
+```bash
+docker compose exec web vendor/bin/phpstan analyse
+```
+
+Expected: `[OK] No errors` (nothing under `src/` exists yet besides what Steps 1-4 just added, which must already be clean).
+
+- [ ] **Step 7: Stop committing `vendor/`**
+
+```bash
+git rm -r --cached vendor
+echo "vendor/" >> .gitignore
+docker compose exec web composer install   # confirm it still installs cleanly from composer.lock
+```
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add composer.json composer.lock .gitignore src/Kernel/container.php src/Kernel/app.php tests/Unit/Kernel/HelloWorldRouteTest.php
+git commit -m "Scaffold Slim 4 + PHP-DI kernel; stop committing vendor/"
+```
+
+---
+
+### Task 2: `Role` and `Identity` — pure, unit-tested
+
+**Files:**
+- Create: `src/Security/Role.php`, `src/Security/Identity.php`, `tests/Unit/Security/RoleTest.php`, `tests/Unit/Security/IdentityTest.php`
+
+**Interfaces:**
+- Produces: `Bcoem\Security\Role` (backed enum: `SuperAdmin=0, Admin=1, Judge=2, Entrant=3, Anonymous=100`) with `fromUserLevel(?string $userLevel): self` and `satisfies(Role $required): bool`. `Bcoem\Security\Identity` (readonly: `loggedIn`, `username`, `role`) with `fromSession(array $session): self`.
+
+- [ ] **Step 1: Write the failing Role tests**
+
+`tests/Unit/Security/RoleTest.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+use Bcoem\Security\Role;
+
+class RoleTest extends TestCase
+{
+    public function test_from_user_level_maps_known_values(): void
+    {
+        $this->assertSame(Role::SuperAdmin, Role::fromUserLevel('0'));
+        $this->assertSame(Role::Admin, Role::fromUserLevel('1'));
+        $this->assertSame(Role::Judge, Role::fromUserLevel('2'));
+    }
+
+    public function test_from_user_level_null_is_entrant(): void
+    {
+        // Public registration leaves userLevel NULL in the DB.
+        $this->assertSame(Role::Entrant, Role::fromUserLevel(null));
+    }
+
+    public function test_from_user_level_unknown_value_is_entrant(): void
+    {
+        $this->assertSame(Role::Entrant, Role::fromUserLevel('7'));
+    }
+
+    public function test_super_admin_satisfies_every_required_role(): void
+    {
+        $this->assertTrue(Role::SuperAdmin->satisfies(Role::SuperAdmin));
+        $this->assertTrue(Role::SuperAdmin->satisfies(Role::Admin));
+        $this->assertTrue(Role::SuperAdmin->satisfies(Role::Judge));
+        $this->assertTrue(Role::SuperAdmin->satisfies(Role::Entrant));
+        $this->assertTrue(Role::SuperAdmin->satisfies(Role::Anonymous));
+    }
+
+    public function test_admin_does_not_satisfy_super_admin_only_route(): void
+    {
+        $this->assertFalse(Role::Admin->satisfies(Role::SuperAdmin));
+    }
+
+    public function test_judge_satisfies_entrant_and_anonymous_but_not_admin(): void
+    {
+        $this->assertTrue(Role::Judge->satisfies(Role::Entrant));
+        $this->assertTrue(Role::Judge->satisfies(Role::Anonymous));
+        $this->assertFalse(Role::Judge->satisfies(Role::Admin));
+    }
+
+    public function test_anonymous_satisfies_only_anonymous(): void
+    {
+        $this->assertTrue(Role::Anonymous->satisfies(Role::Anonymous));
+        $this->assertFalse(Role::Anonymous->satisfies(Role::Entrant));
+    }
+}
+```
+
+- [ ] **Step 2: Run — verify it fails**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter RoleTest
+```
+
+Expected: class `Bcoem\Security\Role` not found.
+
+- [ ] **Step 3: Implement `src/Security/Role.php`**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Security;
+
+enum Role: int
+{
+    case SuperAdmin = 0;
+    case Admin = 1;
+    case Judge = 2;
+    case Entrant = 3;
+    case Anonymous = 100;
+
+    public static function fromUserLevel(?string $userLevel): self
+    {
+        // Fail safe to Entrant for anything that isn't a clean non-negative
+        // integer string - PHP's (int) cast turns '', 'abc', etc. into 0,
+        // which would otherwise silently escalate a malformed session value
+        // to SuperAdmin. Deny-by-default groundwork must not have this hole.
+        if ($userLevel === null || !ctype_digit($userLevel)) {
+            return self::Entrant;
+        }
+        return match ((int)$userLevel) {
+            0 => self::SuperAdmin,
+            1 => self::Admin,
+            2 => self::Judge,
+            default => self::Entrant,
+        };
+    }
+
+    /**
+     * True if this role grants at least as much privilege as $required,
+     * using the app's existing numeric userLevel convention: lower value
+     * = more privileged. Anonymous only satisfies an Anonymous requirement.
+     */
+    public function satisfies(Role $required): bool
+    {
+        if ($required === self::Anonymous) {
+            return true;
+        }
+        if ($this === self::Anonymous) {
+            return false;
+        }
+        return $this->value <= $required->value;
+    }
+}
+```
+
+- [ ] **Step 4: Run — verify Role tests pass**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter RoleTest
+```
+
+Expected: `OK (7 tests)`.
+
+- [ ] **Step 5: Write the failing Identity tests**
+
+`tests/Unit/Security/IdentityTest.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+use Bcoem\Security\Identity;
+use Bcoem\Security\Role;
+
+class IdentityTest extends TestCase
+{
+    public function test_no_loginUsername_is_anonymous(): void
+    {
+        $identity = Identity::fromSession([]);
+        $this->assertFalse($identity->loggedIn);
+        $this->assertNull($identity->username);
+        $this->assertSame(Role::Anonymous, $identity->role);
+    }
+
+    public function test_loginUsername_present_is_logged_in_with_mapped_role(): void
+    {
+        $identity = Identity::fromSession(['loginUsername' => 'admin@example.com', 'userLevel' => '1']);
+        $this->assertTrue($identity->loggedIn);
+        $this->assertSame('admin@example.com', $identity->username);
+        $this->assertSame(Role::Admin, $identity->role);
+    }
+
+    public function test_loginUsername_present_without_userLevel_is_entrant(): void
+    {
+        $identity = Identity::fromSession(['loginUsername' => 'entrant@example.com']);
+        $this->assertSame(Role::Entrant, $identity->role);
+    }
+}
+```
+
+- [ ] **Step 6: Run — verify it fails, implement, verify it passes**
+
+`src/Security/Identity.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Security;
+
+final class Identity
+{
+    private function __construct(
+        public readonly bool $loggedIn,
+        public readonly ?string $username,
+        public readonly Role $role,
+    ) {
+    }
+
+    /** @param array<string, mixed> $session */
+    public static function fromSession(array $session): self
+    {
+        if (!isset($session['loginUsername'])) {
+            return new self(false, null, Role::Anonymous);
+        }
+        return new self(
+            true,
+            (string)$session['loginUsername'],
+            Role::fromUserLevel(isset($session['userLevel']) ? (string)$session['userLevel'] : null)
+        );
+    }
+}
+```
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter "RoleTest|IdentityTest"
+```
+
+Expected: `OK (10 tests)`.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/Security/Role.php src/Security/Identity.php tests/Unit/Security/
+git commit -m "Add Role and Identity value objects (deny-by-default groundwork)"
+```
+
+---
+
+### Task 3: The central policy map (`config/access_policy.php`) + `AccessPolicy` resolver
+
+This is the centerpiece of Phase 2's success criterion. **Every legacy route, side door, and process action found in the 2026-07-19 route inventory is declared here.** Anything not declared is denied by `AuthorizationMiddleware` (Task 4) — that is the entire point.
+
+**Files:**
+- Create: `config/access_policy.php`, `src/Security/AccessPolicy.php`, `tests/Unit/Security/AccessPolicyTest.php`
+
+**Interfaces:**
+- Produces: `Bcoem\Security\AccessPolicy::fromFile(string $path): self`, `->requiredRoleFor(string $section, ?string $go, ?string $action): ?Role` (GET/legacy-page lookups), `->requiredRoleForProcessAction(?string $action, ?string $dbTable): ?Role` (POST/process.inc.php lookups), `->requiredRoleForFile(string $filename): ?Role` (side-door lookups). `null` return = **not declared = deny**; this is consumed by `AuthorizationMiddleware` in Task 4.
+
+- [ ] **Step 1: Write the failing tests**
+
+`tests/Unit/Security/AccessPolicyTest.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+use Bcoem\Security\AccessPolicy;
+use Bcoem\Security\Role;
+
+class AccessPolicyTest extends TestCase
+{
+    private function policy(): AccessPolicy
+    {
+        return AccessPolicy::fromFile(ROOT . 'config/access_policy.php');
+    }
+
+    public function test_admin_section_base_requires_admin(): void
+    {
+        $this->assertSame(Role::Admin, $this->policy()->requiredRoleFor('admin', null, null));
+    }
+
+    public function test_admin_go_styles_requires_super_admin_more_specific_than_base(): void
+    {
+        $this->assertSame(Role::SuperAdmin, $this->policy()->requiredRoleFor('admin', 'styles', null));
+    }
+
+    public function test_account_page_requires_entrant(): void
+    {
+        $this->assertSame(Role::Entrant, $this->policy()->requiredRoleFor('list', null, null));
+    }
+
+    public function test_public_page_requires_anonymous(): void
+    {
+        $this->assertSame(Role::Anonymous, $this->policy()->requiredRoleFor('contact', null, null));
+    }
+
+    public function test_undeclared_section_is_denied(): void
+    {
+        $this->assertNull($this->policy()->requiredRoleFor('this-section-does-not-exist', null, null));
+    }
+
+    public function test_process_login_action_is_anonymous(): void
+    {
+        $this->assertSame(Role::Anonymous, $this->policy()->requiredRoleForProcessAction('login', null));
+    }
+
+    public function test_process_dbtable_users_requires_entrant(): void
+    {
+        $this->assertSame(Role::Entrant, $this->policy()->requiredRoleForProcessAction(null, 'baseline_users'));
+    }
+
+    public function test_undeclared_process_action_is_denied(): void
+    {
+        $this->assertNull($this->policy()->requiredRoleForProcessAction('no-such-action', null));
+    }
+
+    public function test_qr_side_door_is_anonymous(): void
+    {
+        $this->assertSame(Role::Anonymous, $this->policy()->requiredRoleForFile('qr.php'));
+    }
+
+    public function test_ppv_webhook_is_anonymous(): void
+    {
+        $this->assertSame(Role::Anonymous, $this->policy()->requiredRoleForFile('ppv.php'));
+    }
+
+    public function test_undeclared_file_is_denied(): void
+    {
+        $this->assertNull($this->policy()->requiredRoleForFile('some_new_side_door.php'));
+    }
+}
+```
+
+- [ ] **Step 2: Run — verify it fails**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter AccessPolicyTest
+```
+
+Expected: class not found.
+
+- [ ] **Step 3: Write `config/access_policy.php`**
+
+This is built from the 2026-07-19 route inventory (see the plan's "Cherry-pick reconciliation"-style research notes — reproduced findings below). Keys use three namespaces: `section:` (GET, legacy pages — resolved most-specific-first as `section:{s}|go:{g}|action:{a}` → `section:{s}|go:{g}` → `section:{s}`), `process:action:` / `process:dbTable:` (POST via `includes/process.inc.php`), and `file:` (self-bootstrapping side doors, keyed by basename).
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Bcoem\Security\Role;
+
+/**
+ * Central, deny-by-default authorization policy. Every reachable
+ * section/go/action combination, process.inc.php dispatch value, and
+ * self-bootstrapping side door must be declared here or
+ * AuthorizationMiddleware denies it - see Task 4.
+ *
+ * Verified against the 2026-07-19 route inventory (index.php, index.legacy.php,
+ * index.pub.php, includes/process.inc.php, ajax/*.php, admin/*.admin.php,
+ * includes/output.inc.php). Entries marked "VERIFY" reproduce the app's own
+ * $section_array whitelist (site/bootstrap.php) but have not yet had their
+ * individual sections/*.sec.php file read for its actual role requirement -
+ * see Task 3a's checklist to close these out before this phase ships.
+ */
+return [
+    // ── Admin base gate + per-go refinements (index.legacy.php dispatch) ──
+    'section:admin' => Role::Admin,
+    'section:admin|go:user' => Role::SuperAdmin,
+    'section:admin|go:styles' => Role::SuperAdmin,
+    'section:admin|go:archive' => Role::SuperAdmin,
+    'section:admin|go:make_admin' => Role::SuperAdmin,
+    'section:admin|go:contest_info' => Role::SuperAdmin,
+    'section:admin|go:preferences' => Role::SuperAdmin,
+    'section:admin|go:sponsors' => Role::SuperAdmin,
+    'section:admin|go:style_types' => Role::SuperAdmin,
+    'section:admin|go:special_best' => Role::SuperAdmin,
+    'section:admin|go:special_best_data' => Role::SuperAdmin,
+    'section:admin|go:mods' => Role::SuperAdmin,
+    'section:admin|go:upload' => Role::SuperAdmin,
+    'section:admin|go:change_user_password' => Role::SuperAdmin,
+    'section:admin|go:dates' => Role::SuperAdmin,
+    'section:admin|go:default' => Role::Admin,
+    'section:admin|go:judging' => Role::Admin,
+    'section:admin|go:non-judging' => Role::Admin,
+    'section:admin|go:judging_preferences' => Role::Admin,
+    'section:admin|go:judging_tables' => Role::Admin,
+    'section:admin|go:judging_flights' => Role::Admin,
+    'section:admin|go:judging_scores' => Role::Admin,
+    'section:admin|go:judging_scores_bos' => Role::Admin,
+    'section:admin|go:participants' => Role::Admin,
+    'section:admin|go:entries' => Role::Admin,
+    'section:admin|go:contacts' => Role::Admin,
+    'section:admin|go:dropoff' => Role::Admin,
+    'section:admin|go:checkin' => Role::Admin,
+    'section:admin|go:count_by_style' => Role::Admin,
+    'section:admin|go:count_by_substyle' => Role::Admin,
+    'section:admin|go:upload_scoresheets' => Role::Admin,
+    'section:admin|go:payments' => Role::Admin,
+    'section:admin|go:evaluation' => Role::Entrant, // further gated on $_SESSION['prefsEval']==1 by legacy code, unchanged
+
+    // ── Account pages (index.php's own $account_pages array) ──
+    'section:list' => Role::Entrant,
+    'section:pay' => Role::Entrant,
+    'section:brewer' => Role::Entrant,
+    'section:user' => Role::Entrant,
+    'section:brew' => Role::Entrant,
+    'section:evaluation' => Role::Entrant,
+
+    // ── Public pages (site/bootstrap.php's $section_array, VERIFY entries
+    //    per Task 3a before this policy map is considered complete) ──
+    'section:default' => Role::Anonymous,
+    'section:rules' => Role::Anonymous,
+    'section:entry' => Role::Anonymous,
+    'section:volunteers' => Role::Anonymous,
+    'section:contact' => Role::Anonymous,
+    'section:login' => Role::Anonymous,
+    'section:logout' => Role::Anonymous, // must work regardless of auth state
+    'section:check' => Role::Anonymous,
+    'section:setup' => Role::Anonymous, // matches today's (unauthenticated) reality - see Task 3a note on setup.php
+    'section:judge' => Role::Anonymous, // VERIFY: sections/judge.sec.php
+    'section:register' => Role::Anonymous,
+    'section:sponsors' => Role::Anonymous,
+    'section:past_winners' => Role::Anonymous,
+    'section:past-winners' => Role::Anonymous,
+    'section:step1' => Role::Anonymous, 'section:step2' => Role::Anonymous,
+    'section:step3' => Role::Anonymous, 'section:step4' => Role::Anonymous,
+    'section:step5' => Role::Anonymous, 'section:step6' => Role::Anonymous,
+    'section:step7' => Role::Anonymous, 'section:step8' => Role::Anonymous,
+    'section:update' => Role::Anonymous, // matches today - see Task 3a note on update.php
+    'section:confirm' => Role::Anonymous, // VERIFY
+    'section:delete' => Role::Anonymous, // VERIFY - GET-only render, not the POST action=delete (see process: below)
+    'section:table_cards' => Role::Anonymous, 'section:table-cards' => Role::Anonymous, // VERIFY
+    'section:participant_summary' => Role::Anonymous, // VERIFY
+    'section:loc' => Role::Anonymous, // VERIFY
+    'section:sorting' => Role::Anonymous, // VERIFY
+    'section:output_styles' => Role::Anonymous, // VERIFY
+    'section:map' => Role::Anonymous, // VERIFY
+    'section:driving' => Role::Anonymous, // VERIFY
+    'section:scores' => Role::Anonymous, // VERIFY - likely public results, confirm
+    'section:entries' => Role::Anonymous, // VERIFY - distinct from admin|go:entries above
+    'section:participants' => Role::Anonymous, // VERIFY - distinct from admin|go:participants above
+    'section:emails' => Role::Anonymous, // VERIFY
+    'section:assignments' => Role::Anonymous, // VERIFY
+    'section:bos-mat' => Role::Anonymous, // VERIFY
+    'section:dropoff' => Role::Anonymous, // VERIFY - distinct from admin|go:dropoff above
+    'section:summary' => Role::Anonymous, // VERIFY
+    'section:inventory' => Role::Anonymous, // VERIFY
+    'section:pullsheets' => Role::Anonymous, // VERIFY
+    'section:results' => Role::Anonymous, // VERIFY
+    'section:staff' => Role::Anonymous, // VERIFY
+    'section:styles' => Role::Anonymous, // VERIFY - distinct from admin|go:styles above
+    'section:promo' => Role::Anonymous, // VERIFY
+    'section:testing' => Role::Anonymous, // VERIFY
+    'section:notes' => Role::Anonymous, // VERIFY
+    'section:qr' => Role::Anonymous, // redirects to qr.php per bootstrap.php:33-36
+    'section:shipping-label' => Role::Anonymous, // VERIFY
+    'section:particpant-entries' => Role::Anonymous, // VERIFY (sic - typo is in the app's own array)
+    'section:competition' => Role::Anonymous, // dead sections/ reference per inventory, renders via index.pub.php inline instead
+    'section:winners' => Role::Anonymous, // public results page (used by e2e security-invariants.spec.ts today)
+    'section:admin' => Role::Admin, // already declared above; listed once, do not duplicate the key
+
+    // ── process.inc.php: $action-first dispatch ──
+    'process:action:login' => Role::Anonymous,
+    'process:action:logout' => Role::Anonymous,
+    'process:action:forgot' => Role::Anonymous,
+    'process:action:reset' => Role::Anonymous,
+    'process:action:delete' => Role::Entrant, // per-row ownership enforced by legacy code, unchanged
+    'process:action:barcode_check_in' => Role::Admin,
+    'process:action:update_judging_flights' => Role::Admin,
+    'process:action:delete_scoresheets' => Role::Admin,
+    'process:action:clear_session' => Role::Entrant,
+    'process:action:purge' => Role::SuperAdmin,
+    'process:action:cleanup' => Role::SuperAdmin,
+    'process:action:generate_judging_numbers' => Role::Admin,
+    'process:action:check_discount' => Role::Entrant,
+    'process:action:convert_bjcp' => Role::SuperAdmin,
+    'process:action:archive' => Role::SuperAdmin,
+    'process:action:publish' => Role::SuperAdmin,
+    'process:action:email' => Role::Entrant,
+    'process:action:paypal' => Role::Anonymous, // PayPal IPN-style POST, no session
+    'process:action:dates' => Role::SuperAdmin,
+
+    // ── process.inc.php: $dbTable fallback dispatch (generic CRUD) ──
+    'process:dbTable:baseline_brewing' => Role::Entrant,
+    'process:dbTable:baseline_users' => Role::Entrant, // registration (anonymous sub-case handled inside process_users_register.inc.php, unchanged) + self-service edits
+    'process:dbTable:baseline_brewer' => Role::Entrant,
+    'process:dbTable:baseline_contest_info' => Role::SuperAdmin,
+    'process:dbTable:baseline_preferences' => Role::SuperAdmin,
+    'process:dbTable:baseline_sponsors' => Role::SuperAdmin,
+    'process:dbTable:baseline_judging_locations' => Role::Admin,
+    'process:dbTable:baseline_drop_off' => Role::Admin,
+    'process:dbTable:baseline_styles' => Role::SuperAdmin,
+    'process:dbTable:bcoem_shared_styles' => Role::SuperAdmin,
+    'process:dbTable:baseline_contacts' => Role::Anonymous, // public contact form submission
+    'process:dbTable:baseline_judging_preferences' => Role::Admin,
+    'process:dbTable:baseline_judging_tables' => Role::Admin,
+    'process:dbTable:baseline_judging_flights' => Role::Admin,
+    'process:dbTable:baseline_judging_assignments' => Role::Admin,
+    'process:dbTable:baseline_judging_scores' => Role::Judge,
+    'process:dbTable:baseline_judging_scores_bos' => Role::Judge,
+    'process:dbTable:baseline_style_types' => Role::SuperAdmin,
+    'process:dbTable:baseline_special_best_info' => Role::SuperAdmin,
+    'process:dbTable:baseline_special_best_data' => Role::SuperAdmin,
+    'process:dbTable:baseline_mods' => Role::SuperAdmin,
+    'process:dbTable:baseline_evaluation' => Role::Entrant,
+
+    // ── Self-bootstrapping side doors (file: keyed by basename) ──
+    'file:qr.php' => Role::Anonymous, // internally gates via qrPasswordOK, unchanged
+    'file:handle.php' => Role::Entrant, // covers pdf-download; upload sub-case needs userLevel==0, enforced by legacy code, unchanged
+    'file:ppv.php' => Role::Anonymous, // PayPal IPN webhook - cannot authenticate via session by design
+    'file:awards.php' => Role::Anonymous, // internally gates on display_to_public / display_to_admin, unchanged
+    'file:maintenance.php' => Role::Anonymous,
+    'file:setup.php' => Role::Anonymous, // matches today's reality (unauthenticated) - flagged as a P2 finding, not fixed by this phase (no behavior change), tracked separately
+    'file:update.php' => Role::Anonymous, // pre-setup wizard exposure matches setup.php; post-setup body is internally gated, unchanged
+    'file:400.php' => Role::Anonymous, 'file:401.php' => Role::Anonymous,
+    'file:403.php' => Role::Anonymous, 'file:404.php' => Role::Anonymous,
+    'file:500.php' => Role::Anonymous,
+    'file:admin/send_test_email.admin.php' => Role::Admin, // matches its own internal userLevel<2 check
+    'file:output/maps.output.php' => Role::Anonymous, // matches today (no auth check exists) - open-redirect risk flagged separately, not this phase's scope
+
+    // ── ajax/*.php (each keyed as its own file, matching its own internal check) ──
+    'file:ajax/account_checks.ajax.php' => Role::Anonymous,
+    'file:ajax/count_records.ajax.php' => Role::Anonymous,
+    'file:ajax/custom_style.ajax.php' => Role::Admin,
+    'file:ajax/import_scores.ajax.php' => Role::Admin,
+    'file:ajax/practice_session.ajax.php' => Role::SuperAdmin,
+    'file:ajax/purge.ajax.php' => Role::SuperAdmin,
+    'file:ajax/regenerate.ajax.php' => Role::SuperAdmin,
+    'file:ajax/save.ajax.php' => Role::Judge, // per-action further refinement (userLevel<=1 for some) enforced by legacy code, unchanged
+    'file:ajax/tables_mode.ajax.php' => Role::Judge,
+    'file:ajax/username.ajax.php' => Role::Anonymous,
+    'file:ajax/valid_email.ajax.php' => Role::Anonymous,
+
+    // ── includes/output.inc.php (dispatcher has no gate of its own -
+    //    every reachable $section under it must be declared here) ──
+    // VERIFY: enumerate includes/output.inc.php:27-30's $print_sections /
+    // $export_sections / $label_sections / $entry_sections /
+    // $scoresheet_sections arrays and declare one 'output:section:{value}'
+    // entry per value, matching each target output/*.output.php file's own
+    // existing check (all confirmed to have one - see Task 3a).
+];
+```
+
+- [ ] **Step 4: Implement `src/Security/AccessPolicy.php`**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Security;
+
+final class AccessPolicy
+{
+    /** @param array<string, Role> $map */
+    private function __construct(private readonly array $map)
+    {
+    }
+
+    public static function fromFile(string $path): self
+    {
+        /** @var array<string, Role> $map */
+        $map = require $path;
+        return new self($map);
+    }
+
+    /** Most-specific-first: section+go+action, then section+go, then section alone. */
+    public function requiredRoleFor(string $section, ?string $go, ?string $action): ?Role
+    {
+        if ($go !== null && $action !== null) {
+            $key = "section:{$section}|go:{$go}|action:{$action}";
+            if (isset($this->map[$key])) {
+                return $this->map[$key];
+            }
+        }
+        if ($go !== null) {
+            $key = "section:{$section}|go:{$go}";
+            if (isset($this->map[$key])) {
+                return $this->map[$key];
+            }
+        }
+        return $this->map["section:{$section}"] ?? null;
+    }
+
+    public function requiredRoleForProcessAction(?string $action, ?string $dbTable): ?Role
+    {
+        if ($action !== null && $action !== 'default') {
+            return $this->map["process:action:{$action}"] ?? null;
+        }
+        if ($dbTable !== null && $dbTable !== 'default') {
+            return $this->map["process:dbTable:{$dbTable}"] ?? null;
+        }
+        return null;
+    }
+
+    public function requiredRoleForFile(string $filename): ?Role
+    {
+        return $this->map["file:{$filename}"] ?? null;
+    }
+
+    public function requiredRoleForOutputSection(string $section): ?Role
+    {
+        return $this->map["output:section:{$section}"] ?? null;
+    }
+}
+```
+
+- [ ] **Step 5: Run — verify tests pass**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter AccessPolicyTest
+```
+
+Expected: `OK (11 tests)`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add config/access_policy.php src/Security/AccessPolicy.php tests/Unit/Security/AccessPolicyTest.php
+git commit -m "Add the central deny-by-default access policy map"
+```
+
+---
+
+### Task 3a: Close out the VERIFY entries in the policy map
+
+**Files:**
+- Modify: `config/access_policy.php` (remove `// VERIFY` comments as each is confirmed; correct the role if the file's actual check differs from the placeholder `Anonymous` guess)
+
+**Interfaces:**
+- Consumes: nothing new.
+- Produces: a policy map with zero `// VERIFY` markers remaining — this is a **release gate for this phase**, not optional cleanup.
+
+- [ ] **Step 1: Check each flagged `section:*` value against its rendering file**
+
+For each `// VERIFY` line in `config/access_policy.php`, run:
+
+```bash
+grep -n "logged_in\|userLevel\|loginUsername" "sections/<name>.sec.php"
+```
+
+(Where `<name>` is the section value — e.g. `sections/judge.sec.php` for `section:judge`. Recall from the route inventory that most of these public-looking sections actually render inline inside `index.pub.php` rather than via a `sections/*.sec.php` include for the non-admin path — check `index.pub.php`'s own per-`$section` blocks first with `grep -n '\$section == "<name>"' index.pub.php`, and fall back to the `sections/*.sec.php` file only if `index.pub.php` doesn't handle it directly.) Update the policy entry's role to match whatever check (if any) currently guards that content, and delete the `// VERIFY` comment.
+
+- [ ] **Step 2: Enumerate and declare `includes/output.inc.php`'s sections**
+
+```bash
+sed -n '25,32p' includes/output.inc.php
+```
+
+For each value found in `$print_sections`/`$export_sections`/`$label_sections`/`$entry_sections`/`$scoresheet_sections`, confirm its target file's check (`output/print.output.php:9`, `output/export.output.php:50`, `output/labels.output.php:4`, `output/scoresheets.output.php:19` are already known to have one; there may be more) and add one `'output:section:{value}' => Role::X` entry per value.
+
+- [ ] **Step 3: Re-run the AccessPolicy test suite and grep for remaining markers**
+
+```bash
+grep -c "VERIFY" config/access_policy.php   # must be 0
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter AccessPolicyTest
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add config/access_policy.php
+git commit -m "Close out VERIFY entries in the access policy map"
+```
+
+---
+
+### Task 4: `AuthorizationMiddleware` — the enforcement point
+
+**Files:**
+- Create: `src/Kernel/Middleware/AuthorizationMiddleware.php`, `tests/Unit/Kernel/Middleware/AuthorizationMiddlewareTest.php`
+
+**Interfaces:**
+- Consumes: `Bcoem\Security\AccessPolicy`, `Bcoem\Security\Identity`, `Bcoem\Security\Role`.
+- Produces: a PSR-15 `MiddlewareInterface` that reads `Identity` from the PSR-7 request attribute `identity` (set by a later `AuthenticationMiddleware` — until that exists, tests inject it directly via `->withAttribute('identity', ...)`), resolves the required role via section/go/action or `process:`/`file:` query/route attributes, and either calls the next handler or returns a 403.
+
+- [ ] **Step 1: Write the failing tests**
+
+`tests/Unit/Kernel/Middleware/AuthorizationMiddlewareTest.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+use Bcoem\Kernel\Middleware\AuthorizationMiddleware;
+use Bcoem\Security\AccessPolicy;
+use Bcoem\Security\Identity;
+use Slim\Psr7\Factory\ServerRequestFactory;
+use Slim\Psr7\Factory\ResponseFactory;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Http\Message\ResponseInterface;
+
+final class StubHandler implements RequestHandlerInterface
+{
+    public bool $called = false;
+    public function handle(ServerRequestInterface $request): ResponseInterface
+    {
+        $this->called = true;
+        return (new ResponseFactory())->createResponse(200);
+    }
+}
+
+class AuthorizationMiddlewareTest extends TestCase
+{
+    private function policy(): AccessPolicy
+    {
+        return AccessPolicy::fromFile(ROOT . 'config/access_policy.php');
+    }
+
+    public function test_anonymous_may_reach_a_public_section(): void
+    {
+        $middleware = new AuthorizationMiddleware($this->policy());
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/index.php?section=contact')
+            ->withQueryParams(['section' => 'contact'])
+            ->withAttribute('identity', Identity::fromSession([]));
+        $next = new StubHandler();
+
+        $response = $middleware->process($request, $next);
+
+        $this->assertTrue($next->called);
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function test_anonymous_is_denied_the_admin_section(): void
+    {
+        $middleware = new AuthorizationMiddleware($this->policy());
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/index.php?section=admin')
+            ->withQueryParams(['section' => 'admin'])
+            ->withAttribute('identity', Identity::fromSession([]));
+        $next = new StubHandler();
+
+        $response = $middleware->process($request, $next);
+
+        $this->assertFalse($next->called);
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function test_entrant_is_denied_a_super_admin_only_go(): void
+    {
+        $middleware = new AuthorizationMiddleware($this->policy());
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/index.php?section=admin&go=styles')
+            ->withQueryParams(['section' => 'admin', 'go' => 'styles'])
+            ->withAttribute('identity', Identity::fromSession(['loginUsername' => 'e@example.com', 'userLevel' => '3']));
+        $next = new StubHandler();
+
+        $response = $middleware->process($request, $next);
+
+        $this->assertFalse($next->called);
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function test_super_admin_may_reach_a_super_admin_only_go(): void
+    {
+        $middleware = new AuthorizationMiddleware($this->policy());
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/index.php?section=admin&go=styles')
+            ->withQueryParams(['section' => 'admin', 'go' => 'styles'])
+            ->withAttribute('identity', Identity::fromSession(['loginUsername' => 'a@example.com', 'userLevel' => '0']));
+        $next = new StubHandler();
+
+        $response = $middleware->process($request, $next);
+
+        $this->assertTrue($next->called);
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function test_undeclared_section_is_denied_fail_closed(): void
+    {
+        $middleware = new AuthorizationMiddleware($this->policy());
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/index.php?section=brand-new-undeclared-section')
+            ->withQueryParams(['section' => 'brand-new-undeclared-section'])
+            ->withAttribute('identity', Identity::fromSession(['loginUsername' => 'a@example.com', 'userLevel' => '0']));
+        $next = new StubHandler();
+
+        $response = $middleware->process($request, $next);
+
+        // Even a super-admin is denied - undeclared means denied, no exceptions.
+        $this->assertFalse($next->called);
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function test_process_route_checks_process_action_attribute(): void
+    {
+        $middleware = new AuthorizationMiddleware($this->policy());
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/includes/process.inc.php?action=login')
+            ->withQueryParams(['action' => 'login'])
+            ->withAttribute('routeType', 'process')
+            ->withAttribute('identity', Identity::fromSession([]));
+        $next = new StubHandler();
+
+        $response = $middleware->process($request, $next);
+
+        $this->assertTrue($next->called);
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function test_file_route_checks_file_attribute(): void
+    {
+        $middleware = new AuthorizationMiddleware($this->policy());
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/qr.php')
+            ->withAttribute('routeType', 'file')
+            ->withAttribute('routeFile', 'qr.php')
+            ->withAttribute('identity', Identity::fromSession([]));
+        $next = new StubHandler();
+
+        $response = $middleware->process($request, $next);
+
+        $this->assertTrue($next->called);
+        $this->assertSame(200, $response->getStatusCode());
+    }
+}
+```
+
+- [ ] **Step 2: Run — verify it fails**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter AuthorizationMiddlewareTest
+```
+
+Expected: class not found.
+
+- [ ] **Step 3: Implement**
+
+`src/Kernel/Middleware/AuthorizationMiddleware.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Kernel\Middleware;
+
+use Bcoem\Security\AccessPolicy;
+use Bcoem\Security\Identity;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Slim\Psr7\Factory\ResponseFactory;
+
+final class AuthorizationMiddleware implements MiddlewareInterface
+{
+    public function __construct(private readonly AccessPolicy $policy)
+    {
+    }
+
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        /** @var Identity $identity */
+        $identity = $request->getAttribute('identity');
+        $routeType = $request->getAttribute('routeType', 'section');
+
+        $required = match ($routeType) {
+            'process' => $this->policy->requiredRoleForProcessAction(
+                $request->getQueryParams()['action'] ?? null,
+                $request->getQueryParams()['dbTable'] ?? null,
+            ),
+            'file' => $this->policy->requiredRoleForFile((string)$request->getAttribute('routeFile')),
+            'output' => $this->policy->requiredRoleForOutputSection(
+                (string)($request->getQueryParams()['section'] ?? '')
+            ),
+            default => $this->policy->requiredRoleFor(
+                (string)($request->getQueryParams()['section'] ?? 'default'),
+                $request->getQueryParams()['go'] ?? null,
+                $request->getQueryParams()['action'] ?? null,
+            ),
+        };
+
+        if ($required === null || !$identity->role->satisfies($required)) {
+            $response = (new ResponseFactory())->createResponse(403);
+            $response->getBody()->write('Forbidden');
+            return $response;
+        }
+
+        return $handler->handle($request);
+    }
+}
+```
+
+- [ ] **Step 4: Run — verify it passes**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter AuthorizationMiddlewareTest
+```
+
+Expected: `OK (7 tests)`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/Kernel/Middleware/AuthorizationMiddleware.php tests/Unit/Kernel/Middleware/
+git commit -m "Add AuthorizationMiddleware: the central deny-by-default enforcement point"
+```
+
+---
+
+### Task 5: `SessionMiddleware` + `AuthenticationMiddleware` — wire real legacy session state in
+
+**Files:**
+- Create: `src/Kernel/Middleware/SessionMiddleware.php`, `src/Kernel/Middleware/AuthenticationMiddleware.php`, `tests/Unit/Kernel/Middleware/AuthenticationMiddlewareTest.php`
+- Modify: `src/Kernel/app.php` (register the middleware pipeline in order)
+
+**Interfaces:**
+- Produces: `SessionMiddleware` starts the legacy-named PHP session (matching `paths.php`'s `session_name($prefix_session)` exactly) before anything else runs. `AuthenticationMiddleware` reads `$_SESSION` (real superglobal - legacy code and this middleware share the same session by design, unlike a from-scratch Slim session handler) and attaches an `Identity` to the request via `->withAttribute('identity', ...)`.
+
+- [ ] **Step 1: Write the failing test**
+
+`tests/Unit/Kernel/Middleware/AuthenticationMiddlewareTest.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+use Bcoem\Kernel\Middleware\AuthenticationMiddleware;
+use Bcoem\Security\Role;
+use Slim\Psr7\Factory\ServerRequestFactory;
+use Slim\Psr7\Factory\ResponseFactory;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Http\Message\ResponseInterface;
+
+class AuthenticationMiddlewareTest extends TestCase
+{
+    public function test_attaches_identity_from_session_superglobal(): void
+    {
+        $_SESSION = ['loginUsername' => 'admin@example.com', 'userLevel' => '1'];
+        $middleware = new AuthenticationMiddleware();
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/index.php');
+
+        $captured = null;
+        $next = new class($captured) implements RequestHandlerInterface {
+            public function __construct(public mixed &$captured) {}
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                $this->captured = $request->getAttribute('identity');
+                return (new ResponseFactory())->createResponse(200);
+            }
+        };
+
+        $middleware->process($request, $next);
+
+        $this->assertTrue($next->captured->loggedIn);
+        $this->assertSame(Role::Admin, $next->captured->role);
+    }
+}
+```
+
+- [ ] **Step 2: Run — verify it fails**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter AuthenticationMiddlewareTest
+```
+
+- [ ] **Step 3: Implement both middlewares**
+
+`src/Kernel/Middleware/SessionMiddleware.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Kernel\Middleware;
+
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+/**
+ * Starts the SAME named session legacy code expects (paths.php:222,239 uses
+ * md5($installation_id) or md5(__FILE__) as the session name) BEFORE any
+ * legacy bridge runs, so $_SESSION is populated identically to today. Legacy
+ * code's own session_start() calls become no-ops (PHP_SESSION_ACTIVE guard
+ * already present throughout the codebase).
+ */
+final class SessionMiddleware implements MiddlewareInterface
+{
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            // Mirror paths.php:222-223's exact branching: empty() (not ??)
+            // treats '' the same as unset, and the fallback is __FILE__ (this
+            // middleware's own file, standing in for paths.php's __FILE__),
+            // not __DIR__. site/config.php's shipped default sets
+            // $installation_id = '' - since '' is set but empty, a bare ??
+            // would compute md5('') here while paths.php computes
+            // md5(__FILE__), starting a DIFFERENT session than legacy code.
+            $installationId = $GLOBALS['installation_id'] ?? '';
+            if (empty($installationId)) $installationId = __FILE__;
+            session_name(md5($installationId));
+            session_start();
+        }
+        return $handler->handle($request);
+    }
+}
+```
+
+`src/Kernel/Middleware/AuthenticationMiddleware.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Kernel\Middleware;
+
+use Bcoem\Security\Identity;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+final class AuthenticationMiddleware implements MiddlewareInterface
+{
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $identity = Identity::fromSession($_SESSION ?? []);
+        return $handler->handle($request->withAttribute('identity', $identity));
+    }
+}
+```
+
+- [ ] **Step 4: Wire the pipeline order into `src/Kernel/app.php`**
+
+Add, after `buildApp()`'s container/app creation and before the `__kernel_hello` route:
+
+```php
+    $app->add(new \Bcoem\Kernel\Middleware\AuthorizationMiddleware(
+        \Bcoem\Security\AccessPolicy::fromFile(__DIR__ . '/../../config/access_policy.php')
+    ));
+    $app->add(new \Bcoem\Kernel\Middleware\AuthenticationMiddleware());
+    $app->add(new \Bcoem\Kernel\Middleware\SessionMiddleware());
+```
+
+(Slim executes `add()`-registered middleware in **reverse** registration order for the request phase — outermost-added runs first. Registering Session → Authentication → Authorization in this order means Authorization's `process()` body runs *last* going in, i.e. Session starts first, then Authentication attaches identity, then Authorization enforces - exactly the pipeline order the design spec specifies.)
+
+- [ ] **Step 5: Run — verify it passes**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter AuthenticationMiddlewareTest
+```
+
+Expected: `OK (1 test)`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/Kernel/Middleware/SessionMiddleware.php src/Kernel/Middleware/AuthenticationMiddleware.php src/Kernel/app.php tests/Unit/Kernel/Middleware/AuthenticationMiddlewareTest.php
+git commit -m "Add Session and Authentication middleware; wire the pipeline order"
+```
+
+---
+
+### Task 6: `LegacyPageHandler` — bridge the GET (`index.php?section=...`) flow
+
+**Testing-strategy note (decided after extensive investigation, see the plan's revision history if working from git blame):** an earlier draft of this task tried to prove the bridge automatically via a PHPUnit Integration test that required the *real* `index.php` end-to-end. That was abandoned — not because the bridge code is wrong (it was verified correct, repeatedly, by direct manual testing), but because `index.php`'s real bootstrap chain has global side effects (an unconditional `mysqli_close()`, a require chain PHP can only safely execute once per process, ~30 constants and several functions also predefined by `tests/bootstrap.php`) that fight PHPUnit's shared-process test harness no matter how they're isolated — including PHPUnit's own `#[RunInSeparateProcess]`, which fails a test on *any* non-empty child stderr, and legacy deprecation/warning noise (all pre-existing, all already tolerated everywhere else in this suite) makes that unachievable without extensively modifying files far outside this task's scope. **The decision:** this task's automated test proves `LegacyBootstrap`/`LegacyPageHandler`'s *own* logic (query-param copying, `chdir`, root-relative `require`) against a small, inert fixture file — not the real `index.php`. Real end-to-end proof that the bridge renders actual pages correctly comes from this task's own manual check (Step 4, keep doing it) now, and automatically from Task 10's Playwright e2e suite once Task 9 wires an actual route — exactly the tool this phase's design already earmarked for full-page-render verification, running against a real web server process with none of these test-harness artifacts.
+
+**Files:**
+- Create: `src/Legacy/LegacyBootstrap.php`, `src/Legacy/LegacyPageHandler.php`, `tests/fixtures/legacy_root_fixture.php`, `tests/Unit/Legacy/LegacyPageHandlerTest.php`
+
+**Interfaces:**
+- Consumes: `AuthorizationMiddleware` has already run (denied requests never reach this handler).
+- Produces: `Bcoem\Legacy\LegacyPageHandler::__invoke($request, $response)` — a Slim route callable that `require`s a root-relative file (defaulting to the real `index.php`) from within the app root, letting it run exactly as it does today (its own `header()`/`exit()` calls take effect on the real SAPI, unmodified).
+
+- [ ] **Step 1: Write `LegacyBootstrap`**
+
+`src/Legacy/LegacyBootstrap.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Legacy;
+
+/**
+ * Legacy pages assume they're being run FROM the repo root with paths.php
+ * already required and $_GET populated. This class's only job is to make
+ * that assumption true when a Slim route (not a direct file hit) is what's
+ * actually serving the request. Throwaway - deleted page by page as Phase 3
+ * migrates each workflow into src/Domain/.
+ */
+final class LegacyBootstrap
+{
+    public static function requireRootFile(string $filename): void
+    {
+        chdir(ROOT);
+        require ROOT . $filename;
+    }
+}
+```
+
+- [ ] **Step 2: Write `LegacyPageHandler`**
+
+`src/Legacy/LegacyPageHandler.php`. The target filename is a constructor parameter defaulting to `'index.php'` — real usage (`new LegacyPageHandler()`, Task 9) is completely unaffected, but this is what makes the class unit-testable against a fixture instead of the real, side-effecting `index.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Legacy;
+
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+
+/**
+ * Bridges GET requests to the existing index.php flow. index.php ends with
+ * its own header()/exit()-equivalent (mysqli_close + falls off the end,
+ * echoing HTML directly) - this handler does NOT try to capture that into a
+ * PSR-7 response body; it lets index.php write directly to the output
+ * buffer PHP's SAPI already manages, and returns Slim's response unmodified
+ * (Slim's own emitter no-ops on top of output that's already been sent).
+ * Anything that MUST run even if index.php calls exit() mid-script
+ * (AuditMiddleware's post-processing, once Phase 3 needs it) is registered
+ * via register_shutdown_function(), never relied on to run "after" this
+ * method returns.
+ *
+ * $targetFile defaults to the real index.php for production use; tests
+ * substitute a small inert fixture (see LegacyPageHandlerTest) so the
+ * handler's own bridging logic is provable without pulling in index.php's
+ * full side-effecting bootstrap chain (DB, sessions, dozens of legacy
+ * requires) - that end-to-end behavior is proven manually (Step 4) and via
+ * Task 10's Playwright e2e suite once a real route exists (Task 9).
+ */
+final class LegacyPageHandler
+{
+    public function __construct(private readonly string $targetFile = 'index.php')
+    {
+    }
+
+    public function __invoke(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        foreach ($request->getQueryParams() as $key => $value) {
+            $_GET[$key] = $value;
+        }
+        LegacyBootstrap::requireRootFile($this->targetFile);
+        return $response;
+    }
+}
+```
+
+- [ ] **Step 3: Write the fixture and the Unit test**
+
+`tests/fixtures/legacy_root_fixture.php` — a minimal stand-in for a real legacy root-level page script, with none of the real app's side effects:
+
+```php
+<?php
+// Minimal stand-in for a real legacy root-level entry point. Proves
+// LegacyBootstrap/LegacyPageHandler's OWN bridging logic (query-param
+// copying into $_GET, chdir(ROOT), requiring a root-relative file) without
+// pulling in the real app's side-effecting bootstrap chain. See the
+// docblock on LegacyPageHandler for why this exists instead of testing
+// against the real index.php directly.
+echo 'FIXTURE_OK section=' . ($_GET['section'] ?? 'MISSING') . ' go=' . ($_GET['go'] ?? 'MISSING');
+```
+
+`tests/Unit/Legacy/LegacyPageHandlerTest.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+use Bcoem\Legacy\LegacyPageHandler;
+use Slim\Psr7\Factory\ServerRequestFactory;
+use Slim\Psr7\Factory\ResponseFactory;
+
+class LegacyPageHandlerTest extends TestCase
+{
+    private string $originalCwd;
+
+    protected function setUp(): void
+    {
+        $this->originalCwd = getcwd();
+    }
+
+    protected function tearDown(): void
+    {
+        chdir($this->originalCwd);
+    }
+
+    public function test_copies_query_params_into_get_chdirs_to_root_and_requires_the_target_file(): void
+    {
+        $_GET = [];
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/index.php?section=contact&go=entrant')
+            ->withQueryParams(['section' => 'contact', 'go' => 'entrant']);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        ob_start();
+        $handler = new LegacyPageHandler('tests/fixtures/legacy_root_fixture.php');
+        $result = $handler($request, $response);
+        $output = ob_get_clean();
+
+        $this->assertSame('contact', $_GET['section']);
+        $this->assertSame('entrant', $_GET['go']);
+        $this->assertStringContainsString('FIXTURE_OK section=contact go=entrant', $output);
+        $this->assertSame(rtrim(ROOT, '/'), rtrim(getcwd(), '/'));
+        $this->assertSame($response, $result);
+    }
+}
+```
+
+- [ ] **Step 4: Run the Unit test, then manually verify the real bridge against the real running stack**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter LegacyPageHandlerTest
+```
+
+Expected: `OK (1 test, 4 assertions)`.
+
+This proves the handler's own logic — it does **not** prove the real `index.php` renders correctly through it (that's what got abandoned as a PHPUnit-Integration-tier goal, per this task's opening note). Sanity-check the real thing manually instead, using the default `$targetFile`:
+
+```bash
+docker compose exec web php -r '
+define("ROOT", getcwd() . "/");
+require "src/Legacy/LegacyBootstrap.php";
+$_GET = ["section" => "contact"];
+$_SERVER["REQUEST_METHOD"] = "GET";
+Bcoem\Legacy\LegacyBootstrap::requireRootFile("index.php");
+' 2>&1 | head -20
+```
+
+**Do not pre-`require "paths.php"` at the top level of this snippet** (an earlier draft of this step did, and it's wrong): `LegacyBootstrap::requireRootFile()` is a static method, and PHP's `require` executes in the scope of wherever it's textually called — so if `paths.php` were required at the *top level* of this one-liner first, all the variables it sets (`$connection`, `$prefix`, etc.) would live in the script's global scope, not inside `requireRootFile()`'s method scope. Then when `index.php` (running *inside* that method) does its own `require_once('paths.php')`, `require_once` would see the file is already loaded and skip it entirely — silently leaving `$connection`/`$prefix`/etc. undefined in the scope `index.php` is actually running in. Defining only the bare `ROOT` constant (constants are scope-independent in PHP, unlike variables) and letting `index.php`'s own `require_once('paths.php')` be the one-and-only real execution of `paths.php` — inside `requireRootFile()`'s scope, exactly like the real `LegacyPageHandler` flow — avoids the mismatch entirely.
+
+Expected: HTML output, no PHP fatal errors. This manual check, plus Task 10's Playwright suite once Task 9 wires a real route, are the actual end-to-end proof for this bridge — not an automated PHPUnit tier.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/Legacy/LegacyBootstrap.php src/Legacy/LegacyPageHandler.php tests/fixtures/legacy_root_fixture.php tests/Unit/Legacy/LegacyPageHandlerTest.php
+git commit -m "Add LegacyPageHandler: bridge GET requests to the existing index.php flow"
+```
+
+---
+
+### Task 7: `LegacyProcessHandler` — bridge the POST (`includes/process.inc.php`) flow
+
+**Same testing-strategy decision as Task 6, for the same reasons — see that task's opening note.** `includes/process.inc.php` has the identical class of global side effects `index.php` has (its own bootstrap chain, `session_write_close()`, and — worse — an unconditional `exit()` as its very last line, which would also cut off PHPUnit's own separate-process result-capture machinery even if isolation were otherwise viable). This task's automated test proves `LegacyProcessHandler`'s *own* bridging logic (GET/POST param population, `chdir` to the target's directory, relative `require`) against a small fixture, not the real `process.inc.php`. Real end-to-end coverage of specific legacy actions (e.g. logout) already exists in the Phase 0/1 Playwright suite and gains central-authorization coverage automatically once Task 9 wires a real route and Task 10 runs the full e2e gate.
+
+**Files:**
+- Create: `src/Legacy/LegacyProcessHandler.php`, `tests/fixtures/legacy_process_fixture.php`, `tests/Unit/Legacy/LegacyProcessHandlerTest.php`
+
+**Interfaces:**
+- Consumes: `AuthorizationMiddleware`'s `process:` route type (Task 4).
+- Produces: `Bcoem\Legacy\LegacyProcessHandler::__invoke($request, $response)`.
+
+- [ ] **Step 1: Write `LegacyProcessHandler`**
+
+`src/Legacy/LegacyProcessHandler.php`. Like `LegacyPageHandler`, the target file is a constructor parameter (default `'includes/process.inc.php'`) so tests can substitute a fixture without touching real usage:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Legacy;
+
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+
+/**
+ * Bridges POSTs to includes/process.inc.php. That file does
+ * require('../paths.php') - a path relative to includes/ - so it must
+ * actually run from within includes/ for its own relative require to
+ * resolve; chdir()s to the target file's own directory rather than ROOT.
+ *
+ * $targetFile defaults to the real process.inc.php for production use;
+ * tests substitute a small inert fixture (see LegacyProcessHandlerTest) -
+ * same rationale as LegacyPageHandler's $targetFile parameter.
+ */
+final class LegacyProcessHandler
+{
+    public function __construct(private readonly string $targetFile = 'includes/process.inc.php')
+    {
+    }
+
+    public function __invoke(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        foreach ($request->getQueryParams() as $key => $value) {
+            $_GET[$key] = $value;
+        }
+        foreach ((array)$request->getParsedBody() as $key => $value) {
+            $_POST[$key] = $value;
+        }
+        chdir(ROOT . dirname($this->targetFile));
+        require ROOT . $this->targetFile;
+        return $response;
+    }
+}
+```
+
+- [ ] **Step 2: Write the fixture and the Unit test**
+
+`tests/fixtures/legacy_process_fixture.php`:
+
+```php
+<?php
+// Minimal stand-in for includes/process.inc.php. Proves LegacyProcessHandler's
+// OWN bridging logic ($_GET/$_POST population, chdir to the target's
+// directory, requiring a relative-path file) without pulling in the real
+// process.inc.php's full side-effecting bootstrap chain and unconditional
+// exit() call.
+echo 'FIXTURE_OK action=' . ($_GET['action'] ?? 'MISSING') . ' posted=' . ($_POST['field'] ?? 'MISSING') . ' cwd_basename=' . basename(getcwd());
+```
+
+`tests/Unit/Legacy/LegacyProcessHandlerTest.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+use Bcoem\Legacy\LegacyProcessHandler;
+use Slim\Psr7\Factory\ServerRequestFactory;
+use Slim\Psr7\Factory\ResponseFactory;
+
+class LegacyProcessHandlerTest extends TestCase
+{
+    private string $originalCwd;
+
+    protected function setUp(): void
+    {
+        $this->originalCwd = getcwd();
+    }
+
+    protected function tearDown(): void
+    {
+        chdir($this->originalCwd);
+    }
+
+    public function test_copies_get_and_post_params_chdirs_to_the_targets_directory_and_requires_it(): void
+    {
+        $_GET = [];
+        $_POST = [];
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/includes/process.inc.php?action=logout')
+            ->withQueryParams(['action' => 'logout'])
+            ->withParsedBody(['field' => 'value']);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        ob_start();
+        $handler = new LegacyProcessHandler('tests/fixtures/legacy_process_fixture.php');
+        $result = $handler($request, $response);
+        $output = ob_get_clean();
+
+        $this->assertSame('logout', $_GET['action']);
+        $this->assertSame('value', $_POST['field']);
+        $this->assertStringContainsString('FIXTURE_OK action=logout posted=value cwd_basename=fixtures', $output);
+        $this->assertSame($response, $result);
+    }
+}
+```
+
+- [ ] **Step 3: Run**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter LegacyProcessHandlerTest
+```
+
+Expected: `OK (1 test, 4 assertions)`.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/Legacy/LegacyProcessHandler.php tests/fixtures/legacy_process_fixture.php tests/Unit/Legacy/LegacyProcessHandlerTest.php
+git commit -m "Add LegacyProcessHandler: bridge POSTs to includes/process.inc.php"
+```
+
+---
+
+### Task 8: Wrap every side door behind the pipeline
+
+**Files:**
+- Create: `src/Legacy/LegacyFileHandler.php` (generalizes `LegacyPageHandler`'s pattern for any root-relative file)
+- Modify: `src/Kernel/app.php` (register one route per side door from the inventory)
+
+**Interfaces:**
+- Consumes: `AuthorizationMiddleware`'s `file:` route type.
+- Produces: every entry in `config/access_policy.php`'s `file:` namespace becomes a registered Slim route.
+
+- [ ] **Step 1: Write `LegacyFileHandler`**
+
+`src/Legacy/LegacyFileHandler.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Legacy;
+
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+
+final class LegacyFileHandler
+{
+    public function __construct(private readonly string $relativePath)
+    {
+    }
+
+    public function __invoke(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        foreach ($request->getQueryParams() as $key => $value) {
+            $_GET[$key] = $value;
+        }
+        foreach ((array)$request->getParsedBody() as $key => $value) {
+            $_POST[$key] = $value;
+        }
+        chdir(ROOT . dirname($this->relativePath));
+        require ROOT . $this->relativePath;
+        return $response;
+    }
+}
+```
+
+- [ ] **Step 2: Register every side door route in `src/Kernel/app.php`, derived from the policy map itself**
+
+**Don't hand-maintain a second list of side-door filenames.** `config/access_policy.php`'s `file:*` keys are already the authoritative, single source of truth for exactly which side doors exist (Task 3/3a's whole point was making that map complete and correct) — declaring a parallel `$fileRoutes` array here would let the two silently drift apart with no test to catch it. Derive the route list from the policy map's own keys instead:
+
+```php
+    $policyMap = require __DIR__ . '/../../config/access_policy.php';
+    $fileRoutes = [];
+    foreach (array_keys($policyMap) as $key) {
+        if (str_starts_with($key, 'file:')) {
+            $fileRoutes[] = substr($key, strlen('file:'));
+        }
+    }
+
+    foreach ($fileRoutes as $file) {
+        $webPath = '/' . $file;
+        $routeAttr = function ($request, $handler) use ($file) {
+            return $handler->handle(
+                $request->withAttribute('routeType', 'file')->withAttribute('routeFile', $file)
+            );
+        };
+        $app->map(['GET', 'POST'], $webPath, new \Bcoem\Legacy\LegacyFileHandler($file))
+            ->add($routeAttr);
+    }
+```
+
+- [ ] **Step 3: Write `LegacyFileHandlerTest`**
+
+**Same testing-strategy pattern as Tasks 6 and 7 (see Task 6's opening note for the full reasoning) — a fixture-based Unit test of `LegacyFileHandler`'s own logic, not the real side doors.** `qr.php`, `handle.php`, and every `ajax/*.php` file are real, side-effecting production code (sessions, DB, in several cases their own `exit()`); running them inside PHPUnit hits the identical class of problems already solved once. `tests/fixtures/legacy_process_fixture.php` (from Task 7) already covers exactly this shape (GET/POST copying + `dirname()`-based chdir + relative require) since `LegacyFileHandler` is structurally identical to `LegacyProcessHandler` — reuse it rather than creating a near-duplicate fixture.
+
+`tests/Unit/Legacy/LegacyFileHandlerTest.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+use Bcoem\Legacy\LegacyFileHandler;
+use Slim\Psr7\Factory\ServerRequestFactory;
+use Slim\Psr7\Factory\ResponseFactory;
+
+class LegacyFileHandlerTest extends TestCase
+{
+    private string $originalCwd;
+
+    protected function setUp(): void
+    {
+        $this->originalCwd = getcwd();
+    }
+
+    protected function tearDown(): void
+    {
+        chdir($this->originalCwd);
+    }
+
+    public function test_copies_get_and_post_params_chdirs_to_the_targets_directory_and_requires_it(): void
+    {
+        $_GET = [];
+        $_POST = [];
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/tests/fixtures/legacy_process_fixture.php?action=logout')
+            ->withQueryParams(['action' => 'logout'])
+            ->withParsedBody(['field' => 'value']);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        ob_start();
+        $handler = new LegacyFileHandler('tests/fixtures/legacy_process_fixture.php');
+        $result = $handler($request, $response);
+        $output = ob_get_clean();
+
+        $this->assertSame('logout', $_GET['action']);
+        $this->assertSame('value', $_POST['field']);
+        $this->assertStringContainsString('FIXTURE_OK action=logout posted=value cwd_basename=fixtures', $output);
+        $this->assertSame($response, $result);
+    }
+}
+```
+
+Run it: `docker compose exec web vendor/bin/phpunit --testsuite Unit --filter LegacyFileHandlerTest` — expected `OK (1 test, 4 assertions)`. Then run the full Unit suite to confirm no regressions.
+
+- [ ] **Step 4: Manually confirm the route derivation actually produces the expected route count**
+
+```bash
+docker compose exec web php -r '
+require "vendor/autoload.php";
+require_once "paths.php";
+require_once "src/Kernel/app.php";
+$app = buildApp();
+$routes = $app->getRouteCollector()->getRoutes();
+$fileRoutes = array_filter($routes, fn($r) => str_starts_with($r->getPattern(), "/") && count($r->getMethods()) === 2);
+echo count($routes) . " total routes registered\n";
+'
+```
+
+Expected: a route exists for every `file:*` entry from `config/access_policy.php` (cross-check the count against `grep -c "^\s*'file:" config/access_policy.php`) — this is a sanity check, not a strict test, since the exact route-filtering logic above is approximate; the real assurance is structural (Step 2's code derives one route per policy key by construction, so as long as that loop ran without error, the counts must match).
+
+**Full end-to-end proof that each side door is reachable at its real URL, with the right role enforced, comes from Task 10** — the *existing* Phase 0/1 Playwright security-invariant specs already assert exactly this (`handle.php` traversal rejection, `qr.php` reachability, `ajax/save.ajax.php` anonymous-write rejection, etc.) against direct file URLs; once Task 9's `.htaccess` rewrite routes those same URLs through this Slim pipeline instead, re-running that unmodified suite is the real equivalence proof for this task's routes — not something achievable earlier, since Apache still serves these files directly (unrouted) until Task 9 lands.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/Legacy/LegacyFileHandler.php src/Kernel/app.php tests/Unit/Legacy/LegacyFileHandlerTest.php
+git commit -m "Wrap every self-bootstrapping side door behind the authorization pipeline"
+```
+
+---
+
+### Task 8a: Fix a critical bug — `AuthorizationMiddleware` never actually saw per-route policy attributes
+
+**Found by Task 8's reviewer, independently reproduced and root-caused.** Since Task 4, `AuthorizationMiddleware` was registered as *global* app middleware (`$app->add(...)`), while `routeType`/`routeFile` were attached by *route-level* middleware (`->add($routeAttr)` on each individual `Route` object, from Task 8's Step 2). In Slim 4/PSR-15, global app middleware always runs before the router matches and dispatches to a specific route's own middleware stack — confirmed by direct, isolated reproduction against a real `Bridge::create()` app (not a synthetic request): a global middleware trying to read the matched route via `RouteContext::fromRequest($request)` throws `Cannot create RouteContext before routing has been completed` when placed where `AuthorizationMiddleware` sits, and route-level middleware attributes are never visible to anything outside that specific route's own dispatch chain. Every one of Task 8's 25 file routes was silently falling through to `AuthorizationMiddleware`'s `default` match arm — `requiredRoleFor('default', ...)` → `section:default` → `Role::Anonymous` — regardless of the file's actual declared role (several are `SuperAdmin`/`Admin`/`Judge`). This is why it went undetected through four reviewed tasks: every existing `AuthorizationMiddlewareTest` case constructed a synthetic PSR-7 request and called `->withAttribute('routeType', ...)` directly, never exercising Slim's real routing at all — the exact mechanism that was broken.
+
+**The fix, verified working by direct reproduction before writing it up here:** stop passing routing info through request attributes set by middleware the authorizer can't see. Instead, name each route at registration time (`->setName('file:qr.php')`, `->setName('section')`, etc.) and have `AuthorizationMiddleware` read the *matched route's name* — which requires it to run **after** Slim's own routing has occurred. Reproduced this exact ordering against a real app and confirmed the middleware correctly received `route name = file:qr.php` before reaching the handler.
+
+**Files:**
+- Modify: `src/Kernel/Middleware/AuthorizationMiddleware.php`, `src/Kernel/app.php`, `tests/Unit/Kernel/Middleware/AuthorizationMiddlewareTest.php`
+
+**Interfaces:**
+- Produces: `AuthorizationMiddleware` now derives its policy lookup from `RouteContext::fromRequest($request)->getRoute()?->getName()` (format `"{type}"` or `"{type}:{arg}"`) instead of `routeType`/`routeFile` request attributes. Every route registered anywhere in `app.php` must call `->setName(...)` accordingly — this is now the contract Task 9's new routes must also follow (that task's own text is updated to match).
+
+- [ ] **Step 1: Rewrite `AuthorizationMiddleware`**
+
+`src/Kernel/Middleware/AuthorizationMiddleware.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Kernel\Middleware;
+
+use Bcoem\Security\AccessPolicy;
+use Bcoem\Security\Identity;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Slim\Psr7\Factory\ResponseFactory;
+use Slim\Routing\RouteContext;
+
+final class AuthorizationMiddleware implements MiddlewareInterface
+{
+    public function __construct(private readonly AccessPolicy $policy)
+    {
+    }
+
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $identity = $request->getAttribute('identity') ?? Identity::fromSession([]);
+
+        // Requires Slim's routing to have already run (app.php places
+        // addRoutingMiddleware() before this middleware in the pipeline).
+        try {
+            $route = RouteContext::fromRequest($request)->getRoute();
+        } catch (\RuntimeException) {
+            $route = null;
+        }
+
+        // A matched route with no name, or no matched route at all (routing
+        // hasn't run - a misconfigured pipeline), means this middleware
+        // cannot determine which policy governs. A security gate that can't
+        // identify the request must fail closed, never guess a permissive
+        // default.
+        $routeName = $route?->getName();
+        if ($routeName === null) {
+            return $this->deny();
+        }
+
+        [$routeType, $routeArg] = str_contains($routeName, ':')
+            ? explode(':', $routeName, 2)
+            : [$routeName, null];
+
+        $required = match ($routeType) {
+            'process' => $this->policy->requiredRoleForProcessAction(
+                $request->getQueryParams()['action'] ?? null,
+                $request->getQueryParams()['dbTable'] ?? null,
+            ),
+            'file' => $this->policy->requiredRoleForFile((string)$routeArg),
+            'output' => $this->policy->requiredRoleForOutputSection(
+                (string)($request->getQueryParams()['section'] ?? '')
+            ),
+            default => $this->policy->requiredRoleFor(
+                (string)($request->getQueryParams()['section'] ?? 'default'),
+                $request->getQueryParams()['go'] ?? null,
+                $request->getQueryParams()['action'] ?? null,
+            ),
+        };
+
+        if ($required === null || !$identity->role->satisfies($required)) {
+            return $this->deny();
+        }
+
+        return $handler->handle($request);
+    }
+
+    private function deny(): ResponseInterface
+    {
+        $response = (new ResponseFactory())->createResponse(403);
+        $response->getBody()->write('Forbidden');
+        return $response;
+    }
+}
+```
+
+- [ ] **Step 2: Fix the pipeline wiring and every route registration in `src/Kernel/app.php`**
+
+Replace the whole file:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use DI\Bridge\Slim\Bridge;
+use Slim\App;
+
+/**
+ * Builds the Slim app. Does NOT run it - callers (index.php, tests) decide
+ * whether to ->run() against real superglobals or ->handle() a constructed
+ * PSR-7 request.
+ */
+function buildApp(): App
+{
+    $container = require __DIR__ . '/container.php';
+    $app = Bridge::create($container);
+
+    // Middleware add() order is LIFO for the request phase (last add() =
+    // outermost = runs first). Desired execution order: Session ->
+    // Authentication -> Slim's own routing -> Authorization -> route
+    // handler. AuthorizationMiddleware reads the MATCHED route's name (set
+    // via ->setName() on every route below) to determine which policy
+    // entry governs, so Slim's routing must already have run by the time
+    // it executes - hence addRoutingMiddleware() sits between the add()
+    // calls for Authorization and Authentication here (Task 8a fix).
+    $app->add(new \Bcoem\Kernel\Middleware\AuthorizationMiddleware(
+        \Bcoem\Security\AccessPolicy::fromFile(__DIR__ . '/../../config/access_policy.php')
+    ));
+    $app->addRoutingMiddleware();
+    $app->add(new \Bcoem\Kernel\Middleware\AuthenticationMiddleware());
+    $app->add(new \Bcoem\Kernel\Middleware\SessionMiddleware());
+
+    $app->get('/__kernel_hello', function ($request, $response) {
+        $response->getBody()->write('ok');
+        return $response;
+    })->setName('section');
+
+    // Register one route per side door, derived directly from
+    // config/access_policy.php's file:* keys - that map is the single
+    // source of truth for exactly which side doors exist (Task 3/3a's
+    // whole point), so the route list is derived from it rather than
+    // hand-maintained here, where it could silently drift out of sync.
+    $policyMap = require __DIR__ . '/../../config/access_policy.php';
+    $fileRoutes = [];
+    foreach (array_keys($policyMap) as $key) {
+        if (str_starts_with($key, 'file:')) {
+            $fileRoutes[] = substr($key, strlen('file:'));
+        }
+    }
+
+    foreach ($fileRoutes as $file) {
+        $webPath = '/' . $file;
+        $app->map(['GET', 'POST'], $webPath, new \Bcoem\Legacy\LegacyFileHandler($file))
+            ->setName('file:' . $file);
+    }
+
+    return $app;
+}
+```
+
+The per-route `$routeAttr` closure from Task 8 is gone entirely — naming the route replaces it, and `->setName()` is visible to `AuthorizationMiddleware` regardless of the outer/inner middleware split that broke the attribute approach.
+
+- [ ] **Step 3: Rewrite `AuthorizationMiddlewareTest` to dispatch through a real Slim app**
+
+**This is the important part.** The original tests passed because they never exercised real routing — that's exactly how this bug hid for four tasks. The rewritten tests build a small real app (same `Bridge::create()` + middleware-order pattern as production `app.php`) and dispatch real PSR-7 requests through it, so a regression in the pipeline ordering itself would be caught, not just a regression in the policy-lookup logic in isolation.
+
+`tests/Unit/Kernel/Middleware/AuthorizationMiddlewareTest.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+use Bcoem\Kernel\Middleware\AuthorizationMiddleware;
+use Bcoem\Security\AccessPolicy;
+use Bcoem\Security\Identity;
+use DI\Bridge\Slim\Bridge;
+use Slim\App;
+use Slim\Psr7\Factory\ServerRequestFactory;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Http\Message\ResponseInterface;
+
+class AuthorizationMiddlewareTest extends TestCase
+{
+    private function policy(): AccessPolicy
+    {
+        return AccessPolicy::fromFile(ROOT . 'config/access_policy.php');
+    }
+
+    /**
+     * Builds a real Slim app wired with the exact same middleware order as
+     * production src/Kernel/app.php (Authorization -> routing ->
+     * Authentication-stand-in -> handler), so these tests exercise the real
+     * pipeline ordering, not a hand-constructed request/attribute pair.
+     */
+    private function buildTestApp(Identity $identity, string $routeName): App
+    {
+        $app = Bridge::create(new \DI\Container());
+
+        $app->add(new AuthorizationMiddleware($this->policy()));
+        $app->addRoutingMiddleware();
+        $app->add(function (ServerRequestInterface $request, RequestHandlerInterface $handler) use ($identity): ResponseInterface {
+            return $handler->handle($request->withAttribute('identity', $identity));
+        });
+
+        $handler = function ($request, $response) {
+            $response->getBody()->write('ok');
+            return $response;
+        };
+        $app->map(['GET', 'POST'], '/test-route', $handler)->setName($routeName);
+
+        return $app;
+    }
+
+    private function get(App $app, string $uri): ResponseInterface
+    {
+        parse_str((string)parse_url($uri, PHP_URL_QUERY), $query);
+        $request = (new ServerRequestFactory())->createServerRequest('GET', $uri)->withQueryParams($query);
+        return $app->handle($request);
+    }
+
+    public function test_anonymous_may_reach_a_public_section(): void
+    {
+        $app = $this->buildTestApp(Identity::fromSession([]), 'section');
+        $response = $this->get($app, '/test-route?section=contact');
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('ok', (string)$response->getBody());
+    }
+
+    public function test_anonymous_is_denied_the_admin_section(): void
+    {
+        $app = $this->buildTestApp(Identity::fromSession([]), 'section');
+        $response = $this->get($app, '/test-route?section=admin');
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function test_entrant_is_denied_a_super_admin_only_go(): void
+    {
+        $app = $this->buildTestApp(
+            Identity::fromSession(['loginUsername' => 'e@example.com', 'userLevel' => '3']),
+            'section'
+        );
+        $response = $this->get($app, '/test-route?section=admin&go=styles');
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function test_super_admin_may_reach_a_super_admin_only_go(): void
+    {
+        $app = $this->buildTestApp(
+            Identity::fromSession(['loginUsername' => 'a@example.com', 'userLevel' => '0']),
+            'section'
+        );
+        $response = $this->get($app, '/test-route?section=admin&go=styles');
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function test_undeclared_section_is_denied_fail_closed(): void
+    {
+        $app = $this->buildTestApp(
+            Identity::fromSession(['loginUsername' => 'a@example.com', 'userLevel' => '0']),
+            'section'
+        );
+        // Even a super-admin is denied - undeclared means denied, no exceptions.
+        $response = $this->get($app, '/test-route?section=brand-new-undeclared-section');
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function test_process_route_checks_process_action_via_query_params(): void
+    {
+        $app = $this->buildTestApp(Identity::fromSession([]), 'process');
+        $response = $this->get($app, '/test-route?action=login');
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function test_file_route_allows_when_the_files_declared_role_is_satisfied(): void
+    {
+        // qr.php is Role::Anonymous in the real policy map.
+        $app = $this->buildTestApp(Identity::fromSession([]), 'file:qr.php');
+        $response = $this->get($app, '/test-route');
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function test_file_route_denies_when_the_files_declared_role_is_not_satisfied(): void
+    {
+        // ajax/purge.ajax.php is Role::SuperAdmin in the real policy map.
+        $app = $this->buildTestApp(
+            Identity::fromSession(['loginUsername' => 'e@example.com', 'userLevel' => '3']),
+            'file:ajax/purge.ajax.php'
+        );
+        $response = $this->get($app, '/test-route');
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
+
+    public function test_missing_identity_attribute_denies_a_privileged_route(): void
+    {
+        $app = Bridge::create(new \DI\Container());
+        $app->add(new AuthorizationMiddleware($this->policy()));
+        $app->addRoutingMiddleware();
+        // Deliberately NOT adding the identity-attaching middleware -
+        // simulates a misconfigured pipeline.
+        $handler = function ($request, $response) {
+            $response->getBody()->write('ok');
+            return $response;
+        };
+        $app->get('/test-route', $handler)->setName('section');
+
+        $response = $this->get($app, '/test-route?section=admin');
+
+        $this->assertSame(403, $response->getStatusCode());
+    }
+}
+```
+
+- [ ] **Step 4: Run — this is the test that should have caught the original bug, so it matters that it actually exercises the fix**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit --filter AuthorizationMiddlewareTest
+```
+
+Expected: `OK (9 tests, ...)`. Then confirm the specific scenario that was broken now works, live, against the real built app (not the test double):
+
+```bash
+docker compose exec web php -r '
+require "vendor/autoload.php";
+require_once "src/Kernel/app.php";
+$app = buildApp();
+$request = (new \Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest("GET", "/ajax/purge.ajax.php");
+$response = $app->handle($request);
+echo "GET /ajax/purge.ajax.php (declared SuperAdmin, no identity attached) -> " . $response->getStatusCode() . "\n";
+'
+```
+
+Expected: `403` (before this fix, this printed `200` and would have gone on to execute the real, unauthenticated `ajax/purge.ajax.php` — a live authorization bypass on a SuperAdmin-only side door).
+
+- [ ] **Step 5: Run the full Unit suite**
+
+```bash
+docker compose exec web vendor/bin/phpunit --testsuite Unit
+```
+
+Expected: same or higher pass count than before (net new tests, zero regressions — `LegacyFileHandlerTest`/`LegacyProcessHandlerTest`/`LegacyPageHandlerTest` don't touch the Slim app at all, so they're unaffected by this change).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/Kernel/Middleware/AuthorizationMiddleware.php src/Kernel/app.php tests/Unit/Kernel/Middleware/AuthorizationMiddlewareTest.php
+git commit -m "Fix critical bug: AuthorizationMiddleware never saw route-level policy attributes (route naming + addRoutingMiddleware fix)"
+```
+
+---
+
+### Task 9: New front controller + `.htaccess` rewrite + PHPStan legacy-isolation rules
+
+**Files:**
+- Modify: `index.php` (replace with the ~10-line bootstrap; the CURRENT `index.php` content moves to `src/Legacy/` as the file `LegacyPageHandler` requires — see Step 1), `.htaccess`, `phpstan.neon`
+- Create: `legacy/index.php` (the old `index.php`'s full content, unchanged, relocated so the new thin `index.php` doesn't collide with it)
+
+**Interfaces:**
+- Produces: `GET /` and every previously-direct URL now resolves through the Slim app; static assets (css/js/images) are still served directly by Apache, unrouted.
+
+- [ ] **Step 1: Relocate the legacy front controller**
+
+```bash
+mkdir -p legacy
+git mv index.php legacy/index.php
+```
+
+Update `LegacyPageHandler` (Task 6) and any side-door handler that assumed `index.php` lived at `ROOT` to instead require `ROOT.'legacy/index.php'`. Grep for any other file that references `index.php` by relative path expecting it at root (e.g. `header("Location: ...index.php...")` calls are fine - those are URLs, not filesystem requires) - only filesystem `require`/`include` statements matter here; confirm none exist via:
+
+```bash
+grep -rn "require.*'index\.php'\|include.*'index\.php'" --include="*.php" . | grep -v "\.git\|legacy/index.php"
+```
+
+Expected: no matches (nothing else `include`s `index.php` as a file; it was only ever hit directly as a URL).
+
+- [ ] **Step 2: Write the new thin `index.php`**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/paths.php'; // legacy bootstrap constants (ROOT, LIB, etc.) - still needed by every bridged file
+
+$app = require __DIR__ . '/src/Kernel/app.php';
+$app->run();
+```
+
+Wait — `src/Kernel/app.php` currently `return`s a `function buildApp()` definition, not an app instance directly (Task 1). Adjust: change the last line of `src/Kernel/app.php` to call and return the built app for this direct-execution context, OR (cleaner) have `index.php` call `buildApp()` explicitly:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/paths.php';
+require_once __DIR__ . '/src/Kernel/app.php';
+
+buildApp()->run();
+```
+
+- [ ] **Step 3: Add the catch-all legacy GET route**
+
+In `src/Kernel/app.php`, alongside the side-door routes from Task 8:
+
+```php
+    $app->get('/index.php', new \Bcoem\Legacy\LegacyPageHandler())->setName('section');
+    $app->post('/includes/process.inc.php', new \Bcoem\Legacy\LegacyProcessHandler())->setName('process');
+    $app->get('/', new \Bcoem\Legacy\LegacyPageHandler())->setName('section');
+    $app->map(['GET', 'POST'], '/includes/output.inc.php', new \Bcoem\Legacy\LegacyFileHandler('includes/output.inc.php'))
+        ->setName('output');
+```
+
+**`includes/output.inc.php` needs its own registration here — a gap found while writing this task, not covered anywhere earlier.** Task 3a declared its `output:section:*` policy entries and `AuthorizationMiddleware` has always had an `'output'` match arm, but no prior task ever registered an actual Slim route for it (Task 8's derivation only covers `file:*` policy keys, and `output:section:*` is a different namespace — one dispatcher file gated per-*section*-query-param, not one route per file). Without this line, `includes/output.inc.php` — real, currently-used export/print/label/scoresheet functionality — would 404 once the `.htaccess` rewrite below routes everything through the front controller, since no registered route would match it at all. `LegacyFileHandler` (Task 8) is reused here rather than `LegacyPageHandler`, since `output.inc.php` is self-bootstrapping like the other side doors, not part of the `index.php` GET-section flow.
+
+(Task 8a replaced the old `routeType`/`routeFile` request-attribute approach with route naming — `AuthorizationMiddleware` now reads the matched route's name directly, which requires Slim's own routing to have already run by the time it executes; `app.php`'s middleware order already accounts for this. No route-level attribute-setting middleware is needed here anymore.)
+
+- [ ] **Step 4: Rewrite `.htaccess` for a single front controller with a static-file passthrough**
+
+**Do not use the standard `RewriteCond %{REQUEST_FILENAME} !-f` front-controller pattern here.** That pattern excludes any request matching a *real file on disk* from being routed — which is exactly wrong for this app: `qr.php`, `handle.php`, `ppv.php`, every `ajax/*.php`, and the other side doors wrapped in Task 8 are real files that must still funnel through the front controller (so `AuthorizationMiddleware` runs) rather than being served directly by Apache/mod_php as they are today. Excluding by *directory* (the genuinely static asset trees) instead of by file-existence gets this right:
+
+```apache
+RewriteEngine on
+RewriteCond %{HTTPS} off
+RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+# Only these directories are truly static (css/js/images/user uploads) -
+# everything else, including every *.php file that exists on disk today
+# (qr.php, handle.php, ajax/*.php, admin/*.php, ...), must still funnel
+# through the front controller so AuthorizationMiddleware runs first.
+RewriteCond %{REQUEST_URI} !^/(css|js_includes|js_source|images|user_images|user_docs|user_temp)/ [NC]
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+RewriteRule ^.*user_docs/.*\.pdf$ - [F,NC,L]
+```
+
+- [ ] **Step 4a: Verify the fix — a wrapped side door must NOT be reachable as a bare file hit anymore**
+
+```bash
+# Static asset: served directly, unrouted (200, real file content)
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/css/common.min.css
+# Wrapped side door: now funnels through index.php -> Slim -> LegacyFileHandler,
+# NOT served as a bare file. Confirm by checking it still works AND that the
+# access-policy gate now actually applies (Task 10 Step 2 checks the gate
+# itself; this step just confirms routing, not yet authorization).
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/qr.php
+```
+
+Both should return `200`; the meaningful difference (proven in Task 10) is that the second request now passes through `AuthorizationMiddleware` on its way there, where before Task 9 it did not.
+
+Keep the SEF path-segment behavior by pre-parsing it: since everything now funnels through `index.php` regardless of path, add the old SEF-to-query-param translation as the very first thing `buildApp()`'s route resolution does, OR (simpler, since Slim can route on the path directly) register explicit Slim routes matching the old SEF shapes:
+
+```php
+    $app->get('/{section}[/{go}[/{action}[/{id}]]]', new \Bcoem\Legacy\LegacyPageHandler())
+        ->setName('section')
+        ->add(function ($request, $handler) {
+            $args = $request->getAttribute('__route__')?->getArguments() ?? [];
+            foreach (['section', 'go', 'action', 'id'] as $key) {
+                if (isset($args[$key])) {
+                    $_GET[$key] = $args[$key];
+                    $request = $request->withQueryParams([...$request->getQueryParams(), $key => $args[$key]]);
+                }
+            }
+            return $handler->handle($request);
+        });
+```
+
+This route-level middleware still runs (it's attached to this specific route, executing once Slim dispatches to it) and is still needed to translate SEF path segments into `$_GET`/query params `LegacyPageHandler` and downstream legacy code expect — that part is unrelated to the Task 8a bug. Only the `routeType` attribute-setting is gone, replaced by `->setName('section')` at registration.
+
+Place this route registration **after** the explicit `/index.php`, `/includes/process.inc.php`, and side-door routes (Slim matches routes in registration order for overlapping patterns) so those explicit paths are never swallowed by the generic SEF pattern.
+
+- [ ] **Step 5: Add the two PHPStan custom rules from the design spec's Section 2 contract**
+
+`phpstan.neon` already has a `parameters:` block (`level: 0`, `tmpDir`, `reportUnmatchedIgnoredErrors: false`, `paths` — extended with `src` in Task 1 Step 6a — and `excludePaths`). **Do not add a second `parameters:` key** — a NEON/YAML file with two top-level `parameters:` blocks either errors or silently drops one, depending on the parser. `rules:` is a distinct top-level key that doesn't exist yet in this file, so it's safe to append as a new sibling to the existing `parameters:` block:
+
+```yaml
+rules:
+    - Bcoem\PHPStan\NoMysqliOutsideConnectionRule
+    - Bcoem\PHPStan\NoLegacyReferenceOutsideLegacyRule
+```
+
+Rule classes go under a new `src/PHPStan/`.
+
+These two rule classes have no implementation yet (they gate the *Connection* class and Domain-layer purity, both Phase 3 concerns) — register them now as a placeholder-free stub pair that currently always passes (e.g. `return []` from `processNode()`), so the config wiring is proven correct before Phase 3 needs the rules to actually do something. Do not skip writing the classes entirely — an empty rule that's registered and tested to run without error is meaningfully different from "TODO, add later," since it proves the PHPStan custom-rule wiring itself works.
+
+```php
+<?php
+// src/PHPStan/NoMysqliOutsideConnectionRule.php
+declare(strict_types=1);
+
+namespace Bcoem\PHPStan;
+
+use PhpParser\Node;
+use PHPStan\Analyser\Scope;
+use PHPStan\Rules\Rule;
+
+/** Phase 3 will make this actually flag mysqli_* calls outside src/Database/Connection.php. */
+final class NoMysqliOutsideConnectionRule implements Rule
+{
+    public function getNodeType(): string
+    {
+        return Node::class;
+    }
+
+    public function processNode(Node $node, Scope $scope): array
+    {
+        return [];
+    }
+}
+```
+
+(Same shape for `NoLegacyReferenceOutsideLegacyRule.php`.)
+
+- [ ] **Step 6: Run PHPStan and the full test suite**
+
+```bash
+docker compose exec web vendor/bin/phpstan analyse
+docker compose exec -e BCOEM_DB_HOST=db web vendor/bin/phpunit
+```
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add index.php legacy/index.php .htaccess phpstan.neon src/PHPStan/ src/Kernel/app.php
+git commit -m "Route everything through the Slim front controller; add PHPStan legacy-isolation rule stubs"
+```
+
+---
+
+### Task 10: The equivalence gate
+
+**Files:**
+- None expected — this task only runs and fixes regressions surfaced by Tasks 1-9's changes.
+
+**Interfaces:**
+- Produces: proof that the shell changed nothing observable.
+
+- [ ] **Step 1: Full local verification, twice for idempotency**
+
+```bash
+docker compose down -v && docker compose up -d --build
+docker compose exec web vendor/bin/phpstan analyse
+docker compose exec -e BCOEM_DB_HOST=db web vendor/bin/phpunit
+cd e2e && npx playwright test
+cd e2e && npx playwright test
+```
+
+Expected: PHPStan clean; PHPUnit `OK` with zero failures at whatever the current total is (this has grown task-by-task through Tasks 1-9 - e.g. it was 387 right after Task 9 - don't compare against the stale pre-Phase-2 figure of 346; compare against a fresh run's own first-pass count for the idempotency check, and confirm zero *failures*, which is the real gate); 18+ Playwright tests, both runs green (the Phase 0/1 count was 18 - Phase 2 added no new specs, so this one number should be stable unless a task along the way added one).
+
+- [ ] **Step 2: Manual smoke check of a representative sample from each route category**
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/                                  # front controller root
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/index.php?section=contact          # legacy GET
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/qr.php                              # side door
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/css/common.min.css                  # static asset, unrouted
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/index.php?section=admin             # anonymous admin access
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/admin/dropoff                       # SEF-style anonymous admin access
+```
+
+Expected: `200, 200, 200, 200, 403, 403`. **This differs from an earlier draft of this step**, which expected the old `302` redirect for anonymous admin access (`?msg=0`) — that assumed `AuthorizationMiddleware` and the legacy page's own inline check would both run, "redundantly." That's not what actually happens post-Task-8a/9: `AuthorizationMiddleware` runs first, as a global gate, and returns 403 directly without ever invoking the route handler — the legacy page's own inline `msg=0` redirect check never executes at all for a denied request, since the legacy code is never reached. A 403 (not a redirect) is the correct, verified behavior (Task 9's review independently confirmed this exact scenario).
+
+- [ ] **Step 3: Commit if any fixes were needed in Step 1-2**
+
+```bash
+git add -A
+git commit -m "Fix regressions surfaced by the Phase 2 equivalence gate"
+```
+
+**Do not push to `origin` or trigger CI as part of this task.** Pushing and verifying CI happens once, at the very end of the whole plan, alongside the final whole-branch review and the `finishing-a-development-branch` decision — not mid-plan after each task.
+
+---
+
+## Task Group B — Operability (error handling, observability, deployment)
+
+These are lower-risk than Group A (standard patterns, not novel to this codebase) and less detailed here — write the granular TDD steps at execution time following the same discipline as Group A, using this section as the design brief.
+
+### Task 11: Error handling overhaul
+
+- **`mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT)`** as one line in `src/Kernel/container.php` or a new `src/Kernel/bootstrap_errors.php` required by the new `index.php` before `paths.php` — PHP 8.2 already defaults to this mode, so this line is about making the *intent* explicit and future-proof (a PHP version downgrade or ini override shouldn't silently reopen the `or die()` behavior), not changing current runtime behavior.
+- **Slim's built-in `ErrorMiddleware`**, customized: production mode renders a branded page with a short error-reference ID (`bin2hex(random_bytes(4))`), logs full trace + request context under that ID via Monolog; debug mode (env `APP_DEBUG=1`) shows the full trace. AJAX/JSON requests (detect via `Accept` header or the `file:ajax/*` route type already tagged by `AuthorizationMiddleware`) get `{error, reference_id}` JSON instead of an HTML page.
+- **Monolog** (`monolog/monolog`, add to composer): channels `app`, `security` (every `AuthorizationMiddleware` 403, every login success/failure), `legacy` (kernel `set_error_handler` routes legacy warnings/notices here — a live inventory of latent defects, not build-breaking). Constructor-injected via the PHP-DI container wherever new code needs it; legacy code keeps using PHP's native warning/notice mechanism, captured by the handler rather than modified at each of its hundreds of call sites.
+- **Retire the 13 remaining `or die(mysqli_error())` instances** in `includes/db/admin_common.db.php` and `scores_bestbrewer.db.php` — with `mysqli_report` throwing exceptions on failure, these `or die()` clauses are already unreachable dead code (the exception fires before `mysqli_query()` can return `false`); delete them as a pure cleanup once `ErrorMiddleware` is confirmed to catch the resulting `mysqli_sql_exception` cleanly (write one Integration test that forces a real mysqli error — e.g. query a nonexistent table — and asserts the app returns a generic 500 rather than a raw stack trace or blank page).
+
+**Definition of done:** a forced mysqli error returns a clean, branded 500 (or JSON envelope for AJAX routes) with a reference ID, never a raw `mysqli_error()` string in the response body — this closes P2-SEC-007 (info disclosure) as a side effect.
+
+### Task 12: OpenTelemetry
+
+- `TracingMiddleware`, outermost in the pipeline (added last so it's outermost per Slim's reverse-registration order — i.e., register it *after* Session/Authentication/Authorization in Task 5's list, since `add()` order is LIFO for execution): opens a root span per request tagged with route/section, resolved `Identity` (username + role, never the password), final status code, and any exception caught by `ErrorMiddleware`.
+- `docker-compose.yml` gains an `otel-collector` service plus Jaeger (or Grafana Tempo) for local trace viewing; the `web` Dockerfile adds the OpenTelemetry PHP auto-instrumentation extension, which — as a side benefit — also captures spans for legacy `mysqli_query()` calls and Slim's own routing with zero code changes in `sections/`/`admin/`/`lib/`.
+- Monolog gets an OTel processor/handler so log lines carry the active trace ID, letting a single request's logs and trace be correlated in the Jaeger/Grafana UI.
+- Shared-hosting path: the same env-driven config (`OTEL_SDK_DISABLED=true` or the extension simply absent from that deployment's PHP build) makes every one of these bindings a no-op — verified by the Task 13 shared-hosting smoke job, not by anything here.
+
+**Definition of done:** a request through the Docker stack produces one trace in the local Jaeger UI, spanning from `TracingMiddleware`'s root span down through at least one legacy `mysqli_query()` child span, with the acting user's role visible on the root span's attributes.
+
+### Task 13: Deployment pipeline groundwork
+
+- **Phinx** (`robmorgan/phinx`, add to composer): first migration creates `audit_log(id, user_id, action, entity, entity_id, before_json, after_json, ip, created_at)` (additive-only, per the design spec's forward-only rule during the strangler period) plus whatever indexes Phase 3's repositories will need on high-churn tables (`baseline_brewing.brewBrewerID`, `baseline_judging_scores.bid`, at minimum — confirm against actual query patterns in `lib/common.lib.php`/`includes/db/*.db.php` before finalizing the index list, don't guess). Docker: the `web` entrypoint runs `vendor/bin/phinx migrate` before Apache starts (modify `docker/*.sh` entrypoint or the Dockerfile's `CMD`). Shared hosting: an auth-gated browser-triggered runner mirroring today's `update.php` pattern, restricted to `Role::SuperAdmin` in the policy map (`file:phinx-migrate.php` or similar new thin wrapper).
+- **Env-var config shim**: `site/config.php` gains `getenv('DB_HOST') ?: <existing hardcoded default>` fallbacks for every deploy-varying value (DB creds, `APP_DEBUG`, OTel endpoint, base URL) — additive fallback chains, so shared-hosting installs that still hand-edit `config.php` are unaffected; Docker's `docker-compose.yml` passes these as real environment variables instead of relying on the bind-mounted `docker/config.php` override Phase 0 used.
+- **CI build/package steps**: extend `.github/workflows/ci.yml` with a `build` job (runs only on tags/releases, not every PR) producing two artifacts — a Docker image (`docker build` + push to GHCR, tagged with the git SHA and, on a tag push, the version) and a zip/tarball (`composer install --no-dev --optimize-autoloader`, excluding `tests/`, `e2e/`, dev-only config) attached to the GitHub Release. Add a `shared-hosting-smoke` CI job that runs the zip artifact under plain `php -S` (no OTel extension) and hits a health-check URL, proving the no-op observability path actually no-ops rather than fatal-erroring on a missing extension.
+
+**Definition of done:** a tagged push produces both artifacts in GitHub Actions, and the shared-hosting smoke job passes without the OTel extension present.
+
+---
+
+## Self-review notes (already applied)
+
+- **Spec coverage:** design spec Section 1 (strangler shell, middleware order, legacy bridge) → Tasks 1, 5, 6, 7, 8, 9. Section 1's central-authorization goal (success criterion 1) → Tasks 2, 3, 3a, 4 — the actual centerpiece, given full bite-sized TDD treatment. Section 2 (directory layout, PHPStan rules, throwaway `Legacy/`) → Tasks 1, 6, 9. Section 4 (error handling/observability) → Task 11-12 (lighter detail, explicitly by design — see the Group B preamble). Section 6 (deployment pipeline) → Task 13 (lighter detail). The equivalence gate the spec calls out explicitly ("the suite must pass identically before and after the Slim shell lands") → Task 10, plus incremental checks in Tasks 6 and 8.
+- **Known judgment calls:** (a) the legacy bridge does NOT attempt to convert `header()`/`exit()`-calling legacy scripts into clean PSR-7 responses — documented as a deliberate architecture decision in the plan's own **Architecture** section, not a gap; the alternative (intercepting `header()`) isn't reliably possible in userland PHP. (b) `config/access_policy.php`'s public-page (`section:*`) entries are split into "confirmed" (admin dispatch, account pages, ajax, side doors — all read directly from source in the 2026-07-19 route inventory) and "VERIFY" (public pages whose *individual* `sections/*.sec.php` or `index.pub.php` inline block wasn't read line-by-line during planning) — Task 3a is a mandatory, not optional, closeout of every VERIFY marker before this phase is considered shippable; this is the honest alternative to fabricating unverified role assignments in a security-critical policy map. (c) Task Group B is intentionally lower-detail than Group A because it's operationally standard (Monolog, Phinx, OTel are well-trodden integration patterns) and lower-risk than the authorization core, which gets the full TDD treatment Group A represents.
+- **Type consistency:** `Role`, `Identity`, `AccessPolicy` signatures are used identically across Tasks 2-9 (`requiredRoleFor`, `requiredRoleForProcessAction`, `requiredRoleForFile`, `requiredRoleForOutputSection` — all four consumed by `AuthorizationMiddleware` in Task 4, matching the `AccessPolicy` class defined in Task 3).
