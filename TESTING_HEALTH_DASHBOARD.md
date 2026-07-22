@@ -10,13 +10,13 @@
 | Metric | Value | Trend | Status |
 |--------|-------|-------|--------|
 | **Total Test Files** | 95 (87 PHP: 57 Unit + 24 Integration + 6 Approval [5 test classes + 1 shared helper], 8 TS/E2E) | ↑ Phase 3.7 Registration additions | ✓ |
-| **Total Assertions** | 1014 Unit + 488 Integration + 102 Approval = 1604 | ↑ from 950+ — Registration domain added ~470 Unit + ~217 Integration assertions | ✓ |
+| **Total Assertions** | 1014 Unit + 488 Integration + 102 Approval = 1604 | ↑ from 943 Unit + 271 Integration + 102 Approval (per the prior version of this doc, whose Tier-2 detail row's 271 figure was internally consistent, unlike its mislabeled 577-Unit figure) — real observed deltas this session: Unit 943→1014 (+71), Integration 271→488 (+217) | ✓ |
 | **CI Pass Rate (Last 30 runs)** | Not reverified this session — check GitHub Actions directly | — | ⚠ |
 | **Average CI Duration** | Not reverified this session for CI. Locally this session: Unit ~3.4s, Integration ~1.3s, E2E (full 34-test suite) ~6.0m | — | ⚠ |
 | **Flaky Tests** | 1 known — `RegistrationContainerWiringTest::test_registration_service_resolves` (order-dependent `$GLOBALS['connection']` bootstrap issue in `container.php` when run inside the full Integration suite; passes in isolation). Pre-existing since Task 8/9, confirmed via `git stash` in Task 9, reconfirmed present in this session's runs. | ⚠ Not new | ⚠ |
 | **Code Coverage** | Not tracked | ← TODO | ⚠ |
 | **SQLi Vulnerabilities** | 173/189 fixed (stale figure, not reverified this session) | — | ⚠ |
-| **PHPStan Level** | **0** (`phpstan.neon`), 129 files analysed, **0 errors** — verified this session | — | ⚠ |
+| **PHPStan Level** | **0**, not 8 (see `phpstan.neon`) — a known, deliberate policy gap flagged in `Docs/PHASE_3_TRUST_AUDIT.md`, still not decided. This session reconfirmed level 0 is clean (129 files, 0 errors) but did not resolve or revisit the underlying policy question. | — | ⚠ |
 
 ---
 
@@ -29,11 +29,11 @@
 | Check | Pass | Notes |
 |-------|------|-------|
 | All unit tests pass | ✓ | 57 files, 616 tests, 1014 assertions — real run 2026-07-22: `OK, but there were issues!` (0 failures, 0 errors) |
-| PHPStan clean | ✓ | Configured at **level 0** (`phpstan.neon`) — `analyse --memory-limit=1G` reran clean this session: 129 files, **0 errors** |
+| PHPStan clean | ✓ | Configured at **level 0**, not level 8 as would be ideal — a known, deliberate policy gap flagged in `Docs/PHASE_3_TRUST_AUDIT.md`, not yet decided. `analyse --memory-limit=1G` reran clean this session: 129 files, **0 errors** — but that only reconfirms level 0 is clean, it doesn't touch the open question of whether to raise the level. |
 | Deterministic (no flakes) | ✓ | No I/O, no timing deps |
 | Fast execution | ✓ | ~3.4s on a warm local machine this session; CI runtime not reverified |
 | No external deps | ✓ | Mocks all I/O |
-| Known baseline warnings | ⚠ | 1 warning (HTMLPurifier `DefinitionCache/Serializer` dir missing — cosmetic, triggered 8 times by Registration-domain tests that instantiate the purifier), 5 deprecations, 5 skipped. No failures, no errors. |
+| Known baseline warnings | ⚠ | 1 distinct warning (HTMLPurifier `DefinitionCache/Serializer` dir missing — cosmetic); PHPUnit's own summary is "8 tests triggered 1 warning," i.e. 8 distinct Registration-domain tests instantiate the purifier and each hits it 3 times (24 invocations total, 1 root cause). 5 deprecations, 5 skipped. No failures, no errors. |
 
 **Coverage:**
 - ✓ Domain value objects (Entry, EntryId, BrewerId, StyleNumber, BrewerInfo)
@@ -225,7 +225,7 @@
 | **Phase 3.2** | 2026-07-21 | 2026-07-21 | Unit + Integration (Judging) | ✓ Landed, but its HTTP layer (controller wiring, routes) was never actually connected until a same-day follow-up fix — see incidents below |
 | **Phase 3.3** | 2026-07-21 | 2026-07-21 | Unit + Integration (AdminPreferences) | ✓ Domain layer landed; its own DB migration built the wrong tables until fixed same-day; no controller/routes exist yet, not reachable via HTTP |
 | **Phase 3.4** | 2026-07-21 | 2026-07-21 | Unit + Integration (Export) | ✓ Landed; PDF format still falls back to CSV; `comp_id` filter references a column that doesn't exist in this schema (open) |
-| **Phase 3.7** | 2026-07-22 | 2026-07-22 | Unit + Integration + E2E (Registration) | ✓ Complete — entrant self-registration with full legacy field-processing fidelity (name, address, club allowlist, judge/steward location preference) and a dual-path legacy-vs-modern equivalence proof at both the Integration and E2E level. This task (Task 12) is the full verification pass: 616 Unit tests / 1014 assertions (0 failures/errors), 144 Integration tests / 488 assertions (1 pre-existing order-dependent error, unrelated), PHPStan clean (129 files, 0 errors), and 2/2 Registration E2E specs passing. Running the *full* E2E suite for the first time (infra was fixed earlier this session) also surfaced pre-existing, previously-unobservable failures in Entry/Export/Judging E2E specs — not part of this phase, documented in Tier 4 above for follow-up. |
+| **Phase 3.7** | 2026-07-22 | 2026-07-22 | Unit + Integration + E2E (Registration) | ✓ Complete **for entrant self-registration (`go=entrant`)** with full legacy field-processing fidelity (name, address, club allowlist, judge/steward location preference) and a dual-path legacy-vs-modern equivalence proof at both the Integration and E2E level. **Explicitly deferred, not built:** admin-driven registration (`filter=admin`), `go=judge`/`go=steward` dedicated entry points, already-logged-in re-registration, confirmation email (`sendPHPMailerMessage`) wiring (flagged in Task 7, unimplemented), `brewerClubsOther` freeform "Other" club path, and non-`en`-language name parsing (structurally supported by Task 7's `processName()` but only the `en` branch has test coverage) — see the plan's own "Deferred / explicitly out of scope" section. This task (Task 12) is the full verification pass: 616 Unit tests / 1014 assertions (0 failures/errors), 144 Integration tests / 488 assertions (1 pre-existing order-dependent error, unrelated), PHPStan clean at level 0 (129 files, 0 errors — level-8 policy gap still open, see above), and 2/2 Registration E2E specs passing. Running the *full* E2E suite for the first time (infra was fixed earlier this session) also surfaced pre-existing, previously-unobservable failures in Entry/Export/Judging E2E specs — not part of this phase, documented in Tier 4 above for follow-up. |
 
 **Correction:** the previous version of this table showed 3.2-3.4 as "TBD/Planned." All three had already landed (with real, previously-undiscovered bugs of their own) by the time this correction was made.
 
