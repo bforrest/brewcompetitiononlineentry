@@ -1,25 +1,20 @@
 server:
-  http_listen_port: 4318
-  grpc_listen_port: 4317
+  http_listen_port: 3200
+  grpc_listen_port: 9095
 
-receivers:
-  otlp:
-    protocols:
-      http:
-        endpoint: 0.0.0.0:4318
-      grpc:
-        endpoint: 0.0.0.0:4317
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
 
-processors:
-  batch:
-
-exporters:
-  file:
-    path: /var/tempo/traces
-
-service:
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [file]
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks

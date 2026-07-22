@@ -49,14 +49,16 @@ services:
   # http://tempo:4318 (same OTLP/http/protobuf as before, just swapped endpoints).
 
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:3.0.2
     command: ["-config.file=/etc/tempo.yml"]
     ports:
-      - "4318:4318"   # OTLP HTTP receiver
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
     volumes:
-      - ./docker/tempo.yml:/etc/tempo.yml:ro
-      - tempo_data:/var/tempo
-
+    - ./docker/tempo.yml:/etc/tempo.yml:ro
+    - tempo_data:/var/tempo
+    
   prometheus:
     image: prom/prometheus:latest
     command:
