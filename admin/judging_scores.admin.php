@@ -28,7 +28,7 @@ $eval_db_table = FALSE;
 if ($dbTable == "default") {
     if ($_SESSION['prefsEval'] == 1) {
         $eval_db_table = TRUE;
-        $evals = eval_exits("default","default",$dbTable);
+        $evals = eval_exits($dbTable,"default","default");
     }
     $style_set = $_SESSION['prefsStyleSet'];
 }
@@ -41,7 +41,7 @@ else {
 
     if (check_setup($prefix."evaluation_".$archive_suffix,$database)) {
         $eval_db_table = TRUE;
-        $evals = eval_exits("default","default",$prefix."evaluation_".$archive_suffix);
+        $evals = eval_exits($prefix."evaluation_".$archive_suffix,"default","default");
     }
 
 } 

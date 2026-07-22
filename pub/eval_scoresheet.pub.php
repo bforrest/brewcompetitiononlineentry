@@ -211,7 +211,7 @@ if ($action == "edit") {
 
   if ($totalRows_eval > 0) {
 
-    $evals = eval_exits($row_eval['eid'],"default",$dbTable);
+    $evals = eval_exits($dbTable,$row_eval['eid'],"default");
     $evals_json = json_encode($evals);
  
     $eval_score = $row_eval['evalAromaScore'] + $row_eval['evalAppearanceScore'] + $row_eval['evalFlavorScore'] + $row_eval['evalMouthfeelScore'] + $row_eval['evalOverallScore']; 
@@ -244,13 +244,13 @@ if (!empty($query_style)) {
 }
 
 if ($totalRows_entry_info > 0) {
-  $judge_scores = eval_exits($row_entry_info['id'],"judge_scores",$dbTable);
+  $judge_scores = eval_exits($dbTable,$row_entry_info['id'],"judge_scores");
   if ($action == "add") $flight_count_info = flight_count_info($id,0);
   if ($action == "edit") $flight_count_info = flight_count_info($eid,0);
 
   if (!empty($judge_scores)) {
     $scored_previously = TRUE;
-    $consensus_scores = eval_exits($row_entry_info['id'],"consensus_scores",$dbTable);
+    $consensus_scores = eval_exits($dbTable,$row_entry_info['id'],"consensus_scores");
     if (count(array_unique($consensus_scores)) === 1) $consensus_match = TRUE;
     $other_judge_scores .= sprintf("%s: ".rtrim(display_array_content($judge_scores,2),", "),$label_judge_score);
     $other_judge_consensus_scores .= sprintf("%s: ".rtrim(display_array_content($consensus_scores,2),", "),$label_judge_consensus_scores);

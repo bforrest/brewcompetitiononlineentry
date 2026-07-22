@@ -175,9 +175,18 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
     // blocks after the catch-all, even /__kernel_hello 500'd). Found while
     // wiring Phase 3.2's Judging routes; moved this block and Export's
     // above the catch-all to fix it for real, not just for the new routes.
-    $entryController = new \Bcoem\Kernel\Controller\EntryController(
-        $container->get(\Bcoem\Domain\Entry\Service\EntryService::class)
-    );
+    // Lazily constructed on first use, not at buildApp()-time: Connection::class
+    // (and everything built on it - EntryService, ExportService, etc.) throws
+    // if $GLOBALS['connection'] isn't a real mysqli, which no route other than
+    // one of these actually needs. Eagerly resolving these controllers here
+    // used to mean EVERY route - even the DB-free /__kernel_hello smoke-test
+    // route above - required a live DB connection just to build the app.
+    $getEntryController = function () use ($container): \Bcoem\Kernel\Controller\EntryController {
+        static $controller;
+        return $controller ??= new \Bcoem\Kernel\Controller\EntryController(
+            $container->get(\Bcoem\Domain\Entry\Service\EntryService::class)
+        );
+    };
 
     // DI\Bridge\Slim\Bridge's ControllerInvoker resolves callable parameters
     // BY NAME: it builds ['request' => ..., 'response' => ...] + the route's
@@ -188,38 +197,41 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
     // is simply never bound -> NotEnoughParametersException on every real
     // request. Found the same way as the routing-order bug above: these
     // closures had never actually been dispatched before.
-    $app->get('/entries', fn ($request, $response) => $entryController->getCreateForm($request, $response))
+    $app->get('/entries', fn ($request, $response) => $getEntryController()->getCreateForm($request, $response))
         ->setName('entry.create.form');
-    $app->get('/entries/{id}/edit', fn ($request, $response, $id) => $entryController->getEditForm($request, $response, ['id' => $id]))
+    $app->get('/entries/{id}/edit', fn ($request, $response, $id) => $getEntryController()->getEditForm($request, $response, ['id' => $id]))
         ->setName('entry.edit.form');
-    $app->post('/entries', fn ($request, $response) => $entryController->postCreate($request, $response))
+    $app->post('/entries', fn ($request, $response) => $getEntryController()->postCreate($request, $response))
         ->setName('entry.create');
-    $app->post('/entries/{id}', fn ($request, $response, $id) => $entryController->postUpdate($request, $response, ['id' => $id]))
+    $app->post('/entries/{id}', fn ($request, $response, $id) => $getEntryController()->postUpdate($request, $response, ['id' => $id]))
         ->setName('entry.update');
-    $app->delete('/entries/{id}', fn ($request, $response, $id) => $entryController->postDelete($request, $response, ['id' => $id]))
+    $app->delete('/entries/{id}', fn ($request, $response, $id) => $getEntryController()->postDelete($request, $response, ['id' => $id]))
         ->setName('entry.delete');
-    $app->get('/entries/my', fn ($request, $response) => $entryController->listEntries($request, $response))
+    $app->get('/entries/my', fn ($request, $response) => $getEntryController()->listEntries($request, $response))
         ->setName('entry.list');
 
     // Phase 3.4: Export workflow routes
-    $exportController = new \Bcoem\Kernel\Controller\ExportController(
-        $container->get(\Bcoem\Domain\Export\Service\ExportService::class),
-        $container->get(\Bcoem\Domain\Export\Service\ExportFormatterService::class)
-    );
+    $getExportController = function () use ($container): \Bcoem\Kernel\Controller\ExportController {
+        static $controller;
+        return $controller ??= new \Bcoem\Kernel\Controller\ExportController(
+            $container->get(\Bcoem\Domain\Export\Service\ExportService::class),
+            $container->get(\Bcoem\Domain\Export\Service\ExportFormatterService::class)
+        );
+    };
 
-    $app->get('/export', function ($request, $response) use ($exportController) {
+    $app->get('/export', function ($request, $response) use ($getExportController) {
         $user = $request->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
-        return $exportController->getExportForm($request, $response, $user);
+        return $getExportController()->getExportForm($request, $response, $user);
     })->setName('export.form');
 
-    $app->post('/export', function ($request, $response) use ($exportController) {
+    $app->post('/export', function ($request, $response) use ($getExportController) {
         $user = $request->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
-        return $exportController->postExport($request, $response, $user);
+        return $getExportController()->postExport($request, $response, $user);
     })->setName('export.download');
 
-    $app->get('/export/preview', function ($request, $response) use ($exportController) {
+    $app->get('/export/preview', function ($request, $response) use ($getExportController) {
         $user = $request->getAttribute('identity') ?? \Bcoem\Security\Identity::fromSession($_SESSION);
-        return $exportController->getExportPreview($request, $response, $user);
+        return $getExportController()->getExportPreview($request, $response, $user);
     })->setName('export.preview');
 
     // Phase 3.2: Judging workflow routes.
@@ -230,10 +242,11 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
     // (JudgingController never got a postCreateTable/postUpdateTable/locations
     // handler). Not registered here rather than inventing the handler logic;
     // those links currently 404.
-    $judgingController = new \Bcoem\Kernel\Controller\JudgingController(
-        $container->get(\Bcoem\Domain\Judging\Service\JudgingTableService::class),
-        $container->get(\Bcoem\Domain\Judging\Service\JudgingScoreService::class)
-    );
+    // A class-string:method callable (not a pre-built instance) - DI-Bridge's
+    // CallableResolver resolves JudgingController via the container lazily,
+    // only when one of these routes is actually dispatched, same reasoning
+    // as the Entry/Export lazy getters above.
+    $judgingController = \Bcoem\Kernel\Controller\JudgingController::class;
 
     // JSON API (not currently called by any template; kept under /api to avoid
     // colliding with the HTML pages at the same /judging/tables[/{id}] paths).

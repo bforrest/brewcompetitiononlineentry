@@ -2406,8 +2406,8 @@ function bjcp_rank($rank,$method) {
 		switch($rank) {
 			case "None":
 			case "":
-			case "Novice";
-			case "Non-BJCP";
+			case "Novice":
+			case "Non-BJCP":
 			case "Experienced":
 			$return = "Non-BJCP Judge"; 
 			break;
@@ -4637,7 +4637,7 @@ function user_submitted_eval($uid,$eid) {
 
 }
 
-function eval_exits($eid="default",$method="default",$dbTable) {
+function eval_exits($dbTable,$eid="default",$method="default") {
 
 	require(CONFIG.'config.php');
 	mysqli_select_db($connection,$database);
