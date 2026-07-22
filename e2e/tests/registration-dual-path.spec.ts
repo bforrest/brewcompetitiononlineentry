@@ -16,7 +16,7 @@ test.describe.serial('registration dual-path', () => {
     await expect(page.locator('a[href*="logout"], a:has-text("Log Out")').first()).toBeAttached();
 
     // Prove the account persists: log out, log back in with the same creds.
-    await page.goto('/index.php?section=login&action=logout');
+    await page.locator('a[href*="logout"], a:has-text("Log Out")').first().click();
     await login(page, creds.email, creds.password);
   });
 
@@ -42,7 +42,9 @@ test.describe.serial('registration dual-path', () => {
 
     await expect(page).toHaveURL(/\/entries\/my/);
 
-    await page.goto('/index.php?section=login&action=logout');
+    // Navigate to public pages to access logout link (not available in modern /entries app)
+    await page.goto('/index.php?section=list');
+    await page.locator('a[href*="logout"], a:has-text("Log Out")').first().click();
     await login(page, email, password);
   });
 });
