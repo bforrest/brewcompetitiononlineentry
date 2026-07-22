@@ -1,0 +1,9 @@
+version: 2
+secret:
+  ignored-matches:
+    # Publicly-documented default admin account for a fresh local baseline
+    # install (also spelled out in sql/bcoem_baseline_3.0.X.sql), used only
+    # by Playwright e2e tests (e2e/helpers/auth.ts) to log into a seeded
+    # dev/test database. Not a production credential.
+    - name: e2e seeded baseline admin password
+      match: bcoem

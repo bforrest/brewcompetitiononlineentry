@@ -1,9 +1,14 @@
 import { Page, expect } from '@playwright/test';
 
-/** Seeded by sql/bcoem_baseline_3.0.X.sql (userLevel 0 = super admin). */
+/**
+ * Seeded by sql/bcoem_baseline_3.0.X.sql (userLevel 0 = super admin) - not a
+ * real secret, just the documented default admin account for a fresh local
+ * baseline install. Overridable via env for anyone running against a seed
+ * with different credentials.
+ */
 export const ADMIN = {
-  email: 'user.baseline@brewingcompetitions.com',
-  password: 'bcoem',
+  email: process.env.E2E_ADMIN_EMAIL ?? 'user.baseline@brewingcompetitions.com',
+  password: process.env.E2E_ADMIN_PASSWORD ?? 'bcoem',
 };
 
 /**
