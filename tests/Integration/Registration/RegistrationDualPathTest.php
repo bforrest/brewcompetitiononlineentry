@@ -36,15 +36,26 @@ class RegistrationDualPathTest extends IntegrationTestCase
      *
      * Deliberately includes the same HTMLPurifier::purify() -> sterilize()
      * pipeline that process_brewer_info.inc.php:394-433 applies to
-     * first/last name, address, and city (RegistrationService::register()
-     * was fixed in Task 7 to match this exactly). It's a no-op for this
-     * test's plain-ASCII fixtures ("Jane", "Brewer", "1 Test Street",
-     * "Testville" contain no HTML/entities), so it makes no difference to
-     * today's assertions - but leaving it out would make this "legacy path"
-     * helper diverge from what legacy actually does the moment a fixture
-     * ever contains markup, silently narrowing what the dual-path proof
-     * covers. Included for genuine fidelity, not because today's fixtures
-     * require it.
+     * address and city (RegistrationService::register() was fixed in Task 7
+     * to match this exactly). It's a no-op for this test's plain-ASCII
+     * fixtures ("1 Test Street", "Testville" contain no HTML/entities), so
+     * it makes no difference to today's assertions - but leaving it out
+     * would make this "legacy path" helper diverge from what legacy
+     * actually does the moment a fixture ever contains markup, silently
+     * narrowing what the dual-path proof covers. Included for genuine
+     * fidelity, not because today's fixtures require it.
+     *
+     * First/last name gets the SAME purify() step, but then - because this
+     * test's setUp() sets $_SESSION['prefsLanguageFolder'] = 'en', which IS
+     * in RegistrationService::NAME_CHECK_LANGS - both legacy and modern
+     * actually route the purified name through FullNameParser::parse_name(),
+     * NOT a plain sterilize(). Mirrors process_brewer_info.inc.php:407-425
+     * and RegistrationService::processName()'s 'en' branch exactly,
+     * including that the parsed output is NOT re-sterilized afterward (only
+     * the non-name-check-lang branch calls sterilize() on names - see
+     * processName()'s early return). 'en' is also not in
+     * RegistrationService::LAST_NAME_EXCEPTION_LANGS (['nl','es','de']), so
+     * no standardize_name() call on the last name here either.
      */
     private function registerViaLegacyPath(string $email, string $password, string $firstName, string $lastName): array
     {
@@ -55,6 +66,27 @@ class RegistrationDualPathTest extends IntegrationTestCase
 
         require_once CLASSES . 'htmlpurifier/HTMLPurifier.standalone.php';
         $purifier = new \HTMLPurifier(\HTMLPurifier_Config::createDefault());
+
+        $fname = $purifier->purify($firstName);
+        $lname = $purifier->purify($lastName);
+
+        require_once CLASSES . 'capitalize_name/parser.php';
+        $parser = new \FullNameParser();
+        $parsed = $parser->parse_name($fname . ' ' . $lname);
+
+        $parsedFirstName = '';
+        if (!empty($parsed['salutation'])) {
+            $parsedFirstName .= $parsed['salutation'] . ' ';
+        }
+        $parsedFirstName .= $parsed['fname'];
+        if (!empty($parsed['initials'])) {
+            $parsedFirstName .= ' ' . $parsed['initials'];
+        }
+
+        $parsedLastName = $parsed['lname'];
+        if (!empty($parsed['suffix'])) {
+            $parsedLastName .= ' ' . $parsed['suffix'];
+        }
 
         $userId = $this->insert('users', [
             'user_name' => $email,
@@ -68,8 +100,8 @@ class RegistrationDualPathTest extends IntegrationTestCase
 
         $this->insert('brewer', [
             'uid' => $userId,
-            'brewerFirstName' => sterilize($purifier->purify($firstName)),
-            'brewerLastName' => sterilize($purifier->purify($lastName)),
+            'brewerFirstName' => $parsedFirstName,
+            'brewerLastName' => $parsedLastName,
             'brewerAddress' => sterilize($purifier->purify('1 Test Street')),
             'brewerCity' => sterilize($purifier->purify('Testville')),
             'brewerState' => 'TX',
