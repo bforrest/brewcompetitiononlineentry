@@ -38,3 +38,4 @@ e2e/playwright-report/
 .phpstan.cache/
 .env
 vendor/
+.worktrees/
