@@ -18,6 +18,17 @@ UPDATE baseline_contest_info SET
   contestEntryEditDeadline    = 1893456000
 WHERE id = 1;
 
+-- includes/constants.inc.php:262-265 force-closes registration_open AND
+-- entry_window_open ("$judging_started") the moment *any* judging_locations
+-- row's judgingDate is in the past - regardless of the contest deadlines
+-- patched above. The baseline fixture seeds exactly one such row with a
+-- fixed 2023 date, so without this it silently wins and registration reads
+-- as closed no matter what contest_info says. Push it out to match.
+UPDATE baseline_judging_locations SET
+  judgingDate    = 1893456000, -- 2030-01-01
+  judgingDateEnd = 1893456000
+WHERE judgingDate IS NOT NULL;
+
 -- The baseline fixture seeds bcoem_sys.version as '3.0.1.0' (2026-03-01),
 -- older than includes/current_version.inc.php's $current_version ('3.0.3.0',
 -- 2026-06-16). lib/preflight.lib.php treats that mismatch as "needs update"
