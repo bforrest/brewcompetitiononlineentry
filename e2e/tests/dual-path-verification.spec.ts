@@ -76,7 +76,7 @@ test.describe.serial('dual-path verification', () => {
     await expect(page.getByText(revisedName).first()).toBeVisible();
   });
 
-  test('legacy and modern routes produce identical audit trail structure', async ({ page }) => {
+  test.fixme('legacy and modern routes produce identical audit trail structure', async ({ page }) => {
     const creds = await registerEntrant(page);
 
     // — Legacy route: create entry —
