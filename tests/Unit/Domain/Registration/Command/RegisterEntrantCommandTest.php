@@ -1,0 +1,57 @@
+<?php
+declare(strict_types=1);
+
+namespace BCOEM\Tests\Unit\Domain\Registration\Command;
+
+use PHPUnit\Framework\TestCase;
+use Bcoem\Domain\Registration\Command\RegisterEntrantCommand;
+
+class RegisterEntrantCommandTest extends TestCase
+{
+    private function baseData(): array
+    {
+        return [
+            'user_name' => 'Entrant@Example.com',
+            'password' => 'Sup3rSecret!',
+            'userQuestion' => 'What is your favorite hop?',
+            'userQuestionAnswer' => 'Citra',
+            'brewerFirstName' => 'Jane',
+            'brewerLastName' => 'Brewer',
+            'brewerAddress' => '1 Test Street',
+            'brewerCity' => 'Testville',
+            'brewerStateUS' => 'TX',
+            'brewerZip' => '75001',
+            'brewerCountry' => 'United States',
+            'brewerPhone1' => '555-555-0100',
+        ];
+    }
+
+    public function test_hydrates_required_fields(): void
+    {
+        $cmd = new RegisterEntrantCommand($this->baseData());
+
+        $this->assertSame('Entrant@Example.com', $cmd->userName);
+        $this->assertSame('Sup3rSecret!', $cmd->password);
+        $this->assertSame('Jane', $cmd->brewerFirstName);
+        $this->assertSame('Brewer', $cmd->brewerLastName);
+        $this->assertSame('N', $cmd->brewerJudge);
+        $this->assertSame('N', $cmd->brewerSteward);
+        $this->assertSame('', $cmd->brewerStaff);
+    }
+
+    public function test_judge_and_steward_opt_ins_default_to_no(): void
+    {
+        $cmd = new RegisterEntrantCommand($this->baseData() + ['brewerJudge' => 'Y']);
+        $this->assertSame('Y', $cmd->brewerJudge);
+        $this->assertSame('N', $cmd->brewerSteward);
+    }
+
+    public function test_missing_required_field_throws(): void
+    {
+        $data = $this->baseData();
+        unset($data['user_name']);
+
+        $this->expectException(\InvalidArgumentException::class);
+        new RegisterEntrantCommand($data);
+    }
+}
