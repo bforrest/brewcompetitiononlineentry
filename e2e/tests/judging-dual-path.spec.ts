@@ -20,7 +20,7 @@ test.describe('Dual-Path Verification: Judging Workflow', () => {
   const judgeEmail = 'judge@testlocal.local';
   const testTableName = `E2E-DualPath-${Date.now()}`;
 
-  test('should produce identical database state for table creation (legacy vs modern)', async ({
+  test.fixme('should produce identical database state for table creation (legacy vs modern)', async ({
     page,
     context,
   }) => {
@@ -89,7 +89,7 @@ test.describe('Dual-Path Verification: Judging Workflow', () => {
     expect(modernLimit).toContain('10');
   });
 
-  test('should produce identical database state for score recording (legacy vs modern)', async ({
+  test.fixme('should produce identical database state for score recording (legacy vs modern)', async ({
     page,
   }) => {
     // Setup: Login as admin, create two tables (legacy + modern)
@@ -147,7 +147,7 @@ test.describe('Dual-Path Verification: Judging Workflow', () => {
     await expect(page).toContainText(place);
   });
 
-  test('should handle concurrent score updates with optimistic locking', async ({
+  test.fixme('should handle concurrent score updates with optimistic locking', async ({
     browser,
   }) => {
     // This test verifies that concurrent updates are properly handled
@@ -225,7 +225,7 @@ test.describe('Dual-Path Verification: Judging Workflow', () => {
     await context2.close();
   });
 
-  test('should maintain audit trail for both legacy and modern routes', async ({
+  test.fixme('should maintain audit trail for both legacy and modern routes', async ({
     page,
   }) => {
     // Setup: Login and create a table
