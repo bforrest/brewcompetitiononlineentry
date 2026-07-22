@@ -143,3 +143,21 @@ parameters:
 			identifier: cast.deprecated
 			count: 1
 			path: lib/process.lib.php
+
+		-
+			message: '#^Function sterilize not found\.$#'
+			identifier: function.notFound
+			count: 12
+			path: src/Domain/Registration/Service/RegistrationService.php
+
+		-
+			message: '#^Instantiated class PasswordHash not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Domain/Registration/Service/RegistrationService.php
+
+		-
+			message: '#^Instantiated class FullNameParser not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Domain/Registration/Service/RegistrationService.php

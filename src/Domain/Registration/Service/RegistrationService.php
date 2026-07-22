@@ -1,0 +1,235 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Bcoem\Domain\Registration\Service;
+
+use Bcoem\Domain\Registration\Command\RegisterEntrantCommand;
+use Bcoem\Domain\Registration\Exception\CaptchaVerificationFailedException;
+use Bcoem\Domain\Registration\Exception\DuplicateEmailException;
+use Bcoem\Domain\Registration\Exception\RegistrationClosedException;
+use Bcoem\Domain\Registration\Repository\RegistrationRepository;
+use Bcoem\Domain\Registration\ValueObject\Email;
+use Bcoem\Domain\Registration\ValueObject\RegistrantId;
+
+/**
+ * Entrant self-registration orchestration. Ports
+ * includes/process/process_users_register.inc.php's "filter=default" branch
+ * and includes/process/process_brewer_info.inc.php's field processing.
+ *
+ * Deliberately reuses legacy helpers directly for the tricky, easy-to-drift
+ * behaviors (name parsing, sterilize(), phpass) rather than reimplementing
+ * them - true dual-path equivalence means calling the SAME code, not a
+ * lookalike copy that can silently diverge.
+ */
+final class RegistrationService
+{
+    /**
+     * Mirrors lib/process.lib.php:536 exactly. Deliberately hardcoded here
+     * rather than re-sourced via require_once: PHP's require_once is a
+     * process-wide once-only guard — only the FIRST scope that requires a
+     * given file ever sees its top-level variable assignments land in that
+     * scope's locals. Every call to register() after the first in the same
+     * PHP process (every request after the first on a shared PHP-FPM
+     * worker; every test method after the first in one PHPUnit run) would
+     * silently see $name_check_langs as undefined otherwise — confirmed
+     * empirically during this task's implementation. Keep this list in
+     * sync with lib/process.lib.php if it's ever changed there.
+     */
+    private const NAME_CHECK_LANGS = ['en', 'fr', 'es', 'pt', 'it', 'de', 'nl'];
+
+    /** Mirrors lib/process.lib.php:537 exactly — see NAME_CHECK_LANGS's docblock for why this is duplicated, not re-sourced. */
+    private const LAST_NAME_EXCEPTION_LANGS = ['nl', 'es', 'de'];
+
+    public function __construct(
+        private RegistrationRepository $repository,
+        private CaptchaVerifier $captcha,
+    ) {
+    }
+
+    /**
+     * @param array<int, string> $clubAllowlist Session's $_SESSION['club_array']
+     */
+    public function register(
+        RegisterEntrantCommand $cmd,
+        bool $registrationOpen,
+        bool $judgeWindowOpen,
+        array $clubAllowlist,
+        string $remoteAddr,
+    ): RegistrantId {
+        if (!$registrationOpen && !$judgeWindowOpen) {
+            throw new RegistrationClosedException('Registration is closed');
+        }
+
+        $email = Email::from($cmd->userName);
+
+        if ($this->repository->emailExists($email)) {
+            throw new DuplicateEmailException('Email already registered: ' . $email);
+        }
+
+        if (!$this->captcha->verify(
+            ['g-recaptcha-response' => $cmd->captchaResponse, 'h-captcha-response' => $cmd->hCaptchaResponse],
+            $remoteAddr
+        )) {
+            throw new CaptchaVerificationFailedException('CAPTCHA verification failed');
+        }
+
+        $this->bootstrapLegacyHelpers();
+
+        $userLevel = '2';
+        $userAdminObfuscate = $userLevel === '0' ? 0 : 1;
+
+        $passwordHash = password_hash($cmd->password, PASSWORD_BCRYPT);
+
+        require_once CLASSES . 'phpass/PasswordHash.php';
+        $hasher = new \PasswordHash(8, false);
+        $questionAnswerHash = $hasher->HashPassword(sterilize($cmd->userQuestionAnswer));
+
+        $registrantId = $this->repository->insertUser([
+            'user_name' => $email->value(),
+            'userLevel' => $userLevel,
+            'password' => $passwordHash,
+            'userQuestion' => sterilize($cmd->userQuestion),
+            'userQuestionAnswer' => $questionAnswerHash,
+            'userCreated' => date('Y-m-d H:i:s'),
+            'userAdminObfuscate' => $userAdminObfuscate,
+        ]);
+
+        [$firstName, $lastName] = $this->processName($cmd->brewerFirstName, $cmd->brewerLastName);
+        $stateProvince = $this->resolveStateProvince($cmd);
+        $clubs = $this->resolveClub($cmd->brewerClubs, $clubAllowlist);
+        [$judgeLocation, $stewardLocation] = $this->resolveLocationPreferences($cmd);
+
+        $this->repository->insertBrewerProfile([
+            'uid' => $registrantId->value(),
+            'brewerFirstName' => blank_to_null($firstName),
+            'brewerLastName' => blank_to_null($lastName),
+            'brewerAddress' => blank_to_null(sterilize($cmd->brewerAddress)),
+            'brewerCity' => blank_to_null(sterilize($cmd->brewerCity)),
+            'brewerState' => blank_to_null($stateProvince),
+            'brewerZip' => blank_to_null(sterilize($cmd->brewerZip)),
+            'brewerCountry' => blank_to_null(sterilize($cmd->brewerCountry)),
+            'brewerPhone1' => blank_to_null(sterilize($cmd->brewerPhone1)),
+            'brewerClubs' => blank_to_null($clubs),
+            'brewerEmail' => blank_to_null($email->value()),
+            'brewerStaff' => blank_to_null($cmd->brewerStaff),
+            'brewerSteward' => blank_to_null($cmd->brewerSteward),
+            'brewerJudge' => blank_to_null($cmd->brewerJudge),
+            'brewerJudgeLocation' => blank_to_null($judgeLocation),
+            'brewerStewardLocation' => blank_to_null($stewardLocation),
+        ]);
+
+        $staffRow = [
+            'staff_judge' => $cmd->brewerJudge === 'Y' ? 1 : 0,
+            'staff_judge_bos' => 0,
+            'staff_steward' => $cmd->brewerSteward === 'Y' ? 1 : 0,
+            'staff_organizer' => 0,
+            'staff_staff' => $cmd->brewerStaff === 'Y' ? 1 : 0,
+        ];
+
+        if ($this->repository->staffRowExists($registrantId->value())) {
+            $this->repository->updateStaffRow($registrantId->value(), $staffRow);
+        } else {
+            $this->repository->insertStaffRow(['uid' => $registrantId->value()] + $staffRow);
+        }
+
+        return $registrantId;
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function processName(string $rawFirst, string $rawLast): array
+    {
+        $fname = sterilize($rawFirst);
+        $lname = sterilize($rawLast);
+
+        $languageFolder = $_SESSION['prefsLanguageFolder'] ?? 'en';
+
+        if (!in_array($languageFolder, self::NAME_CHECK_LANGS, true)) {
+            return [$fname, $lname];
+        }
+
+        require_once CLASSES . 'capitalize_name/parser.php';
+        $parser = new \FullNameParser();
+        $parsed = $parser->parse_name($fname . ' ' . $lname);
+
+        $firstName = '';
+        if (!empty($parsed['salutation'])) {
+            $firstName .= $parsed['salutation'] . ' ';
+        }
+        $firstName .= $parsed['fname'];
+        if (!empty($parsed['initials'])) {
+            $firstName .= ' ' . $parsed['initials'];
+        }
+
+        $lastName = in_array($languageFolder, self::LAST_NAME_EXCEPTION_LANGS, true)
+            ? standardize_name($parsed['lname'])
+            : $parsed['lname'];
+        if (!empty($parsed['suffix'])) {
+            $lastName .= ' ' . $parsed['suffix'];
+        }
+
+        return [$firstName, $lastName];
+    }
+
+    private function resolveStateProvince(RegisterEntrantCommand $cmd): string
+    {
+        $state = match (true) {
+            $cmd->brewerStateUS !== '' => $cmd->brewerStateUS,
+            $cmd->brewerStateCA !== '' => $cmd->brewerStateCA,
+            $cmd->brewerStateAUS !== '' => $cmd->brewerStateAUS,
+            $cmd->brewerStateNon !== '' => $cmd->brewerStateNon,
+            default => '',
+        };
+        if (strlen($state) <= 2) {
+            $state = strtoupper($state);
+        }
+        return sterilize($state);
+    }
+
+    private function resolveClub(string $submitted, array $allowlist): ?string
+    {
+        if ($submitted === '') {
+            return null;
+        }
+        if (in_array($submitted, $allowlist, true)) {
+            return $submitted;
+        }
+        return null;
+    }
+
+    /** @return array{0: ?string, 1: ?string} [judgeLocation, stewardLocation] */
+    private function resolveLocationPreferences(RegisterEntrantCommand $cmd): array
+    {
+        $judgeLocation = null;
+        if ($cmd->brewerJudgeLocation !== null) {
+            $values = is_array($cmd->brewerJudgeLocation) ? $cmd->brewerJudgeLocation : [$cmd->brewerJudgeLocation];
+            $parts = array_map(fn ($v) => sterilize($v), $values);
+            $judgeLocation = implode(',', $parts);
+        }
+
+        $stewardLocation = null;
+        if ($cmd->brewerStewardLocation !== null) {
+            $values = is_array($cmd->brewerStewardLocation) ? $cmd->brewerStewardLocation : [$cmd->brewerStewardLocation];
+            $parts = [];
+            foreach ($values as $value) {
+                [$submittedFlag, $locId] = array_pad(explode('-', $value, 2), 2, '');
+                $type = $this->repository->judgingLocationType((int) $locId);
+                $flag = $type === '2' ? $submittedFlag : 'N';
+                $parts[] = $flag . '-' . $locId;
+            }
+            $stewardLocation = sterilize(implode(',', $parts));
+        }
+
+        return [$judgeLocation, $stewardLocation];
+    }
+
+    private function bootstrapLegacyHelpers(): void
+    {
+        if (!function_exists('sterilize')) {
+            require_once ROOT . 'paths.php';
+        }
+        if (!function_exists('blank_to_null')) {
+            require_once LIB . 'process.lib.php';
+        }
+    }
+}
