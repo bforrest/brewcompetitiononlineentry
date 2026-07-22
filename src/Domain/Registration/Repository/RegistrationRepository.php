@@ -97,10 +97,18 @@ class RegistrationRepository
         );
     }
 
+    /**
+     * judgingLocType = 2 denotes a non-judging/off-site location (mail-in or
+     * distribution point) - not a real judging session - consistently
+     * treated as such elsewhere in the legacy codebase. Mirrors
+     * includes/constants.inc.php:187's own `WHERE judgingLocType < '2'`
+     * filter on this same table, used for the identical "has judging
+     * started" determination.
+     */
     public function anyJudgingSessionStarted(): bool
     {
         $row = $this->connection->selectOne(
-            'SELECT COUNT(*) as count FROM ' . $this->tablePrefix . 'judging_locations WHERE judgingDate IS NOT NULL AND judgingDate <= ?',
+            'SELECT COUNT(*) as count FROM ' . $this->tablePrefix . 'judging_locations WHERE judgingLocType < 2 AND judgingDate IS NOT NULL AND judgingDate <= ?',
             [time()]
         );
         return ((int) ($row['count'] ?? 0)) > 0;

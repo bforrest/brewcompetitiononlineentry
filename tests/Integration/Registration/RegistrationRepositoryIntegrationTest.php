@@ -148,4 +148,20 @@ class RegistrationRepositoryIntegrationTest extends IntegrationTestCase
 
         $this->assertTrue($this->repository->anyJudgingSessionStarted());
     }
+
+    public function test_any_judging_session_started_ignores_non_judging_location_type(): void
+    {
+        // judgingLocType 2 is a non-judging/off-site location (mail-in or
+        // distribution point) - includes/constants.inc.php:187 excludes it
+        // from its own "has judging started" determination via
+        // `WHERE judgingLocType < '2'`, so a past date on a type-2 row must
+        // NOT trip the override.
+        $this->insert('judging_locations', [
+            'judgingLocName' => 'Main Hall',
+            'judgingLocType' => '2',
+            'judgingDate' => (string) (time() - 3600),
+        ]);
+
+        $this->assertFalse($this->repository->anyJudgingSessionStarted());
+    }
 }
