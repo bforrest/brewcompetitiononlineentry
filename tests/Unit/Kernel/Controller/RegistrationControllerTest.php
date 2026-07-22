@@ -30,6 +30,15 @@ class RegistrationControllerTest extends TestCase
 
     protected function setUp(): void
     {
+        // Defensive reset: $_SESSION is a real superglobal shared by the whole
+        // PHPUnit process. AuthenticationMiddlewareTest::setUp() overwrites it
+        // wholesale (including userLevel) with no tearDown() to restore it, so
+        // depending on suite execution order this test can inherit a stale
+        // userLevel from an earlier test and fail
+        // assertArrayNotHasKey('userLevel', $_SESSION) below for a reason that
+        // has nothing to do with this controller's own (correct) behavior.
+        unset($_SESSION['userLevel']);
+
         $this->repository = $this->createMock(RegistrationRepository::class);
         $this->captcha = $this->createMock(CaptchaVerifier::class);
 
