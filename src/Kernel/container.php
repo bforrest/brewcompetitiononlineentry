@@ -293,7 +293,7 @@ $containerBuilder->addDefinitions([
 
         $accountParts = explode('|', (string) ($_SESSION['prefsGoogleAccount'] ?? ''));
         $secretKey = $accountParts[1] ?? '';
-        $type = getenv('HOSTED') === 'true' ? '2' : ($accountParts[2] ?? '1');
+        $type = HOSTED ? '2' : ($accountParts[2] ?? '1');
         $client = new Client();
 
         if ($type === '2') {
