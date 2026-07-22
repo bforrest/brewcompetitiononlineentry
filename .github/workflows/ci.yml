@@ -21,6 +21,12 @@ jobs:
   # site/config.php is needed here.
   static-and-unit:
     runs-on: ubuntu-latest
+    env:
+      # The opentelemetry C extension is not installed on this bare runner.
+      # Without this, open-telemetry/opentelemetry-auto-mysqli's _register.php
+      # emits trigger_error() at autoload time, which sets PHP's headers_sent
+      # flag and breaks session_name()/session_start() in the unit tests.
+      OTEL_PHP_DISABLED_INSTRUMENTATIONS: all
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2

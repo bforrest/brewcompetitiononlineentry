@@ -3,6 +3,16 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
 use Bcoem\Kernel\Middleware\SessionMiddleware;
+
+/**
+ * @runTestsInSeparateProcesses
+ *
+ * session_name() and session_start() check headers_sent() in PHP 8.5+.
+ * Any output produced earlier in the same process (by other tests, OTel
+ * warnings, deprecation notices, etc.) sets headers_sent=true and causes
+ * both functions to fail. Running in separate processes gives each test a
+ * clean slate.
+ */
 use Slim\Psr7\Factory\ServerRequestFactory;
 use Slim\Psr7\Factory\ResponseFactory;
 use Psr\Http\Message\ServerRequestInterface;
