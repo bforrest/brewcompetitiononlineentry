@@ -23,6 +23,13 @@ use Bcoem\Domain\Export\Repository\JudgingExportRepository;
 use Bcoem\Domain\Export\Service\ExportService;
 use Bcoem\Domain\Export\Service\ExportValidationService;
 use Bcoem\Domain\Export\Service\ExportFormatterService;
+use Bcoem\Domain\Registration\Repository\RegistrationRepository;
+use Bcoem\Domain\Registration\Service\CaptchaVerifier;
+use Bcoem\Domain\Registration\Service\GoogleRecaptchaVerifier;
+use Bcoem\Domain\Registration\Service\HCaptchaVerifier;
+use Bcoem\Domain\Registration\Service\NullCaptchaVerifier;
+use Bcoem\Domain\Registration\Service\RegistrationService;
+use GuzzleHttp\Client;
 use Bcoem\Kernel\Logging\TraceIdProcessor;
 use DI\ContainerBuilder;
 use Monolog\Formatter\LineFormatter;
@@ -267,6 +274,39 @@ $containerBuilder->addDefinitions([
 
     ExportFormatterService::class => static fn (): ExportFormatterService =>
         new ExportFormatterService(),
+
+    /**
+     * Phase 3.7: Registration domain services and repositories.
+     * CaptchaVerifier binds by prefsCAPTCHA (0 -> Null, matching legacy's own
+     * bypass and docker/03-e2e-fixtures.sql's prefsCAPTCHA=0 setting), else
+     * by $_SESSION['prefsGoogleAccount']'s third pipe-delimited field (type
+     * 2 = hCaptcha, else reCAPTCHA v2) - ports
+     * process_users_register.inc.php:29-89's own branching exactly.
+     */
+    RegistrationRepository::class => static fn (ContainerInterface $container): RegistrationRepository =>
+        new RegistrationRepository($container->get(Connection::class)),
+
+    CaptchaVerifier::class => static function (): CaptchaVerifier {
+        if ((int) ($_SESSION['prefsCAPTCHA'] ?? 0) === 0) {
+            return new NullCaptchaVerifier();
+        }
+
+        $accountParts = explode('|', (string) ($_SESSION['prefsGoogleAccount'] ?? ''));
+        $secretKey = $accountParts[1] ?? '';
+        $type = getenv('HOSTED') === 'true' ? '2' : ($accountParts[2] ?? '1');
+        $client = new Client();
+
+        if ($type === '2') {
+            return new HCaptchaVerifier($client, $secretKey);
+        }
+        return new GoogleRecaptchaVerifier($client, $secretKey, $_SERVER['SERVER_NAME'] ?? '');
+    },
+
+    RegistrationService::class => static fn (ContainerInterface $container): RegistrationService =>
+        new RegistrationService(
+            $container->get(RegistrationRepository::class),
+            $container->get(CaptchaVerifier::class),
+        ),
 ]);
 
 return $containerBuilder->build();
