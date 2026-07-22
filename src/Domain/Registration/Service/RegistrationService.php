@@ -95,7 +95,9 @@ final class RegistrationService
             'userAdminObfuscate' => $userAdminObfuscate,
         ]);
 
-        [$firstName, $lastName] = $this->processName($cmd->brewerFirstName, $cmd->brewerLastName);
+        $purifier = $this->purifier();
+
+        [$firstName, $lastName] = $this->processName($cmd->brewerFirstName, $cmd->brewerLastName, $purifier);
         $stateProvince = $this->resolveStateProvince($cmd);
         $clubs = $this->resolveClub($cmd->brewerClubs, $clubAllowlist);
         [$judgeLocation, $stewardLocation] = $this->resolveLocationPreferences($cmd);
@@ -104,8 +106,8 @@ final class RegistrationService
             'uid' => $registrantId->value(),
             'brewerFirstName' => blank_to_null($firstName),
             'brewerLastName' => blank_to_null($lastName),
-            'brewerAddress' => blank_to_null(sterilize($cmd->brewerAddress)),
-            'brewerCity' => blank_to_null(sterilize($cmd->brewerCity)),
+            'brewerAddress' => blank_to_null(sterilize($purifier->purify($cmd->brewerAddress))),
+            'brewerCity' => blank_to_null(sterilize($purifier->purify($cmd->brewerCity))),
             'brewerState' => blank_to_null($stateProvince),
             'brewerZip' => blank_to_null(sterilize($cmd->brewerZip)),
             'brewerCountry' => blank_to_null(sterilize($cmd->brewerCountry)),
@@ -119,12 +121,21 @@ final class RegistrationService
             'brewerStewardLocation' => blank_to_null($stewardLocation),
         ]);
 
+        // Legacy's staff-table derivation (process_users_register.inc.php:241-250) gates
+        // staff_judge/staff_steward on $go == "judge"/"steward" - a route this entrant
+        // registration form never uses ($go is always "entrant" here) - and never sets
+        // staff_staff at all outside the admin-add-user path. So for this scope, the
+        // staff table always gets 0/0/0; the brewerJudge/brewerSteward/brewerStaff
+        // opt-in answers are still recorded on the brewer table above, they just don't
+        // grant staff privileges through this route. Making them do so is a deliberate
+        // future improvement, tracked alongside the deferred go=judge/go=steward
+        // registration variants (not this task's scope).
         $staffRow = [
-            'staff_judge' => $cmd->brewerJudge === 'Y' ? 1 : 0,
+            'staff_judge' => 0,
             'staff_judge_bos' => 0,
-            'staff_steward' => $cmd->brewerSteward === 'Y' ? 1 : 0,
+            'staff_steward' => 0,
             'staff_organizer' => 0,
-            'staff_staff' => $cmd->brewerStaff === 'Y' ? 1 : 0,
+            'staff_staff' => 0,
         ];
 
         if ($this->repository->staffRowExists($registrantId->value())) {
@@ -136,16 +147,22 @@ final class RegistrationService
         return $registrantId;
     }
 
-    /** @return array{0: string, 1: string} */
-    private function processName(string $rawFirst, string $rawLast): array
+    private function purifier(): \HTMLPurifier
     {
-        $fname = sterilize($rawFirst);
-        $lname = sterilize($rawLast);
+        require_once CLASSES . 'htmlpurifier/HTMLPurifier.standalone.php';
+        return new \HTMLPurifier(\HTMLPurifier_Config::createDefault());
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function processName(string $rawFirst, string $rawLast, \HTMLPurifier $purifier): array
+    {
+        $fname = $purifier->purify($rawFirst);
+        $lname = $purifier->purify($rawLast);
 
         $languageFolder = $_SESSION['prefsLanguageFolder'] ?? 'en';
 
         if (!in_array($languageFolder, self::NAME_CHECK_LANGS, true)) {
-            return [$fname, $lname];
+            return [sterilize($fname), sterilize($lname)];
         }
 
         require_once CLASSES . 'capitalize_name/parser.php';

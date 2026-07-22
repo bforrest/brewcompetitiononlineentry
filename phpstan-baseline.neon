@@ -161,3 +161,27 @@ parameters:
 			identifier: class.notFound
 			count: 1
 			path: src/Domain/Registration/Service/RegistrationService.php
+
+		-
+			message: '#^Method Bcoem\\Domain\\Registration\\Service\\RegistrationService\:\:purifier\(\) has invalid return type HTMLPurifier\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Domain/Registration/Service/RegistrationService.php
+
+		-
+			message: '#^Call to static method createDefault\(\) on an unknown class HTMLPurifier_Config\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Domain/Registration/Service/RegistrationService.php
+
+		-
+			message: '#^Instantiated class HTMLPurifier not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Domain/Registration/Service/RegistrationService.php
+
+		-
+			message: '#^Parameter \$purifier of method Bcoem\\Domain\\Registration\\Service\\RegistrationService\:\:processName\(\) has invalid type HTMLPurifier\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Domain/Registration/Service/RegistrationService.php

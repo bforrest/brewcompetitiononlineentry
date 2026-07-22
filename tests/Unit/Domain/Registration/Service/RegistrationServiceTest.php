@@ -110,6 +110,32 @@ class RegistrationServiceTest extends TestCase
         $this->service->register($this->baseCommand(['brewerSteward' => 'Y']), true, true, [], '127.0.0.1');
     }
 
+    public function test_staff_row_stays_all_zero_regardless_of_opt_in_checkboxes(): void
+    {
+        // Legacy's staff-table derivation (process_users_register.inc.php:241-250) only
+        // sets staff_judge/staff_steward when $go == "judge"/"steward" - routes this
+        // entrant registration form never uses - and never sets staff_staff outside the
+        // admin-add-user path. The opt-in checkboxes are still recorded on the brewer
+        // table, but must NOT grant staff-table privileges through this route.
+        $this->repository->method('emailExists')->willReturn(false);
+        $this->captcha->method('verify')->willReturn(true);
+        $this->repository->method('staffRowExists')->willReturn(false);
+        $this->repository->method('insertUser')->willReturn(RegistrantId::from(707));
+
+        $this->repository->expects($this->once())->method('insertStaffRow')
+            ->with($this->callback(fn (array $row) => $row['uid'] === 707
+                && $row['staff_judge'] === 0
+                && $row['staff_steward'] === 0
+                && $row['staff_staff'] === 0));
+
+        $cmd = $this->baseCommand([
+            'brewerJudge' => 'Y',
+            'brewerSteward' => 'Y',
+            'brewerStaff' => 'Y',
+        ]);
+        $this->service->register($cmd, true, true, [], '127.0.0.1');
+    }
+
     public function test_judge_location_preference_encoded_as_submitted(): void
     {
         $this->repository->method('emailExists')->willReturn(false);
