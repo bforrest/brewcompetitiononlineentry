@@ -234,6 +234,19 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
         return $getExportController()->getExportPreview($request, $response, $user);
     })->setName('export.preview');
 
+    // Phase 3.7: Registration workflow routes.
+    $getRegistrationController = function () use ($container): \Bcoem\Kernel\Controller\RegistrationController {
+        static $controller;
+        return $controller ??= new \Bcoem\Kernel\Controller\RegistrationController(
+            $container->get(\Bcoem\Domain\Registration\Service\RegistrationService::class)
+        );
+    };
+
+    $app->get('/register', fn ($request, $response) => $getRegistrationController()->getForm($request, $response))
+        ->setName('registration.form');
+    $app->post('/register', fn ($request, $response) => $getRegistrationController()->postRegister($request, $response))
+        ->setName('registration.create');
+
     // Phase 3.2: Judging workflow routes.
     //
     // NOTE: templates/Judging/table-form.php POSTs to /judging/tables (create)

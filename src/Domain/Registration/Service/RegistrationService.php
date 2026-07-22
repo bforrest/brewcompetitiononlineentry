@@ -249,4 +249,56 @@ final class RegistrationService
             require_once LIB . 'process.lib.php';
         }
     }
+
+    public function isRegistrationOpen(): bool
+    {
+        return $this->windowState()['registrationOpen'];
+    }
+
+    public function isJudgeWindowOpen(): bool
+    {
+        return $this->windowState()['judgeWindowOpen'];
+    }
+
+    /** @return array{registrationOpen: bool, judgeWindowOpen: bool} */
+    private function windowState(): array
+    {
+        // open_or_closed() lives in lib/common.lib.php, NOT paths.php -
+        // unlike sterilize()/blank_to_null() above, requiring paths.php
+        // alone does not define it. common.lib.php's own top-level
+        // `include(LIB.'date_time.lib.php')` needs the LIB constant, which
+        // only paths.php defines, so paths.php must be loaded first (it
+        // already is by the time this runs in a real request - Connection::
+        // class's DI factory in container.php requires it before
+        // RegistrationRepository/RegistrationService can be built at all -
+        // but this guard makes the method correct standalone too, matching
+        // the same require-paths.php-then-common.lib.php shape
+        // src/Domain/Entry/Adapter/LegacyQueryAdapter.php uses for other
+        // common.lib.php-only functions).
+        if (!function_exists('open_or_closed')) {
+            if (!defined('LIB')) {
+                require_once ROOT . 'paths.php';
+            }
+            require_once LIB . 'common.lib.php';
+        }
+
+        $dates = $this->repository->contestDates();
+        if ($dates === null) {
+            return ['registrationOpen' => true, 'judgeWindowOpen' => true];
+        }
+
+        $now = time();
+        $registrationOpen = open_or_closed($now, $dates['contestRegistrationOpen'], $dates['contestRegistrationDeadline']) === 1;
+        $judgeWindowOpen = open_or_closed($now, $dates['contestJudgeOpen'], $dates['contestJudgeDeadline']) === 1;
+
+        // Mirrors constants.inc.php:262-265: once any judging session has
+        // started, legacy force-closes both registration and entry windows
+        // regardless of the contest_info dates above, so entries/accounts
+        // can't change once judging begins.
+        if ($this->repository->anyJudgingSessionStarted()) {
+            return ['registrationOpen' => false, 'judgeWindowOpen' => false];
+        }
+
+        return ['registrationOpen' => $registrationOpen, 'judgeWindowOpen' => $judgeWindowOpen];
+    }
 }

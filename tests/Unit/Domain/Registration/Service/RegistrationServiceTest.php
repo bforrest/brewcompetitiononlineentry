@@ -198,4 +198,55 @@ class RegistrationServiceTest extends TestCase
         $cmd = $this->baseCommand(['brewerClubs' => 'Homebrew Club A']);
         $this->service->register($cmd, true, true, ['Homebrew Club A', 'Homebrew Club B'], '127.0.0.1');
     }
+
+    // ── isRegistrationOpen() / isJudgeWindowOpen() ──
+    // Ports the read side of includes/constants.inc.php's open_or_closed()
+    // window computation plus its "any judging session started" override
+    // (lines 262-265), so the modern /register route can decide freshly per
+    // request instead of trusting stale $_SESSION keys that don't exist
+    // anywhere in this codebase.
+
+    public function test_windows_open_when_dates_bracket_now_and_no_judging_started(): void
+    {
+        $this->repository->method('contestDates')->willReturn([
+            'contestRegistrationOpen' => time() - 3600,
+            'contestRegistrationDeadline' => time() + 3600,
+            'contestJudgeOpen' => time() - 3600,
+            'contestJudgeDeadline' => time() + 3600,
+        ]);
+        $this->repository->method('anyJudgingSessionStarted')->willReturn(false);
+
+        $this->assertTrue($this->service->isRegistrationOpen());
+        $this->assertTrue($this->service->isJudgeWindowOpen());
+    }
+
+    public function test_windows_closed_when_dates_are_all_in_the_past(): void
+    {
+        $this->repository->method('contestDates')->willReturn([
+            'contestRegistrationOpen' => time() - 7200,
+            'contestRegistrationDeadline' => time() - 3600,
+            'contestJudgeOpen' => time() - 7200,
+            'contestJudgeDeadline' => time() - 3600,
+        ]);
+        $this->repository->method('anyJudgingSessionStarted')->willReturn(false);
+
+        $this->assertFalse($this->service->isRegistrationOpen());
+        $this->assertFalse($this->service->isJudgeWindowOpen());
+    }
+
+    public function test_judging_started_override_forces_both_windows_closed(): void
+    {
+        // Dates say wide open, but a judging session has already started -
+        // constants.inc.php:262-265's override wins regardless.
+        $this->repository->method('contestDates')->willReturn([
+            'contestRegistrationOpen' => time() - 3600,
+            'contestRegistrationDeadline' => time() + 3600,
+            'contestJudgeOpen' => time() - 3600,
+            'contestJudgeDeadline' => time() + 3600,
+        ]);
+        $this->repository->method('anyJudgingSessionStarted')->willReturn(true);
+
+        $this->assertFalse($this->service->isRegistrationOpen());
+        $this->assertFalse($this->service->isJudgeWindowOpen());
+    }
 }

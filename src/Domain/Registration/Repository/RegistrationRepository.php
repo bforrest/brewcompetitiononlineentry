@@ -88,4 +88,21 @@ class RegistrationRepository
         }
         return (string) $row['judgingLocType'];
     }
+
+    /** @return array{contestRegistrationOpen: int, contestRegistrationDeadline: int, contestJudgeOpen: int, contestJudgeDeadline: int}|null */
+    public function contestDates(): ?array
+    {
+        return $this->connection->selectOne(
+            'SELECT contestRegistrationOpen, contestRegistrationDeadline, contestJudgeOpen, contestJudgeDeadline FROM ' . $this->tablePrefix . 'contest_info WHERE id = 1'
+        );
+    }
+
+    public function anyJudgingSessionStarted(): bool
+    {
+        $row = $this->connection->selectOne(
+            'SELECT COUNT(*) as count FROM ' . $this->tablePrefix . 'judging_locations WHERE judgingDate IS NOT NULL AND judgingDate <= ?',
+            [time()]
+        );
+        return ((int) ($row['count'] ?? 0)) > 0;
+    }
 }

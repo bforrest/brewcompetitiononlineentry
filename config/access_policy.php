@@ -309,6 +309,10 @@ return [
     'export.download' => Role::Admin, // Export download (admin only; future: public for results)
     'export.preview' => Role::Admin,  // Preview before download (admin only)
 
+    // Phase 3.7: Registration routes (unauthenticated - a new visitor has no account yet)
+    'registration.form' => Role::Anonymous,
+    'registration.create' => Role::Anonymous,
+
     // Phase 3.2: Judging routes
     'judging.tables.list.api' => Role::Admin,
     'judging.tables.detail.api' => Role::Admin,

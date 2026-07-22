@@ -119,4 +119,33 @@ class RegistrationRepositoryIntegrationTest extends IntegrationTestCase
 
         $this->assertSame('2', $this->repository->judgingLocationType($locId));
     }
+
+    public function test_contest_dates_returns_seeded_row_columns(): void
+    {
+        $expected = $this->select('contest_info', 'id = 1')[0];
+
+        $dates = $this->repository->contestDates();
+
+        $this->assertNotNull($dates);
+        $this->assertSame((string) $expected['contestRegistrationOpen'], (string) $dates['contestRegistrationOpen']);
+        $this->assertSame((string) $expected['contestRegistrationDeadline'], (string) $dates['contestRegistrationDeadline']);
+        $this->assertSame((string) $expected['contestJudgeOpen'], (string) $dates['contestJudgeOpen']);
+        $this->assertSame((string) $expected['contestJudgeDeadline'], (string) $dates['contestJudgeDeadline']);
+    }
+
+    public function test_any_judging_session_started_is_false_with_no_judging_locations_rows(): void
+    {
+        $this->assertFalse($this->repository->anyJudgingSessionStarted());
+    }
+
+    public function test_any_judging_session_started_is_true_after_past_judging_date_inserted(): void
+    {
+        $this->insert('judging_locations', [
+            'judgingLocName' => 'Side Room',
+            'judgingLocType' => '1',
+            'judgingDate' => (string) (time() - 3600),
+        ]);
+
+        $this->assertTrue($this->repository->anyJudgingSessionStarted());
+    }
 }
