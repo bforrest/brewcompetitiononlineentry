@@ -113,12 +113,30 @@ $containerBuilder->addDefinitions([
 
     /**
      * Phase 3: Database connection wrapper for prepared statements.
-     * The legacy $GLOBALS['connection'] (mysqli) is set by site/config.php
-     * during bootstrap. This wrapper enforces prepared statements only
-     * and serves as the single point of database access for all Phase 3+
-     * code (repositories, services, etc.).
+     *
+     * Bootstraps the legacy $GLOBALS['connection']/$GLOBALS['prefix'] on
+     * demand for any pure-Slim route (Entry, Judging, Export, Registration)
+     * that never touches a Bcoem\Legacy\* handler in the same request -
+     * nothing else in this pipeline ever sets them (index.php deliberately
+     * never eagerly requires paths.php; legacy handlers only ever set these
+     * as LOCAL variables inside their own handler method's scope, never as
+     * true globals - see index.php's own docblock). Declaring `global`
+     * before the require is what makes paths.php's plain `$connection = ...`
+     * assignment land in $GLOBALS instead of this closure's local scope.
+     * A no-op whenever a prior IntegrationTestCase (or a future legacy-then-
+     * modern request chain) already set $GLOBALS['connection'].
      */
     Connection::class => static function (): Connection {
+        if (!isset($GLOBALS['connection']) || !($GLOBALS['connection'] instanceof \mysqli)) {
+            global $connection, $prefix, $database, $hostname, $username, $password,
+                   $database_port, $brewing, $base_url, $sub_directory, $installation_id,
+                   $session_expire_after, $setup_free_access, $server_root, $prefix_session,
+                   $db_conn, $current_version, $current_version_display,
+                   $current_version_display_append, $current_version_date_display,
+                   $current_version_date, $public_captcha_key, $private_captcha_key;
+            require ROOT . 'paths.php';
+        }
+
         if (isset($GLOBALS['connection']) && $GLOBALS['connection'] instanceof \mysqli) {
             return new Connection($GLOBALS['connection']);
         }

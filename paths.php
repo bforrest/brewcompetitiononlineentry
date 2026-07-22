@@ -152,10 +152,12 @@ else ini_set('display_errors','Off');
  * @see https://stackoverflow.com/questions/1175096/how-to-find-out-if-youre-using-https-without-serverhttps
  */
 
-function is_https() {
-    if (((!empty($_SERVER['HTTPS'])) && (strtolower($_SERVER['HTTPS']) !== "off")) || ((isset($_SERVER['SERVER_PORT'])) && ($_SERVER['SERVER_PORT'] === "443"))) return TRUE;
-    elseif (((!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == "https")) || ((!empty($_SERVER['HTTP_X_FORWARDED_SSL'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_SSL']) == "on"))) return TRUE;
-    else return FALSE;
+if (!function_exists('is_https')) {
+    function is_https() {
+        if (((!empty($_SERVER['HTTPS'])) && (strtolower($_SERVER['HTTPS']) !== "off")) || ((isset($_SERVER['SERVER_PORT'])) && ($_SERVER['SERVER_PORT'] === "443"))) return TRUE;
+        elseif (((!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == "https")) || ((!empty($_SERVER['HTTP_X_FORWARDED_SSL'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_SSL']) == "on"))) return TRUE;
+        else return FALSE;
+    }
 }
 
 /**
@@ -163,24 +165,26 @@ function is_https() {
  * use in the url_variables.inc.php file.
  */
 
-function sterilize($sterilize = NULL) {
-    if ($sterilize == NULL) return NULL;
-    elseif (empty($sterilize)) return $sterilize;
-    else {
-        $sterilize = trim($sterilize);
-        if (is_numeric($sterilize)) {
-            if (is_float($sterilize)) $sterilize = filter_var($sterilize,FILTER_SANITIZE_NUMBER_FLOAT,FILTER_FLAG_ALLOW_FRACTION);
-            if (is_int($sterilize)) {
-                if ($sterilize == 0) $sterilize = 0;
-                else $sterilize = filter_var($sterilize,FILTER_SANITIZE_NUMBER_INT);
-            }            
+if (!function_exists('sterilize')) {
+    function sterilize($sterilize = NULL) {
+        if ($sterilize == NULL) return NULL;
+        elseif (empty($sterilize)) return $sterilize;
+        else {
+            $sterilize = trim($sterilize);
+            if (is_numeric($sterilize)) {
+                if (is_float($sterilize)) $sterilize = filter_var($sterilize,FILTER_SANITIZE_NUMBER_FLOAT,FILTER_FLAG_ALLOW_FRACTION);
+                if (is_int($sterilize)) {
+                    if ($sterilize == 0) $sterilize = 0;
+                    else $sterilize = filter_var($sterilize,FILTER_SANITIZE_NUMBER_INT);
+                }
+            }
+            else $sterilize = filter_var($sterilize,FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            $sterilize = strip_tags($sterilize);
+            $sterilize = stripcslashes($sterilize);
+            $sterilize = stripslashes($sterilize);
+            $sterilize = addslashes($sterilize);
+            return $sterilize;
         }
-        else $sterilize = filter_var($sterilize,FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-        $sterilize = strip_tags($sterilize);
-        $sterilize = stripcslashes($sterilize);
-        $sterilize = stripslashes($sterilize);
-        $sterilize = addslashes($sterilize);
-        return $sterilize;
     }
 }
 
