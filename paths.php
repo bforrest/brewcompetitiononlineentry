@@ -248,7 +248,7 @@ if (session_status() == PHP_SESSION_NONE) {
  * Load DB connection and configuration files.
  */
 
-require_once (CONFIG.'config.php');
+require (CONFIG.'config.php');
 require_once (CONFIG.'MysqliDb.php');
 $db_conn = new MysqliDb($connection);
 
