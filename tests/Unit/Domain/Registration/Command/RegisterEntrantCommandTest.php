@@ -54,4 +54,12 @@ class RegisterEntrantCommandTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         new RegisterEntrantCommand($data);
     }
+
+    public function test_preserves_array_value_for_judge_location(): void
+    {
+        $locations = ['Y-5', 'N-6'];
+        $cmd = new RegisterEntrantCommand($this->baseData() + ['brewerJudgeLocation' => $locations]);
+        $this->assertSame($locations, $cmd->brewerJudgeLocation);
+        $this->assertIsArray($cmd->brewerJudgeLocation);
+    }
 }
