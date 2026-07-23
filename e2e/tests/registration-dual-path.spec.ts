@@ -9,6 +9,18 @@ import { registerEntrant, login } from '../helpers/auth';
  * applies to entries.
  */
 test.describe.serial('registration dual-path', () => {
+  test('modern route: shows the legacy password meter and sticky-home control', async ({ page }) => {
+    await page.goto('/register');
+    await page.locator('#password-entry').pressSequentially('E2eTest123!');
+
+    await expect(page.locator('#pwd-container .progress-bar')).toBeVisible();
+    await expect(page.locator('#length-help-text')).toContainText('Length: 11');
+    await expect(page.locator('#sticky-home')).toBeHidden();
+
+    await page.evaluate(() => window.scrollTo(0, 300));
+    await expect(page.locator('#sticky-home')).toBeVisible();
+  });
+
   test('modern route: reports a mismatched confirmation password before submit', async ({ page }) => {
     await page.goto('/register');
     await page.fill('input[name="password"]', 'E2eTest123!');

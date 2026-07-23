@@ -1,54 +1,10 @@
-#public-contest-header {
-    background: #000;
-    color: #fff;
-    padding: 24px 0 18px;
-}
-
-#public-contest-header h1 {
-    color: inherit;
-    font-weight: 700;
-    margin: 0;
-}
-
-#main-content .fa.fa-star::before {
-    content: "★ ";
-    font-family: Arial, sans-serif;
-    font-style: normal;
-}
-
-#main-content .form-check-label {
-    font-weight: 400;
-}
-
 #main-content .landing-page-section-header {
     border-bottom: 4px solid #000;
-    margin: 0 0 32px;
 }
-#public-contest-header .container-xxl,
-#main-content.container-xxl {
-    width: 100%;
-    max-width: 1296px;
-    margin-right: auto;
-    margin-left: auto;
-    padding-right: 0;
-    padding-left: 0;
-}
-
 #main-content.container-xxl {
     padding-bottom: 72px;
 }
 
-@media (max-width: 1319px) {
-    #public-contest-header .container-xxl,
-    #main-content.container-xxl {
-        max-width: 100%;
-    }
-}
-
-#public-contest-header + #main-content {
-    margin-top: 0;
-}
-
-#public-contest-header ~ .navbar-fixed-bottom {
+#salutation ~ .navbar-fixed-bottom {
     border: 0;
 }

@@ -78,12 +78,15 @@ final class LayoutRenderer
 <html lang="en">
 {$head}
 <body>
+<header id="home" class="site-header">
 {$nav}
-<div id="public-contest-header">
-    <div class="container-xxl">
-        <h1>{$contestTitleHtml}</h1>
-    </div>
+<div id="sticky-home" class="contains-link d-print-none"><a href="#home" aria-label="Return to top"><i class="fas fa-arrow-circle-up fa-2x"></i></a></div>
+<div id="salutation" class="text-light bg-black pt-4 pb-3 d-print-none">
+    <section class="container-xxl">
+        <h1 class="fw-bold animate__animated animate__fadeInDown">{$contestTitleHtml}</h1>
+    </section>
 </div>
+</header>
 <div id="main-content" class="container-xxl">
     {$content}
 </div>

@@ -77,6 +77,8 @@ class LayoutRendererTest extends TestCase
 
         $this->assertStringContainsString('/css/common.min.css', $html);
         $this->assertStringContainsString('/css/default.min.css', $html);
+        $this->assertStringContainsString('bootstrap/3.3.7/css/bootstrap.min.css', $html);
+        $this->assertStringNotContainsString('bootstrap@5.3.3/dist/css/bootstrap.min.css', $html);
     }
 
     public function test_session_theme_preference_overrides_default_css(): void

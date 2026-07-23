@@ -6,18 +6,19 @@
  */
 ?>
 <?php if ($isPublic): ?>
-<nav class="navbar navbar-inverse navbar-fixed-top">
+<nav id="site-nav" class="site-nav family-sans navbar navbar-expand-md navbar-dark fixed-top bg-dark">
     <div class="container-fluid">
-        <ul class="nav navbar-nav">
-            <li><a href="/"><span class="glyphicon glyphicon-home" aria-hidden="true"></span><span class="sr-only">Home</span></a></li>
-        </ul>
-        <ul class="nav navbar-nav navbar-right">
-            <li><a href="/index.php?section=entry#rules">Rules</a></li>
-            <li><a href="/index.php?section=volunteers">Volunteers</a></li>
-            <li><a href="/index.php?section=entry">Entry Info</a></li>
-            <li><a href="/index.php?section=contact">Contact</a></li>
-            <li><a href="/index.php?section=login">Log In</a></li>
-        </ul>
+        <a class="navbar-brand" href="/"><i class="fas fa-home me-2" aria-hidden="true"></i><span class="visually-hidden">Home</span></a>
+        <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#public-nav-toggler" aria-controls="public-nav-toggler" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
+        <section class="collapse navbar-collapse" id="public-nav-toggler">
+            <div class="navbar-nav ms-auto">
+                <a class="nav-item nav-link" href="/#rules">Rules</a>
+                <a class="nav-item nav-link" href="/#volunteers">Volunteers</a>
+                <a class="nav-item nav-link" href="/#entry-info">Entry Info</a>
+                <a class="nav-item nav-link" href="/#contact">Contact</a>
+                <a class="nav-item nav-link" href="/index.php?section=login">Log In</a>
+            </div>
+        </section>
     </div>
 </nav>
 <?php else: ?>

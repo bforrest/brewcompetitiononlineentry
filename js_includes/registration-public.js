@@ -12,7 +12,7 @@
     const addressFields = form.querySelector('#address-fields');
     const club = form.querySelector('#brewerClubs');
     const otherClub = form.querySelector('#brewerClubsOther');
-    const strength = form.querySelector('.pwd-strength-viewport-progress');
+    const stickyHome = document.querySelector('#sticky-home');
 
     const messageFor = (field) => {
         if (field === confirmation && password !== null && confirmation.value !== '' && confirmation.value !== password.value) {
@@ -98,16 +98,42 @@
         if (club !== null && otherClub !== null) otherClub.hidden = club.value !== 'Other';
     };
 
-    const renderStrength = () => {
-        if (password === null || strength === null) return;
-        const score = Math.min(100, password.value.length * 10);
-        strength.innerHTML = `<div class="progress"><div class="progress-bar" role="progressbar" style="width: ${score}%"></div></div>`;
+    const initStrength = () => {
+        if (password === null || window.jQuery === undefined || typeof window.jQuery.fn.pwstrength !== 'function') return;
+        window.jQuery(password).pwstrength({
+            ui: {
+                container: '#pwd-container',
+                showErrors: true,
+                useVerdictCssClass: true,
+                showVerdictsInsideProgressBar: true,
+                viewports: { progress: '.pwd-strength-viewport-progress' },
+                progressBarExtraCssClasses: 'progress-bar-striped active',
+                progressBarEmptyPercentage: 2,
+                progressBarMinPercentage: 6,
+            },
+            common: {
+                zxcvbn: true,
+                minChar: 8,
+                onKeyUp: (event, data) => {
+                    document.querySelector('#length-help-text').textContent = `Length: ${event.target.value.length} | Score: ${data.score.toFixed(2)}`;
+                },
+            },
+        });
+    };
+
+    const updateStickyHome = () => {
+        if (stickyHome !== null) stickyHome.style.display = window.scrollY > 200 ? 'block' : 'none';
     };
 
     country?.addEventListener('change', setCountryFields);
     club?.addEventListener('change', setOtherClub);
-    password?.addEventListener('input', renderStrength);
+    stickyHome?.addEventListener('click', (event) => {
+        event.preventDefault();
+        document.querySelector('#home')?.scrollIntoView({ behavior: 'smooth' });
+    });
+    window.addEventListener('scroll', updateStickyHome, { passive: true });
     setCountryFields();
     setOtherClub();
-    renderStrength();
+    initStrength();
+    updateStickyHome();
 })();
