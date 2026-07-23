@@ -87,6 +87,7 @@ class RegistrationControllerTest extends TestCase
     {
         return [
             'user_name' => 'entrant@example.com',
+            'user_name2' => 'entrant@example.com',
             'password' => 'Sup3rSecret!',
             'userQuestion' => 'Favorite hop?',
             'userQuestionAnswer' => 'Citra',

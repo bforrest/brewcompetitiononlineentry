@@ -13,6 +13,7 @@ final class RegistrationFormFactory
     /** @var list<string> */
     private const REQUIRED_FIELDS = [
         'user_name',
+        'user_name2',
         'password',
         'userQuestion',
         'userQuestionAnswer',
@@ -44,6 +45,12 @@ final class RegistrationFormFactory
                 if (!isset($input[$name]) || $input[$name] === '') {
                     $missingRequiredErrors[$name] = 'This field is required.';
                 }
+            }
+
+            if (($input['user_name'] ?? '') !== ''
+                && ($input['user_name2'] ?? '') !== ''
+                && $input['user_name'] !== $input['user_name2']) {
+                $missingRequiredErrors['user_name2'] = 'Email addresses must match.';
             }
         }
 

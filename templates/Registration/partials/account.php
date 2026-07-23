@@ -11,16 +11,19 @@
             <?php if (isset($form->fieldErrors['user_name'])): ?><span class="help-block"><?= e($form->fieldErrors['user_name']) ?></span><?php endif; ?>
         </div>
     </div>
+    <div class="form-group<?= isset($form->fieldErrors['user_name2']) ? ' has-error' : '' ?>">
+        <label for="user_name2" class="col-sm-3 control-label text-warning"><span aria-hidden="true">*</span> Re-enter email</label>
+        <div class="col-sm-6">
+            <input class="form-control" id="user_name2" name="user_name2" type="email" value="<?= e((string) ($form->values['user_name2'] ?? '')) ?>" required>
+            <?php if (isset($form->fieldErrors['user_name2'])): ?><span class="help-block"><?= e($form->fieldErrors['user_name2']) ?></span><?php endif; ?>
+        </div>
+    </div>
     <div class="form-group<?= isset($form->fieldErrors['password']) ? ' has-error' : '' ?>">
         <label for="password" class="col-sm-3 control-label text-warning"><span aria-hidden="true">*</span> Password</label>
         <div class="col-sm-6">
             <input class="form-control" id="password" name="password" type="password" required>
             <?php if (isset($form->fieldErrors['password'])): ?><span class="help-block"><?= e($form->fieldErrors['password']) ?></span><?php endif; ?>
         </div>
-    </div>
-    <div class="form-group">
-        <label for="password-confirm" class="col-sm-3 control-label text-warning"><span aria-hidden="true">*</span> Confirm password</label>
-        <div class="col-sm-6"><input class="form-control" id="password-confirm" name="password-confirm" type="password" required></div>
     </div>
     <div class="form-group<?= isset($form->fieldErrors['userQuestion']) ? ' has-error' : '' ?>">
         <span class="col-sm-3 control-label text-warning"><span aria-hidden="true">*</span> Security question</span>

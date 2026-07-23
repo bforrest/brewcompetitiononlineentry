@@ -42,7 +42,7 @@ final class RegisterEntrantCommand
     /** @param array<string, mixed> $data */
     public function __construct(array $data)
     {
-        foreach (['user_name', 'password', 'userQuestion', 'userQuestionAnswer',
+        foreach (['user_name', 'user_name2', 'password', 'userQuestion', 'userQuestionAnswer',
                   'brewerFirstName', 'brewerLastName', 'brewerAddress', 'brewerCity',
                   'brewerZip', 'brewerCountry', 'brewerPhone1'] as $required) {
             if (!isset($data[$required]) || $data[$required] === '') {
@@ -51,6 +51,9 @@ final class RegisterEntrantCommand
         }
 
         $this->userName = (string) $data['user_name'];
+        if ($this->userName !== (string) $data['user_name2']) {
+            throw new \InvalidArgumentException('Email addresses do not match.');
+        }
         $this->password = (string) $data['password'];
         $this->userQuestion = (string) $data['userQuestion'];
         $this->userQuestionAnswer = (string) $data['userQuestionAnswer'];

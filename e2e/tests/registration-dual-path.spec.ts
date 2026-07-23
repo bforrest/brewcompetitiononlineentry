@@ -9,6 +9,16 @@ import { registerEntrant, login } from '../helpers/auth';
  * applies to entries.
  */
 test.describe.serial('registration dual-path', () => {
+  test('modern route: reports a mismatched confirmation email before submit', async ({ page }) => {
+    await page.goto('/register');
+    await page.fill('input[name="user_name"]', 'entrant@example.test');
+    await page.fill('input[name="user_name2"]', 'different@example.test');
+    await page.locator('button[name="submit"]').click();
+
+    await expect(page).toHaveURL(/\/register$/);
+    await expect(page.locator('#user_name2-client-error')).toHaveText('Email addresses must match.');
+  });
+
   test('legacy route: register and land logged in', async ({ page }) => {
     const creds = await registerEntrant(page);
 
@@ -28,8 +38,8 @@ test.describe.serial('registration dual-path', () => {
     await page.fill('input[name="brewerFirstName"]', 'E2e');
     await page.fill('input[name="brewerLastName"]', 'Modern');
     await page.fill('input[name="user_name"]', email);
+    await page.fill('input[name="user_name2"]', email);
     await page.fill('input[name="password"]', password);
-    await page.fill('input[name="password-confirm"]', password);
     await page.locator('input[name="userQuestion"]').first().check();
     await page.fill('input[name="userQuestionAnswer"]', 'hops');
     await page.selectOption('select[name="brewerCountry"]', { label: 'United States' });

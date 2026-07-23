@@ -15,3 +15,4 @@
     <?php require __DIR__ . '/partials/waiver.php'; ?>
     <?php require __DIR__ . '/partials/submit.php'; ?>
 </form>
+<script src="/js_includes/registration-public.js" defer></script>
