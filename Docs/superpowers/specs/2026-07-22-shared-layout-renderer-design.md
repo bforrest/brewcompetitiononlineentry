@@ -89,10 +89,20 @@ New template partials live under `templates/layout/`:
   `nav.sec.php` — not the full public marketing nav (registration CTAs,
   entry-limit-aware links), since those only apply to anonymous/public
   visitors, which this renderer doesn't serve.
-- `sidebar.php` — admin-only. A static list of admin section links matching
-  `admin/sidebar.admin.php`'s current real links (exact link set pulled from
-  that file at implementation time, not guessed here) plus the current
-  active-section highlight.
+- `sidebar.php` — admin-only. **Correction from an earlier draft of this
+  spec:** `admin/sidebar.admin.php` is not a navigation menu — it's a
+  513-line live-data status dashboard (entry/judge/steward counts,
+  update-checker widgets, a donation link), built from session and DB state
+  that has no place in a decoupled, explicit-inputs-only renderer. There is
+  no existing static admin nav-link list anywhere in the app to mirror.
+  `sidebar.php` is therefore a small, new, hardcoded list of links to the
+  real admin section targets already used elsewhere in the app (e.g.
+  `index.php?section=admin&go=entries`, `&go=participants`,
+  `&go=judging_tables`, `&go=preferences` — confirmed real hrefs, grepped
+  from `admin/sidebar.admin.php`'s own dashboard links) plus the current
+  active-section highlight. This is new navigation UI, not a port of
+  anything — reasonable since legacy has no dedicated nav-only sidebar to
+  port from.
 - `footer.php` — simple static footer.
 
 None of these four partials read `$_SESSION` or any global directly — every
