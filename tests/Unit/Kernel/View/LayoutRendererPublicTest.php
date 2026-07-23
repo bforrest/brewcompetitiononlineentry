@@ -25,13 +25,15 @@ class LayoutRendererPublicTest extends TestCase
         $this->assertStringContainsString('/css/default.min.css', $html);
         $this->assertStringContainsString('>Rules</a>', $html);
         $this->assertStringContainsString('glyphicon glyphicon-home', $html);
+        $this->assertStringContainsString('<div class="container-fluid">', $html);
         $this->assertStringContainsString('>Volunteers</a>', $html);
         $this->assertStringContainsString('>Entry Info</a>', $html);
         $this->assertStringContainsString('>Contact</a>', $html);
         $this->assertStringContainsString('>Log In</a>', $html);
         $this->assertStringContainsString('<h1>Fixture Invitational</h1>', $html);
+        $this->assertStringContainsString('class="container-xxl"', $html);
         $this->assertStringNotContainsString('<h1>Register</h1>', $html);
         $this->assertStringContainsString('<p class="fixture-content">hello from fixture</p>', $html);
-        $this->assertStringContainsString('<footer', $html);
+        $this->assertStringContainsString('<footer class="site-footer bg-dark text-light', $html);
     }
 }

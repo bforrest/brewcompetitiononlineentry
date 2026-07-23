@@ -46,13 +46,51 @@ final class RegistrationOptionsRepository
             guidance: '',
             countryChoices: $this->choiceSource->countryChoices(),
             stateChoices: $this->choiceSource->stateChoices(),
+            clubChoices: $this->clubChoices(),
             dropOffChoices: $dropOffAvailable ? $this->dropOffChoices() : [],
+            securityQuestions: $this->securityQuestions(),
             availability: [
                 'shipping' => $shippingAvailable,
                 'dropOff' => $dropOffAvailable,
             ],
             registrationOpen: $this->registrationOpen($contest),
         );
+    }
+
+    /** @return list<string> */
+    private function securityQuestions(): array
+    {
+        $questions = $this->choiceSource->securityQuestions();
+        if (count($questions) <= 10) {
+            return $questions;
+        }
+
+        $keys = array_rand($questions, 10);
+        $selected = [];
+        foreach ($keys as $key) {
+            $selected[] = $questions[$key];
+        }
+
+        return $selected;
+    }
+
+    /** @return array<string, string> */
+    private function clubChoices(): array
+    {
+        $clubs = $_SESSION['club_array'] ?? [];
+        if (!is_array($clubs)) {
+            return [];
+        }
+
+        $choices = [];
+        foreach ($clubs as $club) {
+            if (is_string($club) && $club !== '') {
+                $choices[$club] = $club;
+            }
+        }
+        asort($choices);
+
+        return $choices;
     }
 
     /** @return array<string, string> */

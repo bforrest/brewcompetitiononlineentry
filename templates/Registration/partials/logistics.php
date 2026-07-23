@@ -2,18 +2,7 @@
 /** @var \Bcoem\Domain\Registration\Form\RegistrationFormData $form */
 /** @var \Bcoem\Domain\Registration\Form\RegistrationFormOptions $options */
 ?>
-<fieldset>
-    <legend>Entry logistics</legend>
-    <div class="form-group">
-        <label for="brewerDropOff" class="col-sm-3 control-label">Drop-off location</label>
-        <div class="col-sm-6">
-            <select class="form-control" id="brewerDropOff" name="brewerDropOff">
-                <option value="">Select a drop-off location</option>
-                <?php foreach ($options->dropOffChoices as $value => $label): ?>
-                    <option value="<?= e($value) ?>"<?= ($form->values['brewerDropOff'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option>
-                <?php endforeach; ?>
-            </select>
-            <span class="help-block">Choose where you plan to deliver your entries.</span>
-        </div>
-    </div>
-</fieldset>
+<?php $value = static fn (string $name): string => (string) ($form->values[$name] ?? ''); ?>
+<div class="mb-3 row"><label for="brewerDropOff" class="col-xs-12 col-sm-3 col-lg-2 col-form-label text-teal"><i class="fa fa-star me-1"></i><strong>Entry Delivery</strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><select class="form-select selectpicker mb-1 bootstrap-select" name="brewerDropOff" id="brewerDropOff" title="Select Your Entry Delivery Method" required><option value="">Select Your Entry Delivery Method</option><?php if ($options->availability['shipping'] ?? true): ?><option value="0"<?= $value('brewerDropOff') === '0' ? ' selected' : '' ?>>Shipping Entries</option><?php endif; ?><option value="999"<?= $value('brewerDropOff') === '999' ? ' selected' : '' ?>>Not Applicable</option><?php if ($options->dropOffChoices !== []): ?><optgroup label="Drop-Off Locations"><?php foreach ($options->dropOffChoices as $optionValue => $label): ?><option value="<?= e($optionValue) ?>"<?= $value('brewerDropOff') === $optionValue ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></optgroup><?php endif; ?></select><div class="help-block">Select &quot;Shipping Entries&quot; if you plan to box up and send your entries to the provided Shipping Location.</div><div class="help-block">Select &quot;Not Applicable&quot; if you don't plan to submit any entries into the competition at this time.</div></div></div>
+<div class="mb-3 row"><label for="brewerClubs" class="col-xs-12 col-sm-3 col-lg-2 col-form-label"><strong>Club</strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><select class="form-select mb-1 bootstrap-select" name="brewerClubs" id="brewerClubs" title="Select or Search for Your Club"><option value="0">None</option><option value="Other">Other</option><optgroup label="Select or Search for Your Club"><?php foreach ($options->clubChoices as $optionValue => $label): ?><option value="<?= e($optionValue) ?>"<?= $value('brewerClubs') === $optionValue ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></optgroup></select><span class="help-block">Select &quot;None&quot; if you are not affiliated with a club. Select &quot;Other&quot; if your club is not on the list.</span></div></div>
+<div id="brewerClubsOther" class="mb-3 row"><label for="brewerClubsOther" class="col-xs-12 col-sm-3 col-lg-2 col-form-label"><strong>Enter Club Name</strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><input class="form-control" name="brewerClubsOther" id="brewerClubsOtherInput" type="text" value="<?= e($value('brewerClubsOther')) ?>" pattern="[^%&\x22\x27]+"></div></div>

@@ -87,8 +87,8 @@ class RegistrationControllerTest extends TestCase
     {
         return [
             'user_name' => 'entrant@example.com',
-            'user_name2' => 'entrant@example.com',
             'password' => 'Sup3rSecret!',
+            'password-confirm' => 'Sup3rSecret!',
             'userQuestion' => 'Favorite hop?',
             'userQuestionAnswer' => 'Citra',
             'brewerFirstName' => 'Jane',
@@ -99,6 +99,7 @@ class RegistrationControllerTest extends TestCase
             'brewerZip' => '75001',
             'brewerCountry' => 'United States',
             'brewerPhone1' => '555-555-0100',
+            'brewerDropOff' => '999',
         ];
     }
 
@@ -131,7 +132,7 @@ class RegistrationControllerTest extends TestCase
         $this->assertStringContainsString('>Rules</a>', $html);
         $this->assertStringContainsString('<h1>Example Competition</h1>', $html);
         $this->assertStringContainsString('Example Competition', $html);
-        $this->assertStringContainsString('<form id="register-form"', $html);
+        $this->assertStringContainsString('<form id="submit-form"', $html);
         $this->assertStringNotContainsString('Please correct the following:', $html);
     }
 

@@ -24,6 +24,10 @@ final class RegisterEntrantCommand
     public readonly string $brewerCountry;
     public readonly string $brewerPhone1;
     public readonly string $brewerPhone2;
+    public readonly string $brewerClubsOther;
+    public readonly string $brewerProAm;
+    public readonly string $brewerAHA;
+    public readonly string $brewerMHP;
     public readonly string $brewerStateUS;
     public readonly string $brewerStateCA;
     public readonly string $brewerStateAUS;
@@ -42,7 +46,7 @@ final class RegisterEntrantCommand
     /** @param array<string, mixed> $data */
     public function __construct(array $data)
     {
-        foreach (['user_name', 'user_name2', 'password', 'userQuestion', 'userQuestionAnswer',
+        foreach (['user_name', 'password', 'password-confirm', 'userQuestion', 'userQuestionAnswer',
                   'brewerFirstName', 'brewerLastName', 'brewerAddress', 'brewerCity',
                   'brewerZip', 'brewerCountry', 'brewerPhone1'] as $required) {
             if (!isset($data[$required]) || $data[$required] === '') {
@@ -51,10 +55,10 @@ final class RegisterEntrantCommand
         }
 
         $this->userName = (string) $data['user_name'];
-        if ($this->userName !== (string) $data['user_name2']) {
-            throw new \InvalidArgumentException('Email addresses do not match.');
-        }
         $this->password = (string) $data['password'];
+        if ($this->password !== (string) $data['password-confirm']) {
+            throw new \InvalidArgumentException('Passwords do not match.');
+        }
         $this->userQuestion = (string) $data['userQuestion'];
         $this->userQuestionAnswer = (string) $data['userQuestionAnswer'];
         $this->brewerFirstName = (string) $data['brewerFirstName'];
@@ -65,6 +69,10 @@ final class RegisterEntrantCommand
         $this->brewerCountry = (string) $data['brewerCountry'];
         $this->brewerPhone1 = (string) $data['brewerPhone1'];
         $this->brewerPhone2 = (string) ($data['brewerPhone2'] ?? '');
+        $this->brewerClubsOther = (string) ($data['brewerClubsOther'] ?? '');
+        $this->brewerProAm = (string) ($data['brewerProAm'] ?? '');
+        $this->brewerAHA = (string) ($data['brewerAHA'] ?? '');
+        $this->brewerMHP = (string) ($data['brewerMHP'] ?? '');
         $this->brewerStateUS = (string) ($data['brewerStateUS'] ?? '');
         $this->brewerStateCA = (string) ($data['brewerStateCA'] ?? '');
         $this->brewerStateAUS = (string) ($data['brewerStateAUS'] ?? '');

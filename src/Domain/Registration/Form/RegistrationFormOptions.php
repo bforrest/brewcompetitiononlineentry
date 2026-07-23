@@ -13,7 +13,9 @@ final readonly class RegistrationFormOptions
     /**
      * @param array<string, string> $countryChoices
      * @param array<string, string> $stateChoices
+     * @param array<string, string> $clubChoices
      * @param array<string, string> $dropOffChoices
+     * @param list<string> $securityQuestions
      * @param array<string, bool> $availability
      */
     public function __construct(
@@ -21,7 +23,9 @@ final readonly class RegistrationFormOptions
         public string $guidance,
         public array $countryChoices = [],
         public array $stateChoices = [],
+        public array $clubChoices = [],
         public array $dropOffChoices = [],
+        public array $securityQuestions = [],
         public array $availability = [],
         public bool $registrationOpen = true,
     ) {

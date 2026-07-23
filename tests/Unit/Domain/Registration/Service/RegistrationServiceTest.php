@@ -34,6 +34,7 @@ class RegistrationServiceTest extends TestCase
         return new RegisterEntrantCommand($overrides + [
             'user_name' => 'entrant@example.com',
             'password' => 'Sup3rSecret!',
+            'password-confirm' => 'Sup3rSecret!',
             'userQuestion' => 'Favorite hop?',
             'userQuestionAnswer' => 'Citra',
             'brewerFirstName' => 'Jane',
@@ -86,7 +87,12 @@ class RegistrationServiceTest extends TestCase
             ->willReturn(RegistrantId::from(101));
 
         $this->repository->expects($this->once())->method('insertBrewerProfile')
-            ->with($this->callback(fn (array $row) => $row['uid'] === 101 && $row['brewerFirstName'] === 'Jane'));
+            ->with($this->callback(fn (array $row) => $row['uid'] === 101
+                && $row['brewerFirstName'] === 'Jane'
+                && $row['brewerPhone2'] === null
+                && $row['brewerAHA'] === null
+                && $row['brewerMHP'] === null
+                && $row['brewerProAm'] === null));
 
         $this->repository->expects($this->once())->method('insertStaffRow')
             ->with($this->callback(fn (array $row) => $row['uid'] === 101 && $row['staff_judge'] === 0 && $row['staff_steward'] === 0 && $row['staff_staff'] === 0));

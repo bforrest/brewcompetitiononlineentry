@@ -135,6 +135,7 @@ class RegistrationDualPathTest extends IntegrationTestCase
         $cmd = new RegisterEntrantCommand([
             'user_name' => 'modern-path@test.example',
             'password' => 'Sup3rSecret!',
+            'password-confirm' => 'Sup3rSecret!',
             'userQuestion' => 'Favorite hop?',
             'userQuestionAnswer' => 'Citra',
             'brewerFirstName' => 'Jane',
@@ -179,6 +180,7 @@ class RegistrationDualPathTest extends IntegrationTestCase
         $cmd = new RegisterEntrantCommand([
             'user_name' => 'judge-opt-in@test.example',
             'password' => 'Sup3rSecret!',
+            'password-confirm' => 'Sup3rSecret!',
             'userQuestion' => 'Favorite hop?',
             'userQuestionAnswer' => 'Citra',
             'brewerFirstName' => 'Jo',
@@ -233,6 +235,7 @@ class RegistrationDualPathTest extends IntegrationTestCase
         $modernId = $this->service->register(new RegisterEntrantCommand($standardEntrant + [
             'user_name' => 'modern-standard-fields@test.example',
             'password' => 'Sup3rSecret!',
+            'password-confirm' => 'Sup3rSecret!',
             'userQuestion' => 'Favorite hop?',
             'userQuestionAnswer' => 'Citra',
             'brewerFirstName' => 'Jane',

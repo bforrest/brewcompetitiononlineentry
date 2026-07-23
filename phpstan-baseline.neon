@@ -147,7 +147,7 @@ parameters:
 		-
 			message: '#^Function sterilize not found\.$#'
 			identifier: function.notFound
-			count: 12
+			count: 17
 			path: src/Domain/Registration/Service/RegistrationService.php
 
 		-

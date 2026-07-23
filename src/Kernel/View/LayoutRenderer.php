@@ -80,16 +80,12 @@ final class LayoutRenderer
 <body>
 {$nav}
 <div id="public-contest-header">
-    <div class="container">
+    <div class="container-xxl">
         <h1>{$contestTitleHtml}</h1>
     </div>
 </div>
-<div id="main-content" class="container">
-    <div class="row">
-        <div class="col col-lg-9 col-md-8 col-sm-12 col-xs-12">
-            {$content}
-        </div>
-    </div>
+<div id="main-content" class="container-xxl">
+    {$content}
 </div>
 {$footer}
 </body>

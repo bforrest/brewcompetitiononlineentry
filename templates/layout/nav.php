@@ -7,7 +7,7 @@
 ?>
 <?php if ($isPublic): ?>
 <nav class="navbar navbar-inverse navbar-fixed-top">
-    <div class="container">
+    <div class="container-fluid">
         <ul class="nav navbar-nav">
             <li><a href="/"><span class="glyphicon glyphicon-home" aria-hidden="true"></span><span class="sr-only">Home</span></a></li>
         </ul>

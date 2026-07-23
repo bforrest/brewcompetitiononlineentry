@@ -13,8 +13,8 @@ final class RegistrationFormFactory
     /** @var list<string> */
     private const REQUIRED_FIELDS = [
         'user_name',
-        'user_name2',
         'password',
+        'password-confirm',
         'userQuestion',
         'userQuestionAnswer',
         'brewerFirstName',
@@ -24,6 +24,7 @@ final class RegistrationFormFactory
         'brewerZip',
         'brewerCountry',
         'brewerPhone1',
+        'brewerDropOff',
     ];
 
     /**
@@ -47,10 +48,21 @@ final class RegistrationFormFactory
                 }
             }
 
-            if (($input['user_name'] ?? '') !== ''
-                && ($input['user_name2'] ?? '') !== ''
-                && $input['user_name'] !== $input['user_name2']) {
-                $missingRequiredErrors['user_name2'] = 'Email addresses must match.';
+            $stateField = match ($input['brewerCountry'] ?? '') {
+                'United States' => 'brewerStateUS',
+                'Canada' => 'brewerStateCA',
+                'Australia' => 'brewerStateAUS',
+                '' => null,
+                default => 'brewerStateNon',
+            };
+            if ($stateField !== null && (!isset($input[$stateField]) || $input[$stateField] === '')) {
+                $missingRequiredErrors[$stateField] = 'This field is required.';
+            }
+
+            if (($input['password'] ?? '') !== ''
+                && ($input['password-confirm'] ?? '') !== ''
+                && $input['password'] !== $input['password-confirm']) {
+                $missingRequiredErrors['password-confirm'] = 'Passwords do not match.';
             }
         }
 

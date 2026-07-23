@@ -1,0 +1,28 @@
+<h2>Registration visual parity</h2>
+<p class="subtitle">The modern form currently has the same workflow but a much smaller field set and no legacy public-page chrome. Which parity target should guide the work?</p>
+
+<div class="cards">
+  <div class="card" data-choice="full" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup-header">A · Full legacy-equivalent entrant form</div>
+      <div class="mockup-body"><div class="mock-nav">BCOEM · Register · Login</div><div class="mock-content"><h3>Register as an Entrant</h3><p class="subtitle">Competition details and guidance</p><div class="placeholder">Brewery, contact, location, account, security question, judge/steward options, waiver</div><button class="mock-button">Register</button></div></div>
+    </div>
+    <div class="card-body"><h3>Full fidelity</h3><p>Match legacy fields, grouping, help text, validation, public chrome, and responsive Bootstrap layout.</p></div>
+  </div>
+  <div class="card" data-choice="layout" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup-header">B · Same complete form, modern public shell</div>
+      <div class="mockup-body"><div class="mock-nav">BCOEM · Home · Register · Login</div><div class="mock-content"><h3>Create your entrant account</h3><div class="placeholder">All legacy-required inputs and opt-ins, reorganized only for responsive spacing</div><button class="mock-button">Create account</button></div></div>
+    </div>
+    <div class="card-body"><h3>Functional fidelity, refreshed frame</h3><p>Preserve every input and behavior but allow a modernized public chrome and modest layout refinement.</p></div>
+  </div>
+  <div class="card" data-choice="shell" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup-header">C · Current modern form, legacy shell only</div>
+      <div class="mockup-body"><div class="mock-nav">BCOEM · Register · Login</div><div class="mock-content"><h3>Register</h3><input class="mock-input" placeholder="Email"><input class="mock-input" placeholder="Password"><button class="mock-button">Register</button></div></div>
+    </div>
+    <div class="card-body"><h3>Cosmetic-only</h3><p>Apply common CSS, header, and Bootstrap styling without expanding modern field coverage.</p></div>
+  </div>
+</div>
+
+<p class="subtitle">Click an option, then tell me what you want to preserve or change.</p>

@@ -99,7 +99,7 @@ final class RegistrationService
 
         [$firstName, $lastName] = $this->processName($cmd->brewerFirstName, $cmd->brewerLastName, $purifier);
         $stateProvince = $this->resolveStateProvince($cmd);
-        $clubs = $this->resolveClub($cmd->brewerClubs, $clubAllowlist);
+        $clubs = $this->resolveClub($cmd->brewerClubs, $cmd->brewerClubsOther, $clubAllowlist, $purifier);
         [$judgeLocation, $stewardLocation] = $this->resolveLocationPreferences($cmd);
 
         $this->repository->insertBrewerProfile([
@@ -112,6 +112,7 @@ final class RegistrationService
             'brewerZip' => blank_to_null(sterilize($cmd->brewerZip)),
             'brewerCountry' => blank_to_null(sterilize($cmd->brewerCountry)),
             'brewerPhone1' => blank_to_null(sterilize($cmd->brewerPhone1)),
+            'brewerPhone2' => blank_to_null(sterilize($cmd->brewerPhone2)),
             'brewerClubs' => blank_to_null($clubs),
             'brewerEmail' => blank_to_null($email->value()),
             'brewerDropOff' => blank_to_null(sterilize($cmd->brewerDropOff)),
@@ -119,6 +120,9 @@ final class RegistrationService
             'brewerSteward' => blank_to_null($cmd->brewerSteward),
             'brewerJudge' => blank_to_null($cmd->brewerJudge),
             'brewerJudgeWaiver' => blank_to_null($cmd->brewerJudgeWaiver),
+            'brewerAHA' => blank_to_null(sterilize($cmd->brewerAHA)),
+            'brewerMHP' => blank_to_null(sterilize($cmd->brewerMHP)),
+            'brewerProAm' => blank_to_null(sterilize($cmd->brewerProAm)),
             'brewerJudgeLocation' => blank_to_null($judgeLocation),
             'brewerStewardLocation' => blank_to_null($stewardLocation),
         ]);
@@ -211,10 +215,13 @@ final class RegistrationService
         return sterilize($state) ?? '';
     }
 
-    private function resolveClub(string $submitted, array $allowlist): ?string
+    private function resolveClub(string $submitted, string $other, array $allowlist, object $purifier): ?string
     {
-        if ($submitted === '') {
+        if ($submitted === '' || $submitted === '0') {
             return null;
+        }
+        if ($submitted === 'Other') {
+            return $other === '' ? 'Other' : ucwords($purifier->purify($other));
         }
         if (in_array($submitted, $allowlist, true)) {
             return $submitted;

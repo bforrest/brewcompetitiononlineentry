@@ -2,38 +2,12 @@
 /** @var \Bcoem\Domain\Registration\Form\RegistrationFormData $form */
 /** @var \Bcoem\Domain\Registration\Form\RegistrationFormOptions $options */
 ?>
-<fieldset>
-    <legend>Contact and address</legend>
-    <?php foreach (['brewerFirstName' => 'First name', 'brewerLastName' => 'Last name', 'brewerAddress' => 'Address', 'brewerCity' => 'City', 'brewerZip' => 'Postal code', 'brewerPhone1' => 'Phone'] as $name => $label): ?>
-        <div class="form-group<?= isset($form->fieldErrors[$name]) ? ' has-error' : '' ?>">
-            <label for="<?= e($name) ?>" class="col-sm-3 control-label text-warning"><span aria-hidden="true">*</span> <?= e($label) ?></label>
-            <div class="col-sm-6">
-                <input class="form-control" id="<?= e($name) ?>" name="<?= e($name) ?>" type="<?= $name === 'brewerPhone1' ? 'tel' : 'text' ?>" value="<?= e((string) ($form->values[$name] ?? '')) ?>" required>
-                <?php if (isset($form->fieldErrors[$name])): ?><span class="help-block"><?= e($form->fieldErrors[$name]) ?></span><?php endif; ?>
-            </div>
-        </div>
-    <?php endforeach; ?>
-    <div class="form-group<?= isset($form->fieldErrors['brewerCountry']) ? ' has-error' : '' ?>">
-        <label for="brewerCountry" class="col-sm-3 control-label text-warning"><span aria-hidden="true">*</span> Country</label>
-        <div class="col-sm-6">
-            <select class="form-control" id="brewerCountry" name="brewerCountry" required>
-                <option value="">Select a country</option>
-                <?php foreach ($options->countryChoices as $value => $label): ?>
-                    <option value="<?= e($value) ?>"<?= ($form->values['brewerCountry'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option>
-                <?php endforeach; ?>
-            </select>
-            <?php if (isset($form->fieldErrors['brewerCountry'])): ?><span class="help-block"><?= e($form->fieldErrors['brewerCountry']) ?></span><?php endif; ?>
-        </div>
-    </div>
-    <div class="form-group">
-        <label for="brewerStateUS" class="col-sm-3 control-label">State or province</label>
-        <div class="col-sm-6">
-            <select class="form-control" id="brewerStateUS" name="brewerStateUS">
-                <option value="">Select a state or province</option>
-                <?php foreach ($options->stateChoices as $value => $label): ?>
-                    <option value="<?= e($value) ?>"<?= ($form->values['brewerStateUS'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-    </div>
-</fieldset>
+<?php $value = static fn (string $name): string => (string) ($form->values[$name] ?? ''); ?>
+<?php foreach (['brewerFirstName' => 'First Name', 'brewerLastName' => 'Last Name'] as $name => $label): ?><div class="mb-3 row<?= isset($form->fieldErrors[$name]) ? ' has-error' : '' ?>"><label for="<?= e($name) ?>" class="col-xs-12 col-sm-3 col-lg-2 col-form-label text-teal"><strong><i class="fa fa-star me-1"></i> <?= e($label) ?></strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><input class="form-control" name="<?= e($name) ?>" id="<?= e($name) ?>" type="text" value="<?= e($value($name)) ?>" required><?php if ($name === 'brewerLastName'): ?><div class="help-block">Please enter only <em>one</em> person's name.</div><?php endif; ?></div></div><?php endforeach; ?>
+<div class="mb-3 row<?= isset($form->fieldErrors['brewerCountry']) ? ' has-error' : '' ?>"><label for="brewerCountry" class="col-xs-12 col-sm-3 col-lg-2 col-form-label text-teal"><i class="fa fa-star me-1"></i><strong>Country</strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><select class="form-select mb-1 bootstrap-select" name="brewerCountry" id="brewerCountry" title="Select or Search Your Country" required><option value="">Select or Search Your Country</option><?php foreach ($options->countryChoices as $optionValue => $label): ?><option value="<?= e($optionValue) ?>"<?= $value('brewerCountry') === $optionValue ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div></div>
+<section id="address-fields">
+<?php foreach (['brewerAddress' => 'Street Address', 'brewerCity' => 'City'] as $name => $label): ?><div class="mb-3 row<?= isset($form->fieldErrors[$name]) ? ' has-error' : '' ?>"><label for="<?= e($name) ?>" class="col-xs-12 col-sm-3 col-lg-2 col-form-label text-teal"><i class="fa fa-star me-1"></i><strong><?= e($label) ?></strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><input class="form-control" name="<?= e($name) ?>" id="<?= e($name) ?>" type="text" value="<?= e($value($name)) ?>" required></div></div><?php endforeach; ?>
+<div class="mb-3 row"><label for="brewerStateUS" class="col-xs-12 col-sm-3 col-lg-2 col-form-label text-teal"><i class="fa fa-star me-1"></i><strong>State/Province</strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><div id="non-us-state"><input class="form-control" name="brewerStateNon" id="brewerStateNon" type="text" value="<?= e($value('brewerStateNon')) ?>"></div><?php foreach (['US', 'AUS', 'CA'] as $country): ?><div id="<?= strtolower($country) ?>-state"><select class="form-select mb-1 bootstrap-select" name="brewerState<?= $country ?>" id="brewerState<?= $country ?>"><option value="">Select or Search for Your State</option><?php foreach ($options->stateChoices as $optionValue => $label): ?><option value="<?= e($optionValue) ?>"<?= $value('brewerState' . $country) === $optionValue ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div><?php endforeach; ?></div></div>
+<div class="mb-3 row<?= isset($form->fieldErrors['brewerZip']) ? ' has-error' : '' ?>"><label for="brewerZip" class="col-xs-12 col-sm-3 col-lg-2 col-form-label text-teal"><i class="fa fa-star me-1"></i><strong>Zip/Postal Code</strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><input class="form-control" name="brewerZip" id="brewerZip" type="text" value="<?= e($value('brewerZip')) ?>" required></div></div>
+</section>
+<div class="mb-3 row<?= isset($form->fieldErrors['brewerPhone1']) ? ' has-error' : '' ?>"><label for="brewerPhone1" class="col-xs-12 col-sm-3 col-lg-2 col-form-label text-teal"><i class="fa fa-star me-1"></i><strong>Primary Phone</strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><input class="form-control" name="brewerPhone1" id="brewerPhone1" type="tel" value="<?= e($value('brewerPhone1')) ?>" required></div></div>

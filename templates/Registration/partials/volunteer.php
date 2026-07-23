@@ -2,26 +2,8 @@
 /** @var \Bcoem\Domain\Registration\Form\RegistrationFormData $form */
 /** @var \Bcoem\Domain\Registration\Form\RegistrationFormOptions $options */
 ?>
-<?php if (($options->availability['judge'] ?? false) || ($options->availability['steward'] ?? false)): ?>
-    <fieldset>
-        <legend>Volunteer preferences</legend>
-        <?php if ($options->availability['judge'] ?? false): ?>
-            <div class="form-group">
-                <span class="col-sm-3 control-label">Would you like to judge?</span>
-                <div class="col-sm-6">
-                    <label class="radio-inline"><input type="radio" name="brewerJudge" value="Y"<?= ($form->values['brewerJudge'] ?? 'N') === 'Y' ? ' checked' : '' ?>> Yes</label>
-                    <label class="radio-inline"><input type="radio" name="brewerJudge" value="N"<?= ($form->values['brewerJudge'] ?? 'N') !== 'Y' ? ' checked' : '' ?>> No</label>
-                </div>
-            </div>
-        <?php endif; ?>
-        <?php if ($options->availability['steward'] ?? false): ?>
-            <div class="form-group">
-                <span class="col-sm-3 control-label">Would you like to steward?</span>
-                <div class="col-sm-6">
-                    <label class="radio-inline"><input type="radio" name="brewerSteward" value="Y"<?= ($form->values['brewerSteward'] ?? 'N') === 'Y' ? ' checked' : '' ?>> Yes</label>
-                    <label class="radio-inline"><input type="radio" name="brewerSteward" value="N"<?= ($form->values['brewerSteward'] ?? 'N') !== 'Y' ? ' checked' : '' ?>> No</label>
-                </div>
-            </div>
-        <?php endif; ?>
-    </fieldset>
-<?php endif; ?>
+<?php $value = static fn (string $name, string $default = ''): string => (string) ($form->values[$name] ?? $default); ?>
+<section id="proAm"><div class="mb-3 row"><label class="col-xs-12 col-sm-3 col-lg-2 col-form-label"><strong>Pro-Am</strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><?php foreach (['1' => 'Yes', '0' => 'No', '2' => 'Opt Out'] as $optionValue => $label): ?><div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="brewerProAm" value="<?= $optionValue ?>" id="brewerProAm_<?= $optionValue ?>"<?= $value('brewerProAm', '0') === $optionValue ? ' checked' : '' ?>><label class="form-check-label"><?= $label ?></label></div><?php endforeach; ?><div class="help-block"><p>Have you already been awarded a Pro-Am opportunity to compete in the upcoming Great American Beer Festival Pro-Am Competition?</p></div></div></div></section>
+<section id="aha-number"><div class="mb-3 row"><label for="brewerAHA" class="col-xs-12 col-sm-3 col-lg-2 col-form-label"><strong>AHA Member Number</strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><input class="form-control" name="brewerAHA" id="brewerAHA" type="text" pattern="[A-Za-z0-9]+" value="<?= e($value('brewerAHA')) ?>"><div id="ahaProAmText" class="help-block">Only American Homebrewers Association members are eligible for a Great American Beer Festival Pro-Am opportunity.</div></div></div></section>
+<section id="mhp-number"><div class="mb-3 row"><label for="brewerMHP" class="col-xs-12 col-sm-3 col-lg-2 col-form-label"><strong>Master Homebrewer Program Membership Number</strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><input class="form-control" name="brewerMHP" id="brewerMHP" type="text" pattern="\d*" value="<?= e($value('brewerMHP')) ?>"><div class="help-block">The Master Homebrewer Program is a nonprofit organization established to promote the mastery of amateur brewing.</div></div></div></section>
+<div class="mb-3 row"><label for="brewerStaff" class="col-xs-12 col-sm-3 col-lg-2 col-form-label"><strong>Staff</strong></label><div class="col-xs-12 col-sm-9 col-lg-10"><?php foreach (['Y' => 'Yes', 'N' => 'No'] as $optionValue => $label): ?><div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="brewerStaff" value="<?= $optionValue ?>" id="brewerStaff_<?= $optionValue === 'Y' ? '0' : '1' ?>"<?= $value('brewerStaff', 'N') === $optionValue ? ' checked' : '' ?>><label class="form-check-label"><?= $label ?></label></div><?php endforeach; ?><div class="help-block"><p>Competition staff are people that serve in various roles to assist in the organization and execution of the competition before, during, and after judging.</p></div></div></div>

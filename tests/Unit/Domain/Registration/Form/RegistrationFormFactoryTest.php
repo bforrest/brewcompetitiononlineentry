@@ -46,8 +46,24 @@ final class RegistrationFormFactoryTest extends TestCase
 
         $this->assertSame('This field is required.', $form->fieldErrors['user_name']);
         $this->assertSame('This field is required.', $form->fieldErrors['password']);
+        $this->assertSame('This field is required.', $form->fieldErrors['password-confirm']);
         $this->assertSame('This field is required.', $form->fieldErrors['brewerLastName']);
         $this->assertSame('This field is required.', $form->fieldErrors['brewerCountry']);
+        $this->assertSame('This field is required.', $form->fieldErrors['brewerDropOff']);
         $this->assertArrayNotHasKey('brewerFirstName', $form->fieldErrors);
+    }
+
+    public function test_requires_the_country_appropriate_state_or_province(): void
+    {
+        $factory = new RegistrationFormFactory();
+        $options = new RegistrationFormOptions('Example Competition', 'Registration guidance');
+
+        $us = $factory->fromRequest(['brewerCountry' => 'United States'], $options);
+        $canada = $factory->fromRequest(['brewerCountry' => 'Canada'], $options);
+        $other = $factory->fromRequest(['brewerCountry' => 'Belgium'], $options);
+
+        $this->assertSame('This field is required.', $us->fieldErrors['brewerStateUS']);
+        $this->assertSame('This field is required.', $canada->fieldErrors['brewerStateCA']);
+        $this->assertSame('This field is required.', $other->fieldErrors['brewerStateNon']);
     }
 }

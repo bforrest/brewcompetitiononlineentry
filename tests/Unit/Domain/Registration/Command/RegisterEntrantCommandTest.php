@@ -12,8 +12,8 @@ class RegisterEntrantCommandTest extends TestCase
     {
         return [
             'user_name' => 'Entrant@Example.com',
-            'user_name2' => 'Entrant@Example.com',
             'password' => 'Sup3rSecret!',
+            'password-confirm' => 'Sup3rSecret!',
             'userQuestion' => 'What is your favorite hop?',
             'userQuestionAnswer' => 'Citra',
             'brewerFirstName' => 'Jane',
@@ -82,12 +82,12 @@ class RegisterEntrantCommandTest extends TestCase
         new RegisterEntrantCommand($data);
     }
 
-    public function test_mismatched_confirmation_email_throws(): void
+    public function test_mismatched_confirmation_password_throws(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Email addresses do not match.');
+        $this->expectExceptionMessage('Passwords do not match.');
 
-        new RegisterEntrantCommand(array_replace($this->baseData(), ['user_name2' => 'different@example.com']));
+        new RegisterEntrantCommand(array_replace($this->baseData(), ['password-confirm' => 'different-password']));
     }
 
     public function test_preserves_array_value_for_judge_location(): void

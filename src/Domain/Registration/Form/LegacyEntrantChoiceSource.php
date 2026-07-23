@@ -25,6 +25,20 @@ final class LegacyEntrantChoiceSource
         return $this->choices()['states'];
     }
 
+    /** @return list<string> */
+    public function securityQuestions(): array
+    {
+        $language = file_get_contents(dirname(__DIR__, 4) . '/lang/en/en-US.lang.php');
+        if ($language === false || preg_match_all('/\$label_secret_\d+\s*=\s*"([^"]+)";/', $language, $matches) < 1) {
+            throw new \RuntimeException('Legacy security questions are unavailable.');
+        }
+
+        return array_values(array_unique(array_map(
+            static fn (string $question): string => html_entity_decode($question, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            $matches[1],
+        )));
+    }
+
     /** @return array{countries: array<string, string>, states: array<string, string>} */
     private function choices(): array
     {
