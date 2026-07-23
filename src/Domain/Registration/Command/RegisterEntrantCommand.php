@@ -32,6 +32,8 @@ final class RegisterEntrantCommand
     public readonly string $brewerJudge;
     public readonly string $brewerSteward;
     public readonly string $brewerStaff;
+    public readonly string $brewerDropOff;
+    public readonly string $brewerJudgeWaiver;
     public readonly array|string|null $brewerJudgeLocation;
     public readonly array|string|null $brewerStewardLocation;
     public readonly string $captchaResponse;
@@ -68,6 +70,8 @@ final class RegisterEntrantCommand
         $this->brewerJudge = (string) ($data['brewerJudge'] ?? 'N');
         $this->brewerSteward = (string) ($data['brewerSteward'] ?? 'N');
         $this->brewerStaff = (string) ($data['brewerStaff'] ?? '');
+        $this->brewerDropOff = (string) ($data['brewerDropOff'] ?? '0');
+        $this->brewerJudgeWaiver = (string) ($data['brewerJudgeWaiver'] ?? 'Y');
         $this->brewerJudgeLocation = $data['brewerJudgeLocation'] ?? null;
         $this->brewerStewardLocation = $data['brewerStewardLocation'] ?? null;
         $this->captchaResponse = (string) ($data['g-recaptcha-response'] ?? '');

@@ -57,8 +57,11 @@ class RegistrationDualPathTest extends IntegrationTestCase
      * RegistrationService::LAST_NAME_EXCEPTION_LANGS (['nl','es','de']), so
      * no standardize_name() call on the last name here either.
      */
-    private function registerViaLegacyPath(string $email, string $password, string $firstName, string $lastName): array
+    /** @param array{brewerDropOff?: string, brewerJudge?: string, brewerSteward?: string, brewerStaff?: string, brewerJudgeWaiver?: string} $standardEntrant */
+    private function registerViaLegacyPath(string $email, string $password, string $firstName, string $lastName, array $standardEntrant = []): array
     {
+        require_once LIB . 'process.lib.php';
+
         $hash = password_hash($password, PASSWORD_BCRYPT);
         require_once CLASSES . 'phpass/PasswordHash.php';
         $hasher = new \PasswordHash(8, false);
@@ -109,6 +112,11 @@ class RegistrationDualPathTest extends IntegrationTestCase
             'brewerCountry' => sterilize('United States'),
             'brewerPhone1' => sterilize('555-555-0100'),
             'brewerEmail' => $email,
+            'brewerDropOff' => blank_to_null($standardEntrant['brewerDropOff'] ?? '0'),
+            'brewerJudge' => blank_to_null($standardEntrant['brewerJudge'] ?? 'N'),
+            'brewerSteward' => blank_to_null($standardEntrant['brewerSteward'] ?? 'N'),
+            'brewerStaff' => blank_to_null($standardEntrant['brewerStaff'] ?? ''),
+            'brewerJudgeWaiver' => blank_to_null($standardEntrant['brewerJudgeWaiver'] ?? 'Y'),
         ]);
 
         $this->insert('staff', [
@@ -203,5 +211,45 @@ class RegistrationDualPathTest extends IntegrationTestCase
         // staff table through this path.
         $modernStaff = $this->select('staff', "uid = {$modernId->value()}")[0];
         $this->assertSame(0, (int) $modernStaff['staff_judge']);
+    }
+
+    public function test_standard_entrant_delivery_volunteer_and_waiver_fields_match_across_paths(): void
+    {
+        $standardEntrant = [
+            'brewerDropOff' => '999',
+            'brewerJudge' => 'Y',
+            'brewerSteward' => 'Y',
+            'brewerStaff' => 'Y',
+            'brewerJudgeWaiver' => 'Y',
+        ];
+        $legacy = $this->registerViaLegacyPath(
+            'legacy-standard-fields@test.example',
+            'Sup3rSecret!',
+            'Jane',
+            'Brewer',
+            $standardEntrant,
+        );
+
+        $modernId = $this->service->register(new RegisterEntrantCommand($standardEntrant + [
+            'user_name' => 'modern-standard-fields@test.example',
+            'password' => 'Sup3rSecret!',
+            'userQuestion' => 'Favorite hop?',
+            'userQuestionAnswer' => 'Citra',
+            'brewerFirstName' => 'Jane',
+            'brewerLastName' => 'Brewer',
+            'brewerAddress' => '1 Test Street',
+            'brewerCity' => 'Testville',
+            'brewerStateUS' => 'TX',
+            'brewerZip' => '75001',
+            'brewerCountry' => 'United States',
+            'brewerPhone1' => '555-555-0100',
+        ]), true, true, [], '127.0.0.1');
+
+        $legacyBrewer = $this->select('brewer', "uid = {$legacy['userId']}")[0];
+        $modernBrewer = $this->select('brewer', "uid = {$modernId->value()}")[0];
+
+        foreach (['brewerDropOff', 'brewerJudge', 'brewerSteward', 'brewerStaff', 'brewerJudgeWaiver'] as $field) {
+            $this->assertSame($legacyBrewer[$field], $modernBrewer[$field], "Mismatch on {$field}");
+        }
     }
 }

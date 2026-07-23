@@ -96,6 +96,30 @@ class RegistrationServiceTest extends TestCase
         $this->assertSame(101, $id->value());
     }
 
+    public function test_register_persists_standard_entrant_delivery_volunteer_and_waiver_values(): void
+    {
+        $this->repository->method('emailExists')->willReturn(false);
+        $this->captcha->method('verify')->willReturn(true);
+        $this->repository->method('staffRowExists')->willReturn(false);
+        $this->repository->method('insertUser')->willReturn(RegistrantId::from(102));
+
+        $this->repository->expects($this->once())->method('insertBrewerProfile')
+            ->with($this->callback(fn (array $row) => $row['uid'] === 102
+                && $row['brewerDropOff'] === '999'
+                && $row['brewerJudge'] === 'Y'
+                && $row['brewerSteward'] === 'Y'
+                && $row['brewerStaff'] === 'Y'
+                && $row['brewerJudgeWaiver'] === 'Y'));
+
+        $this->service->register($this->baseCommand([
+            'brewerDropOff' => '999',
+            'brewerJudge' => 'Y',
+            'brewerSteward' => 'Y',
+            'brewerStaff' => 'Y',
+            'brewerJudgeWaiver' => 'Y',
+        ]), true, true, [], '127.0.0.1');
+    }
+
     public function test_register_stores_null_state_when_no_state_submitted(): void
     {
         // All four brewerState{US,CA,AUS,Non} fields default to '' when omitted

@@ -38,6 +38,9 @@ class RegistrationRepository
         return RegistrantId::from((int) $this->connection->lastInsertId());
     }
 
+    /**
+     * @param array<string, int|string|null> $columns Legacy brewer column names and values.
+     */
     public function insertBrewerProfile(array $columns): void
     {
         $sql = 'INSERT INTO ' . $this->tablePrefix . 'brewer (' . implode(', ', array_keys($columns)) . ') '

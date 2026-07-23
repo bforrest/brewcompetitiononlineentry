@@ -114,9 +114,11 @@ final class RegistrationService
             'brewerPhone1' => blank_to_null(sterilize($cmd->brewerPhone1)),
             'brewerClubs' => blank_to_null($clubs),
             'brewerEmail' => blank_to_null($email->value()),
+            'brewerDropOff' => blank_to_null(sterilize($cmd->brewerDropOff)),
             'brewerStaff' => blank_to_null($cmd->brewerStaff),
             'brewerSteward' => blank_to_null($cmd->brewerSteward),
             'brewerJudge' => blank_to_null($cmd->brewerJudge),
+            'brewerJudgeWaiver' => blank_to_null($cmd->brewerJudgeWaiver),
             'brewerJudgeLocation' => blank_to_null($judgeLocation),
             'brewerStewardLocation' => blank_to_null($stewardLocation),
         ]);
