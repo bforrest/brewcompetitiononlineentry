@@ -1,44 +1,18 @@
 <?php
-/** @var \Psr\Http\Message\ServerRequestInterface $request */
+/** @var \Bcoem\Domain\Registration\Form\RegistrationFormData $form */
+/** @var \Bcoem\Domain\Registration\Form\RegistrationFormOptions $options */
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>Register</title>
-</head>
-<body>
-<h1>Register</h1>
-<form name="register_form" method="post" action="/register">
-    <label>First Name <input type="text" name="brewerFirstName" required></label>
-    <label>Last Name <input type="text" name="brewerLastName" required></label>
-    <label>Email <input type="email" name="user_name" required></label>
-    <label>Password <input type="password" name="password" required></label>
-    <label>Confirm Password <input type="password" name="password-confirm" required></label>
-    <fieldset>
-        <legend>Security Question</legend>
-        <label><input type="radio" name="userQuestion" value="Favorite hop?" checked> Favorite hop?</label>
-        <label>Answer <input type="text" name="userQuestionAnswer" required></label>
-    </fieldset>
-    <label>Country
-        <select name="brewerCountry" required>
-            <option value="">Select...</option>
-            <option value="United States">United States</option>
-        </select>
-    </label>
-    <div id="address-fields">
-        <label>Address <input type="text" name="brewerAddress" required></label>
-        <label>City <input type="text" name="brewerCity" required></label>
-        <label>State
-            <select name="brewerStateUS">
-                <option value="">Select...</option>
-                <option value="TX">Texas [TX]</option>
-            </select>
-        </label>
-        <label>Zip <input type="text" name="brewerZip" required></label>
-    </div>
-    <label>Phone <input type="tel" name="brewerPhone1" required></label>
-    <button type="submit" name="submit">Register</button>
+<h1><?= e($options->title) ?></h1>
+<?php if ($options->guidance !== ''): ?>
+    <p class="lead"><?= e($options->guidance) ?></p>
+<?php endif; ?>
+<form id="register-form" class="form-horizontal" method="post" action="/register" novalidate>
+    <?php require __DIR__ . '/partials/errors.php'; ?>
+    <p class="text-warning"><span aria-hidden="true">*</span> Required information</p>
+    <?php require __DIR__ . '/partials/account.php'; ?>
+    <?php require __DIR__ . '/partials/contact-address.php'; ?>
+    <?php require __DIR__ . '/partials/logistics.php'; ?>
+    <?php require __DIR__ . '/partials/volunteer.php'; ?>
+    <?php require __DIR__ . '/partials/waiver.php'; ?>
+    <?php require __DIR__ . '/partials/submit.php'; ?>
 </form>
-</body>
-</html>
