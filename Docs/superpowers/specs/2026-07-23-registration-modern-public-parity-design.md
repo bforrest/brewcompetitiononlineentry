@@ -88,3 +88,12 @@ they no longer return JSON for browser form submissions.
 This is not a rewrite of `sections/register.sec.php`, a reuse of legacy
 templates, or a migration of every legacy registration condition. It creates
 a maintainable base that subsequent, isolated variants can compose onto.
+
+## Deferred legacy bug: waiver choice is ignored
+
+Legacy registration initializes `brewerJudgeWaiver` to `Y` and never reads the
+submitted waiver value. The modern path intentionally preserves that behavior
+for parity: it also always stores `Y`, even if a browser submits `N` or an
+empty value. A future, separately scoped fix should decide the intended waiver
+semantics, make the choice explicit in both legacy and modern paths, and add
+cross-path regression coverage before changing the stored value.
