@@ -24,11 +24,15 @@ use Bcoem\Domain\Export\Service\ExportService;
 use Bcoem\Domain\Export\Service\ExportValidationService;
 use Bcoem\Domain\Export\Service\ExportFormatterService;
 use Bcoem\Domain\Registration\Repository\RegistrationRepository;
+use Bcoem\Domain\Registration\Repository\RegistrationOptionsRepository;
+use Bcoem\Domain\Registration\Form\RegistrationFormFactory;
 use Bcoem\Domain\Registration\Service\CaptchaVerifier;
 use Bcoem\Domain\Registration\Service\GoogleRecaptchaVerifier;
 use Bcoem\Domain\Registration\Service\HCaptchaVerifier;
 use Bcoem\Domain\Registration\Service\NullCaptchaVerifier;
 use Bcoem\Domain\Registration\Service\RegistrationService;
+use Bcoem\Kernel\Controller\RegistrationController;
+use Bcoem\Kernel\View\LayoutRenderer;
 use GuzzleHttp\Client;
 use Bcoem\Kernel\Logging\TraceIdProcessor;
 use DI\ContainerBuilder;
@@ -286,6 +290,15 @@ $containerBuilder->addDefinitions([
     RegistrationRepository::class => static fn (ContainerInterface $container): RegistrationRepository =>
         new RegistrationRepository($container->get(Connection::class)),
 
+    RegistrationOptionsRepository::class => static fn (ContainerInterface $container): RegistrationOptionsRepository =>
+        new RegistrationOptionsRepository($container->get(Connection::class)),
+
+    RegistrationFormFactory::class => static fn (): RegistrationFormFactory =>
+        new RegistrationFormFactory(),
+
+    LayoutRenderer::class => static fn (): LayoutRenderer =>
+        new LayoutRenderer(),
+
     CaptchaVerifier::class => static function (): CaptchaVerifier {
         if ((int) ($_SESSION['prefsCAPTCHA'] ?? 0) === 0) {
             return new NullCaptchaVerifier();
@@ -306,6 +319,14 @@ $containerBuilder->addDefinitions([
         new RegistrationService(
             $container->get(RegistrationRepository::class),
             $container->get(CaptchaVerifier::class),
+        ),
+
+    RegistrationController::class => static fn (ContainerInterface $container): RegistrationController =>
+        new RegistrationController(
+            $container->get(RegistrationService::class),
+            $container->get(RegistrationOptionsRepository::class),
+            $container->get(RegistrationFormFactory::class),
+            $container->get(LayoutRenderer::class),
         ),
 ]);
 

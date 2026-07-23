@@ -5,7 +5,11 @@ namespace BCOEM\Tests\Unit\Kernel\Controller;
 
 use PHPUnit\Framework\TestCase;
 use Bcoem\Kernel\Controller\RegistrationController;
+use Bcoem\Kernel\View\LayoutRenderer;
+use Bcoem\Database\Connection;
+use Bcoem\Domain\Registration\Form\RegistrationFormFactory;
 use Bcoem\Domain\Registration\Repository\RegistrationRepository;
+use Bcoem\Domain\Registration\Repository\RegistrationOptionsRepository;
 use Bcoem\Domain\Registration\Service\CaptchaVerifier;
 use Bcoem\Domain\Registration\Service\RegistrationService;
 use Bcoem\Domain\Registration\ValueObject\RegistrantId;
@@ -27,6 +31,27 @@ class RegistrationControllerTest extends TestCase
     private RegistrationRepository $repository;
     private CaptchaVerifier $captcha;
     private RegistrationController $controller;
+
+    private function controllerFor(RegistrationService $service): RegistrationController
+    {
+        $connection = $this->createMock(Connection::class);
+        $connection->method('selectOne')->willReturnOnConsecutiveCalls(
+            [
+                'contestName' => 'Example Competition',
+                'contestRules' => 'Register to enter the competition.',
+                'contestRegistrationOpen' => time() - 3600,
+                'contestRegistrationDeadline' => time() + 3600,
+            ],
+            ['prefsShipping' => 0, 'prefsDropOff' => 0],
+        );
+
+        return new RegistrationController(
+            $service,
+            new RegistrationOptionsRepository($connection),
+            new RegistrationFormFactory(),
+            new LayoutRenderer(),
+        );
+    }
 
     protected function setUp(): void
     {
@@ -55,7 +80,7 @@ class RegistrationControllerTest extends TestCase
         $this->repository->method('anyJudgingSessionStarted')->willReturn(false);
 
         $service = new RegistrationService($this->repository, $this->captcha);
-        $this->controller = new RegistrationController($service);
+        $this->controller = $this->controllerFor($service);
     }
 
     private function formPostBody(): array
@@ -93,7 +118,40 @@ class RegistrationControllerTest extends TestCase
         $this->assertArrayNotHasKey('userLevel', $_SESSION);
     }
 
-    public function test_post_register_duplicate_email_returns_409(): void
+    public function test_get_form_renders_the_public_shell_with_registration_form(): void
+    {
+        $request = (new ServerRequestFactory())->createServerRequest('GET', '/register');
+        $response = $this->controller->getForm($request, (new ResponseFactory())->createResponse());
+
+        $html = (string) $response->getBody();
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('text/html; charset=utf-8', $response->getHeaderLine('Content-Type'));
+        $this->assertStringContainsString('<!DOCTYPE html>', $html);
+        $this->assertStringContainsString('>Register</a>', $html);
+        $this->assertStringContainsString('Example Competition', $html);
+        $this->assertStringContainsString('<form id="register-form"', $html);
+    }
+
+    public function test_post_register_invalid_form_renders_html_with_submitted_values_and_errors(): void
+    {
+        $data = $this->formPostBody();
+        unset($data['brewerCity']);
+        $data['brewerFirstName'] = '<Ada>';
+
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/register')
+            ->withParsedBody($data);
+        $response = $this->controller->postRegister($request, (new ResponseFactory())->createResponse());
+
+        $html = (string) $response->getBody();
+        $this->assertSame(422, $response->getStatusCode());
+        $this->assertSame('text/html; charset=utf-8', $response->getHeaderLine('Content-Type'));
+        $this->assertStringContainsString('<!DOCTYPE html>', $html);
+        $this->assertStringContainsString('Missing required field: brewerCity', $html);
+        $this->assertStringContainsString('This field is required.', $html);
+        $this->assertStringContainsString('value="&lt;Ada&gt;"', $html);
+    }
+
+    public function test_post_register_duplicate_email_renders_html_with_error(): void
     {
         $this->repository->method('emailExists')->willReturn(true);
 
@@ -101,7 +159,11 @@ class RegistrationControllerTest extends TestCase
             ->withParsedBody($this->formPostBody());
         $response = $this->controller->postRegister($request, (new ResponseFactory())->createResponse());
 
+        $html = (string) $response->getBody();
         $this->assertSame(409, $response->getStatusCode());
+        $this->assertSame('text/html; charset=utf-8', $response->getHeaderLine('Content-Type'));
+        $this->assertStringContainsString('<!DOCTYPE html>', $html);
+        $this->assertStringContainsString('That email address is already registered.', $html);
     }
 
     public function test_post_register_closed_registration_returns_409(): void
@@ -120,7 +182,7 @@ class RegistrationControllerTest extends TestCase
         ]);
         $repository->method('anyJudgingSessionStarted')->willReturn(false);
         $service = new RegistrationService($repository, $this->captcha);
-        $controller = new RegistrationController($service);
+        $controller = $this->controllerFor($service);
 
         $request = (new ServerRequestFactory())->createServerRequest('POST', '/register')
             ->withParsedBody($this->formPostBody());

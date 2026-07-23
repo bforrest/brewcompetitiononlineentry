@@ -6,24 +6,27 @@ namespace Bcoem\Kernel\Controller;
 
 use Bcoem\Domain\Registration\Command\RegisterEntrantCommand;
 use Bcoem\Domain\Registration\Exception\RegistrationException;
+use Bcoem\Domain\Registration\Exception\DuplicateEmailException;
+use Bcoem\Domain\Registration\Form\RegistrationFormFactory;
+use Bcoem\Domain\Registration\Repository\RegistrationOptionsRepository;
 use Bcoem\Domain\Registration\Service\RegistrationService;
+use Bcoem\Kernel\View\LayoutRenderer;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
 final class RegistrationController
 {
-    public function __construct(private RegistrationService $registrationService)
-    {
+    public function __construct(
+        private RegistrationService $registrationService,
+        private RegistrationOptionsRepository $optionsRepository,
+        private RegistrationFormFactory $formFactory,
+        private LayoutRenderer $layout,
+    ) {
     }
 
     public function getForm(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
-        ob_start();
-        require dirname(__DIR__, 3) . '/templates/Registration/register-form.php';
-        $html = ob_get_clean();
-
-        $response->getBody()->write($html);
-        return $response->withStatus(200)->withHeader('Content-Type', 'text/html; charset=utf-8');
+        return $this->renderForm($response, [], 200);
     }
 
     public function postRegister(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
@@ -52,11 +55,37 @@ final class RegistrationController
 
             return $response->withStatus(302)->withHeader('Location', '/entries/my');
         } catch (RegistrationException $e) {
-            $response->getBody()->write((string) json_encode(['error' => $e->getMessage()]));
-            return $response->withStatus($e->getHttpStatus())->withHeader('Content-Type', 'application/json');
+            $fieldErrors = $e instanceof DuplicateEmailException
+                ? ['user_name' => 'That email address is already registered.']
+                : [];
+
+            return $this->renderForm($response, (array) $data, $e->getHttpStatus(), $fieldErrors, [$e->getMessage()]);
         } catch (\InvalidArgumentException $e) {
-            $response->getBody()->write((string) json_encode(['error' => $e->getMessage()]));
-            return $response->withStatus(422)->withHeader('Content-Type', 'application/json');
+            return $this->renderForm($response, (array) $data, 422, [], [$e->getMessage()]);
         }
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     * @param array<string, string> $fieldErrors
+     * @param list<string> $generalErrors
+     */
+    private function renderForm(
+        ResponseInterface $response,
+        array $input,
+        int $status,
+        array $fieldErrors = [],
+        array $generalErrors = [],
+    ): ResponseInterface {
+        $options = $this->optionsRepository->options();
+        $form = $this->formFactory->fromRequest($input, $options, $fieldErrors, $generalErrors);
+        $html = $this->layout->public(
+            'Register',
+            dirname(__DIR__, 3) . '/templates/Registration/register-form.php',
+            ['form' => $form, 'options' => $options],
+        );
+
+        $response->getBody()->write($html);
+        return $response->withStatus($status)->withHeader('Content-Type', 'text/html; charset=utf-8');
     }
 }

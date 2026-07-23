@@ -237,9 +237,7 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
     // Phase 3.7: Registration workflow routes.
     $getRegistrationController = function () use ($container): \Bcoem\Kernel\Controller\RegistrationController {
         static $controller;
-        return $controller ??= new \Bcoem\Kernel\Controller\RegistrationController(
-            $container->get(\Bcoem\Domain\Registration\Service\RegistrationService::class)
-        );
+        return $controller ??= $container->get(\Bcoem\Kernel\Controller\RegistrationController::class);
     };
 
     $app->get('/register', fn ($request, $response) => $getRegistrationController()->getForm($request, $response))
