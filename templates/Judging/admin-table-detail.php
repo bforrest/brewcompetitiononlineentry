@@ -100,7 +100,7 @@
         <?php if (empty($scores)): ?>
             <p class="text-muted">No scores recorded yet.</p>
         <?php else: ?>
-            <table class="scores-table">
+            <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
                         <th>Entry ID</th>
