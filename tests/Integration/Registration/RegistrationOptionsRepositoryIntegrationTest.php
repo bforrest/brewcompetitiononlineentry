@@ -23,34 +23,68 @@ final class RegistrationOptionsRepositoryIntegrationTest extends IntegrationTest
         $this->updateContest([
             'contestName' => 'Fixture Invitational',
             'contestRules' => '<p>Fixture registration guidance.</p>',
+            'contestShippingOpen' => time() - 3600,
+            'contestShippingDeadline' => time() + 3600,
+            'contestDropoffOpen' => time() - 3600,
+            'contestDropoffDeadline' => time() + 3600,
         ]);
         $this->updatePreferences([
             'prefsShipping' => 1,
             'prefsDropOff' => 1,
         ]);
-        $dropOffId = $this->insert('drop_off', [
-            'dropLocationName' => 'Fixture Homebrew Supply',
+        $firstDropOffId = $this->insert('drop_off', [
+            'dropLocationName' => 'Alpha Fixture Drop-off',
             'dropLocation' => '100 Fixture Lane',
+        ]);
+        $lastDropOffId = $this->insert('drop_off', [
+            'dropLocationName' => 'Zulu Fixture Drop-off',
+            'dropLocation' => '200 Fixture Lane',
         ]);
 
         $options = $this->repository->options();
 
         self::assertSame('Fixture Invitational', $options->title);
         self::assertSame('<p>Fixture registration guidance.</p>', $options->guidance);
-        self::assertSame('Fixture Homebrew Supply', $options->dropOffChoices[(string) $dropOffId]);
+        self::assertSame('Alpha Fixture Drop-off', $options->dropOffChoices[(string) $firstDropOffId]);
+        self::assertSame('Zulu Fixture Drop-off', $options->dropOffChoices[(string) $lastDropOffId]);
+        self::assertLessThan(
+            array_search('Zulu Fixture Drop-off', array_values($options->dropOffChoices), true),
+            array_search('Alpha Fixture Drop-off', array_values($options->dropOffChoices), true),
+        );
         self::assertSame(['shipping' => true, 'dropOff' => true], $options->availability);
-        self::assertSame([], $options->countryChoices);
-        self::assertSame([], $options->stateChoices);
+        self::assertSame('United States', $options->countryChoices['United States']);
+        self::assertSame('Texas [TX]', $options->stateChoices['TX']);
     }
 
     public function test_options_exclude_drop_off_choices_when_drop_off_is_disabled(): void
     {
-        $this->updatePreferences(['prefsShipping' => 1, 'prefsDropOff' => 0]);
+        $this->updateContest([
+            'contestShippingOpen' => time() - 7200,
+            'contestShippingDeadline' => time() - 3600,
+            'contestDropoffOpen' => time() - 7200,
+            'contestDropoffDeadline' => time() - 3600,
+        ]);
+        $this->updatePreferences(['prefsShipping' => 1, 'prefsDropOff' => 1]);
 
         $options = $this->repository->options();
 
         self::assertSame([], $options->dropOffChoices);
-        self::assertSame(['shipping' => true, 'dropOff' => false], $options->availability);
+        self::assertSame(['shipping' => false, 'dropOff' => false], $options->availability);
+    }
+
+    public function test_options_fall_back_to_enabled_logistics_when_date_windows_are_absent(): void
+    {
+        $this->updateContest([
+            'contestShippingOpen' => '',
+            'contestShippingDeadline' => '',
+            'contestDropoffOpen' => '',
+            'contestDropoffDeadline' => '',
+        ]);
+        $this->updatePreferences(['prefsShipping' => 1, 'prefsDropOff' => 1]);
+
+        $options = $this->repository->options();
+
+        self::assertSame(['shipping' => true, 'dropOff' => true], $options->availability);
     }
 
     /** @param array<string, int|string> $columns */
