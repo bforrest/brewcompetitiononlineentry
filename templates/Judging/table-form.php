@@ -17,7 +17,7 @@
 
     <h1><?= $isEditMode ? 'Edit Table' : 'Create New Table' ?></h1>
 
-    <form method="post" action="<?= $isEditMode ? '/judging/tables/' . $table->id()->value() : '/judging/tables' ?>" class="table-form">
+    <form method="post" action="<?= $isEditMode ? '/judging/tables/' . $table->id()->value() : '/judging/tables' ?>">
         <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token'] ?? '') ?>">
 
         <div class="form-group">
@@ -50,7 +50,7 @@
 
         <input type="hidden" name="location_id" value="<?= $location->value() ?>">
 
-        <div class="form-actions">
+        <div class="btn-toolbar">
             <button type="submit" class="btn btn-primary">
                 <?= $isEditMode ? 'Update Table' : 'Create Table' ?>
             </button>
@@ -61,15 +61,19 @@
     </form>
 
     <?php if ($isEditMode && $table->isEditable()): ?>
-        <div class="danger-zone">
-            <h3>Danger Zone</h3>
-            <form method="post" action="/judging/tables/<?= $table->id()->value() ?>" style="display:inline;">
-                <input type="hidden" name="_method" value="DELETE">
-                <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token'] ?? '') ?>">
-                <button type="submit" class="btn btn-danger"
-                    onclick="return confirm('Are you sure? This will delete the table and all its flights.')">
-                    Delete Table
-                </button>
-            </form>
+        <div class="panel panel-danger">
+            <div class="panel-heading">
+                <h3 class="panel-title">Danger Zone</h3>
+            </div>
+            <div class="panel-body">
+                <form method="post" action="/judging/tables/<?= $table->id()->value() ?>" style="display:inline;">
+                    <input type="hidden" name="_method" value="DELETE">
+                    <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token'] ?? '') ?>">
+                    <button type="submit" class="btn btn-danger"
+                        onclick="return confirm('Are you sure? This will delete the table and all its flights.')">
+                        Delete Table
+                    </button>
+                </form>
+            </div>
         </div>
     <?php endif; ?>

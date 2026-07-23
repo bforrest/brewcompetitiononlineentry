@@ -11,31 +11,18 @@
 ?>
     <h1>Judging Scoresheet - <?= e($table->name()) ?></h1>
 
-    <div class="scoresheet-info">
-        <div class="info-item">
-            <label>Table:</label>
-            <span><?= e($table->name()) ?></span>
-        </div>
-        <div class="info-item">
-            <label>Judge:</label>
-            <span><?= e($currentIdentity->username ?? '') ?></span>
-        </div>
-        <div class="info-item">
-            <label>Status:</label>
-            <?php
-            $stateLabelClass = match ($table->state()) {
-                \Bcoem\Domain\Judging\ValueObject\TableState::Planning => 'default',
-                \Bcoem\Domain\Judging\ValueObject\TableState::Active => 'primary',
-                \Bcoem\Domain\Judging\ValueObject\TableState::Judged => 'success',
-                \Bcoem\Domain\Judging\ValueObject\TableState::Locked => 'danger',
-                \Bcoem\Domain\Judging\ValueObject\TableState::Archived => 'default',
-            };
-            ?>
-            <span class="label label-<?= e($stateLabelClass) ?>">
+    <dl class="dl-horizontal">
+        <dt>Table:</dt>
+        <dd><?= e($table->name()) ?></dd>
+        <dt>Judge:</dt>
+        <dd><?= e($currentIdentity->username ?? '') ?></dd>
+        <dt>Status:</dt>
+        <dd>
+            <span class="label label-<?= e($table->state()->labelClass()) ?>">
                 <?= e($table->state()->label()) ?>
             </span>
-        </div>
-    </div>
+        </dd>
+    </dl>
 
     <?php if (!$table->isReadyForJudging()): ?>
         <div class="alert alert-warning">
@@ -120,7 +107,7 @@
             </table>
 
             <?php if ($table->isReadyForJudging() && !$table->isLocked()): ?>
-                <div class="scoresheet-actions">
+                <div class="btn-toolbar">
                     <button type="submit" class="btn btn-primary" name="action" value="save">
                         Save Scores
                     </button>

@@ -97,16 +97,18 @@ enum TableState: string
     }
 
     /**
-     * CSS class for UI styling.
+     * Bootstrap 3 label-* suffix for UI styling (matches the six real
+     * classes defined in this app's CSS: default/primary/success/info/
+     * warning/danger - not Bootstrap 4/5 vocabulary).
      */
-    public function cssClass(): string
+    public function labelClass(): string
     {
         return match ($this) {
-            TableState::Planning => 'badge-secondary',
-            TableState::Active => 'badge-primary',
-            TableState::Judged => 'badge-success',
-            TableState::Locked => 'badge-danger',
-            TableState::Archived => 'badge-dark',
+            TableState::Planning => 'default',
+            TableState::Active => 'primary',
+            TableState::Judged => 'success',
+            TableState::Locked => 'danger',
+            TableState::Archived => 'default',
         };
     }
 

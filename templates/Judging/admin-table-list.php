@@ -12,7 +12,7 @@
 ?>
 <h1><?= e($locationName) ?> - Judging Tables</h1>
 
-    <div class="judging-controls">
+    <div>
         <form method="get" class="state-filter">
             <label for="state">Filter by state:</label>
             <select name="state" id="state" onchange="this.form.submit()">
@@ -31,9 +31,9 @@
     </div>
 
     <?php if (empty($tables)): ?>
-        <p class="empty-state">No tables found for this location and state.</p>
+        <p class="text-muted">No tables found for this location and state.</p>
     <?php else: ?>
-        <table class="tables-list">
+        <table class="table table-bordered table-striped">
             <thead>
                 <tr>
                     <th>Table Name</th>
@@ -48,16 +48,7 @@
                     <tr>
                         <td><?= e($table->name()) ?></td>
                         <td>
-                            <?php
-                            $stateLabelClass = match ($table->state()) {
-                                \Bcoem\Domain\Judging\ValueObject\TableState::Planning => 'default',
-                                \Bcoem\Domain\Judging\ValueObject\TableState::Active => 'primary',
-                                \Bcoem\Domain\Judging\ValueObject\TableState::Judged => 'success',
-                                \Bcoem\Domain\Judging\ValueObject\TableState::Locked => 'danger',
-                                \Bcoem\Domain\Judging\ValueObject\TableState::Archived => 'default',
-                            };
-                            ?>
-                            <span class="label label-<?= e($stateLabelClass) ?>">
+                            <span class="label label-<?= e($table->state()->labelClass()) ?>">
                                 <?= e($table->state()->label()) ?>
                             </span>
                         </td>

@@ -153,12 +153,12 @@ class TableStateTest extends TestCase
         $this->assertSame('Archived', TableState::Archived->label());
     }
 
-    public function test_css_class_returns_bootstrap_badge_class(): void
+    public function test_label_class_returns_bootstrap3_label_suffix(): void
     {
-        $this->assertSame('badge-secondary', TableState::Planning->cssClass());
-        $this->assertSame('badge-primary', TableState::Active->cssClass());
-        $this->assertSame('badge-success', TableState::Judged->cssClass());
-        $this->assertSame('badge-danger', TableState::Locked->cssClass());
-        $this->assertSame('badge-dark', TableState::Archived->cssClass());
+        $this->assertSame('default', TableState::Planning->labelClass());
+        $this->assertSame('primary', TableState::Active->labelClass());
+        $this->assertSame('success', TableState::Judged->labelClass());
+        $this->assertSame('danger', TableState::Locked->labelClass());
+        $this->assertSame('default', TableState::Archived->labelClass());
     }
 }

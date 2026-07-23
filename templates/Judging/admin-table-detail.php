@@ -16,36 +16,21 @@
         <span><?= e($table->name()) ?></span>
     </div>
 
-    <div class="table-header">
+    <div class="clearfix">
         <h1><?= e($table->name()) ?></h1>
-        <?php
-        $stateLabelClass = match ($table->state()) {
-            \Bcoem\Domain\Judging\ValueObject\TableState::Planning => 'default',
-            \Bcoem\Domain\Judging\ValueObject\TableState::Active => 'primary',
-            \Bcoem\Domain\Judging\ValueObject\TableState::Judged => 'success',
-            \Bcoem\Domain\Judging\ValueObject\TableState::Locked => 'danger',
-            \Bcoem\Domain\Judging\ValueObject\TableState::Archived => 'default',
-        };
-        ?>
-        <span class="label label-<?= e($stateLabelClass) ?>">
+        <span class="label label-<?= e($table->state()->labelClass()) ?> pull-right">
             <?= e($table->state()->label()) ?>
         </span>
     </div>
 
-    <div class="table-info">
-        <div class="info-group">
-            <label>Entry Limit:</label>
-            <span><?= $table->entryLimit() ?></span>
-        </div>
-        <div class="info-group">
-            <label>Current Flights:</label>
-            <span><?= $table->flights()->count() ?></span>
-        </div>
-        <div class="info-group">
-            <label>Scores Recorded:</label>
-            <span><?= count($scores) ?></span>
-        </div>
-    </div>
+    <dl class="dl-horizontal">
+        <dt>Entry Limit:</dt>
+        <dd><?= $table->entryLimit() ?></dd>
+        <dt>Current Flights:</dt>
+        <dd><?= $table->flights()->count() ?></dd>
+        <dt>Scores Recorded:</dt>
+        <dd><?= count($scores) ?></dd>
+    </dl>
 
     <!-- Flights Section -->
     <div class="section">
@@ -74,9 +59,9 @@
         <?php endif; ?>
 
         <?php if (empty($flights)): ?>
-            <p class="empty-state">No flights scheduled for this table.</p>
+            <p class="text-muted">No flights scheduled for this table.</p>
         <?php else: ?>
-            <table class="flights-table">
+            <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
                         <th>Entry ID</th>
@@ -113,7 +98,7 @@
     <div class="section">
         <h2>Scores (<?= count($scores) ?>)</h2>
         <?php if (empty($scores)): ?>
-            <p class="empty-state">No scores recorded yet.</p>
+            <p class="text-muted">No scores recorded yet.</p>
         <?php else: ?>
             <table class="scores-table">
                 <thead>
@@ -166,7 +151,7 @@
         </div>
     <?php endif; ?>
 
-    <div class="actions">
+    <div>
         <a href="/judging/tables?location=<?= $table->location()->value() ?>" class="btn btn-default">
             Back to Tables
         </a>
