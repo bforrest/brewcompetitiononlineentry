@@ -1,4 +1,5 @@
 <?php
+if (!function_exists('check_setup')) {
 function check_setup($tablename, $database) {
 	
 	require(CONFIG.'config.php');
@@ -11,6 +12,7 @@ function check_setup($tablename, $database) {
 	if ($row_log['count'] == 0) return FALSE;
 	else return TRUE;
 
+}
 }
 
 function check_update($column_name, $table_name) {
@@ -74,6 +76,32 @@ function check_mysql_data_type($column_name, $table_name) {
 
     return $type;
 	
+}
+
+function convert_myisam_tables_to_innodb(mysqli $connection, string $prefix): array {
+
+	$tables = array(
+		'archive', 'bcoem_sys', 'brewer', 'brewing', 'contacts', 'contest_info',
+		'drop_off', 'evaluation', 'judging_assignments', 'judging_flights',
+		'judging_locations', 'judging_preferences', 'judging_scores',
+		'judging_scores_bos', 'judging_tables', 'mods', 'preferences',
+		'special_best_data', 'special_best_info', 'sponsors', 'staff',
+		'styles', 'style_types', 'users',
+	);
+
+	$failures = array();
+
+	foreach ($tables as $table) {
+		$sql = sprintf('ALTER TABLE `%s%s` ENGINE=InnoDB', $prefix, $table);
+		try {
+			mysqli_query($connection, $sql);
+		} catch (mysqli_sql_exception $e) {
+			$failures[$table] = $e->getMessage();
+		}
+	}
+
+	return $failures;
+
 }
 
 ?>
