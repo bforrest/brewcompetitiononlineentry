@@ -47,7 +47,7 @@
     "scripts": {
         "stan": "phpstan analyse --memory-limit=1G",
         "test": "docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit",
-        "test:unit": "OTEL_PHP_DISABLED_INSTRUMENTATIONS=all phpunit --testsuite Unit",
+        "test:unit": "OTEL_PHP_DISABLED_INSTRUMENTATIONS=mysql phpunit --testsuite Unit",
         "test:db": [
             "docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration",
             "docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Approval"
