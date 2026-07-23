@@ -38,7 +38,7 @@ if (!NHC) {
 		  `staff_organizer` tinyint(2) DEFAULT '0' COMMENT '0=no; 1=yes',
 		  `staff_staff` tinyint(2) DEFAULT '0' COMMENT '0=no; 1=yes',
 		  PRIMARY KEY (`id`)
-		) ENGINE=MyISAM;";
+		) ENGINE=InnoDB;";
 		mysqli_real_escape_string($connection,$updateSQL);
 		$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 		//echo $updateSQL."<br>";
@@ -64,7 +64,7 @@ if (!NHC) {
 			  `mod_display_rank` tinyint(1) DEFAULT NULL COMMENT '0=normal 1=above default content',
 			  `mod_enable` tinyint(1) DEFAULT NULL COMMENT '0=no 1=yes',
 			  PRIMARY KEY (`id`)
-			) ENGINE=MyISAM;";
+			) ENGINE=InnoDB;";
 		mysqli_real_escape_string($connection,$updateSQL);
 		$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));; 
 		//echo $updateSQL."<br>";

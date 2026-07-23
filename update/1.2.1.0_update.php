@@ -174,7 +174,7 @@ $updateSQL = "CREATE TABLE IF NOT EXISTS `".$prefix."bcoem_sys` (
 	`data_check` varchar(255) DEFAULT NULL COMMENT 'Date/time of the last data integrity check.',
 	`setup` tinyint(1) DEFAULT NULL COMMENT 'Has setup run? 1=true, 0=false.',
 	PRIMARY KEY (`id`)
-) ENGINE=MyISAM";
+) ENGINE=InnoDB";
 mysqli_real_escape_string($connection,$updateSQL);
 $result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 //$output .= $updateSQL."<br>";
@@ -197,7 +197,7 @@ $updateSQL = "CREATE TABLE IF NOT EXISTS `".$prefix."special_best_info` (
   `sbi_rank` int(11) DEFAULT NULL,
   `sbi_display_places` tinyint(1) DEFAULT NULL COMMENT '1=true; 0=false',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM ;
+) ENGINE=InnoDB ;
 "; 
 mysqli_real_escape_string($connection,$updateSQL);
 $result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
@@ -211,7 +211,7 @@ $updateSQL = "CREATE TABLE IF NOT EXISTS `".$prefix."special_best_data` (
   `sbd_place` int(11) DEFAULT NULL,
   `sbd_comments` text,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM ;
+) ENGINE=InnoDB ;
 ";
 mysqli_real_escape_string($connection,$updateSQL);
 $result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));

@@ -16,7 +16,7 @@ if (!check_update("brewerDiscount", $prefix."brewer")) {
 	mysqli_real_escape_string($connection,$updateSQL);
 	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 	
-	$updateSQL = "CREATE TABLE IF NOT EXISTS `".$prefix."judging_preferences` (`id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,  `jPrefsQueued` char(1) DEFAULT NULL COMMENT 'Whether to use the Queued Judging technique from AHA', `jPrefsFlightEntries` int(11) DEFAULT NULL COMMENT 'Maximum amount of entries per flight', `jPrefsMaxBOS` INT(11) NULL DEFAULT NULL COMMENT 'Maximum amount of places awarded for each BOS style type',`jPrefsRounds` INT(11) NULL DEFAULT NULL COMMENT 'Maximum amount of rounds per judging location') ENGINE=MyISAM ;"; 
+	$updateSQL = "CREATE TABLE IF NOT EXISTS `".$prefix."judging_preferences` (`id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,  `jPrefsQueued` char(1) DEFAULT NULL COMMENT 'Whether to use the Queued Judging technique from AHA', `jPrefsFlightEntries` int(11) DEFAULT NULL COMMENT 'Maximum amount of entries per flight', `jPrefsMaxBOS` INT(11) NULL DEFAULT NULL COMMENT 'Maximum amount of places awarded for each BOS style type',`jPrefsRounds` INT(11) NULL DEFAULT NULL COMMENT 'Maximum amount of rounds per judging location') ENGINE=InnoDB ;"; 
 	mysqli_real_escape_string($connection,$updateSQL);
 	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 	
@@ -33,11 +33,11 @@ if (!check_update("brewerDiscount", $prefix."brewer")) {
 	  `tableLocation` int(11) DEFAULT NULL COMMENT 'Physical location of table (if more than one judging location) - relational to judging table',
 	  `tableJudges` VARCHAR(255) NULL COMMENT 'Array of ids from brewer table',
 	  `tableStewards` VARCHAR(255) NULL COMMENT 'Array of ids from brewer table'
-	) ENGINE=MyISAM ;"; 
+	) ENGINE=InnoDB ;"; 
 	mysqli_real_escape_string($connection,$updateSQL);
 	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 	
-	$updateSQL = "CREATE TABLE IF NOT EXISTS `".$prefix."judging_flights` (`id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY , `flightTable` int(11) DEFAULT NULL COMMENT 'id of Table from tables', `flightNumber` int(11) DEFAULT NULL, `flightEntryID` TEXT NULL DEFAULT NULL COMMENT 'array of ids of each entry from the brewing table', `flightRound` int(11) DEFAULT NULL) ENGINE=MyISAM ;"; 
+	$updateSQL = "CREATE TABLE IF NOT EXISTS `".$prefix."judging_flights` (`id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY , `flightTable` int(11) DEFAULT NULL COMMENT 'id of Table from tables', `flightNumber` int(11) DEFAULT NULL, `flightEntryID` TEXT NULL DEFAULT NULL COMMENT 'array of ids of each entry from the brewing table', `flightRound` int(11) DEFAULT NULL) ENGINE=InnoDB ;"; 
 	mysqli_real_escape_string($connection,$updateSQL);
 	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 	
@@ -489,11 +489,11 @@ if (!check_update("brewerDiscount", $prefix."brewer")) {
 			  `tableLocation` int(11) DEFAULT NULL COMMENT 'Physical location of table (if more than one judging location) - relational to judging table',
 			  `tableJudges` VARCHAR(255) NULL COMMENT 'Array of ids from brewer table',
 			  `tableStewards` VARCHAR(255) NULL COMMENT 'Array of ids from brewer table'
-			) ENGINE=MyISAM ;"; 
+			) ENGINE=InnoDB ;"; 
 			mysqli_real_escape_string($connection,$updateSQL);
 			$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 			
-			$updateSQL = "CREATE TABLE IF NOT EXISTS `".$prefix."judging_flights".$suffix."` (`id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY , `flightTable` int(11) DEFAULT NULL COMMENT 'id of Table from tables', `flightNumber` int(11) DEFAULT NULL, `flightEntryID` TEXT NULL DEFAULT NULL COMMENT 'array of ids of each entry from the brewing table', `flightRound` int(11) DEFAULT NULL) ENGINE=MyISAM ;"; 
+			$updateSQL = "CREATE TABLE IF NOT EXISTS `".$prefix."judging_flights".$suffix."` (`id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY , `flightTable` int(11) DEFAULT NULL COMMENT 'id of Table from tables', `flightNumber` int(11) DEFAULT NULL, `flightEntryID` TEXT NULL DEFAULT NULL COMMENT 'array of ids of each entry from the brewing table', `flightRound` int(11) DEFAULT NULL) ENGINE=InnoDB ;"; 
 			mysqli_real_escape_string($connection,$updateSQL);
 			$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
 			

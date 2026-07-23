@@ -265,7 +265,7 @@ CREATE TABLE ".$prefix."styles
   brewStyleEntry text CHARACTER SET utf8 COLLATE utf8_bin,
   PRIMARY KEY (id)
 )
-ENGINE=MyISAM;
+ENGINE=InnoDB;
 ";
 mysqli_select_db($connection,$database);
 mysqli_real_escape_string($connection,$updateSQL);
