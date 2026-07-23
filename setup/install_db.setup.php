@@ -105,7 +105,7 @@ if ($setup_free_access == TRUE) {
 			`archiveScoresheet` char(1) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`archiveSuffix` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci COLLATE utf8mb4_unicode_ci;
 			", $archive_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($archive_db_table,$database)) {
@@ -158,7 +158,7 @@ if ($setup_free_access == TRUE) {
 			`brewerBreweryName` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`brewerBreweryTTB` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 		  	PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $brewer_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($brewer_db_table,$database)) {
@@ -210,7 +210,7 @@ if ($setup_free_access == TRUE) {
 			`brewConfirmed` tinyint(1) DEFAULT NULL COMMENT '1=true - 2=false',
 			`brewBoxNum` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $brewing_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($brewing_db_table,$database)) {
@@ -234,7 +234,7 @@ if ($setup_free_access == TRUE) {
 			`contactPosition` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`contactEmail` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			",$contacts_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($contacts_db_table,$database)) {
@@ -290,7 +290,7 @@ if ($setup_free_access == TRUE) {
 			`contestVolunteers` mediumtext COLLATE utf8mb4_unicode_ci,
 			`contestCheckInPassword` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			PRIMARY KEY (`id`)
-		) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 		", $contest_info_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($contest_info_db_table,$database)) {
@@ -372,7 +372,7 @@ if ($setup_free_access == TRUE) {
 			`dropLocationWebsite` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`dropLocationNotes` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $drop_off_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($drop_off_db_table,$database)) {
@@ -423,7 +423,7 @@ if ($setup_free_access == TRUE) {
 			`flightEntryID` int(11) DEFAULT NULL COMMENT 'id of entry from the brewing table',
 			`flightRound` int(8) DEFAULT NULL,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $judging_flights_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($judging_flights_db_table,$database)) {
@@ -448,7 +448,7 @@ if ($setup_free_access == TRUE) {
 			`judgingLocation` mediumtext COLLATE utf8mb4_unicode_ci,
 			`judgingRounds` int(11) DEFAULT '1' COMMENT 'number of rounds at location',
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $judging_locations_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($judging_locations_db_table,$database)) {
@@ -475,7 +475,7 @@ if ($setup_free_access == TRUE) {
 			`jPrefsCapStewards` int(3) DEFAULT NULL,
 			`jPrefsBottleNum` int(3) DEFAULT NULL,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci ;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci ;
 			", $judging_preferences_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($judging_preferences_db_table,$database)) {
@@ -522,7 +522,7 @@ if ($setup_free_access == TRUE) {
 			`scoreType` char(1) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`scoreMiniBOS` tinyint(1) DEFAULT NULL COMMENT 'Did the entry go to the MiniBOS? 1=Yes, 0=No',
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $judging_scores_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($judging_scores_db_table,$database)) {
@@ -547,7 +547,7 @@ if ($setup_free_access == TRUE) {
 			`scorePlace` varchar(3) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`scoreType` char(1) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $judging_scores_bos_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($judging_scores_bos_db_table,$database)) {
@@ -573,7 +573,7 @@ if ($setup_free_access == TRUE) {
 			`tableJudges` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`tableStewards` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci ;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci ;
 			", $judging_tables_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($judging_tables_db_table,$database)) {
@@ -602,7 +602,7 @@ if ($setup_free_access == TRUE) {
 			`mod_display_rank` tinyint(1) DEFAULT NULL COMMENT '0=normal 1=above default content',
 			`mod_enable` tinyint(1) DEFAULT NULL COMMENT '0=no 1=yes',
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
 			", $mods_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($mods_db_table,$database)) {
@@ -689,7 +689,7 @@ if ($setup_free_access == TRUE) {
 			`prefsDropOff` tinyint(1) DEFAULT NULL,
 			`prefsShipping` tinyint(1) DEFAULT NULL,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 		", $preferences_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($preferences_db_table,$database)) {
@@ -792,7 +792,7 @@ if ($setup_free_access == TRUE) {
 			`sbd_place` int(11) DEFAULT NULL,
 			`sbd_comments` mediumtext COLLATE utf8mb4_unicode_ci,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $special_best_data_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($special_best_data_db_table,$database)) {
@@ -815,7 +815,7 @@ if ($setup_free_access == TRUE) {
 			`sbi_rank` int(11) DEFAULT NULL,
 			`sbi_display_places` tinyint(1) DEFAULT NULL COMMENT '1=true; 0=false',
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $special_best_info_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($special_best_info_db_table,$database)) {
@@ -840,7 +840,7 @@ if ($setup_free_access == TRUE) {
 			`sponsorLevel` mediumtext COLLATE utf8mb4_unicode_ci,
 			`sponsorEnable` tinyint(1) DEFAULT NULL,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $sponsors_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($sponsors_db_table,$database)) {
@@ -864,7 +864,7 @@ if ($setup_free_access == TRUE) {
 			`staff_organizer` tinyint(2) DEFAULT '0' COMMENT '0=no; 1=yes',
 			`staff_staff` tinyint(2) DEFAULT '0' COMMENT '0=no; 1=yes',
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $staff_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($staff_db_table,$database)) {
@@ -914,7 +914,7 @@ if ($setup_free_access == TRUE) {
 			`brewStyleComEx` mediumtext COLLATE utf8mb4_unicode_ci,
 			`brewStyleEntry` mediumtext COLLATE utf8mb4_unicode_ci,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $prefix."styles");
 		$db_conn->rawQuery($sql);
 		if (!check_setup($prefix."styles",$database)) {
@@ -1220,7 +1220,7 @@ if ($setup_free_access == TRUE) {
 			`styleTypeBOS` char(1) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`styleTypeBOSMethod` int(11) DEFAULT NULL,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $style_types_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($style_types_db_table,$database)) {
@@ -1277,7 +1277,7 @@ if ($setup_free_access == TRUE) {
 			`update_summary` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`update_date` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci ;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci ;
 			", $prefix."bcoem_sys");
 		$db_conn->rawQuery($sql);
 		if (!check_setup($prefix."bcoem_sys",$database)) {
@@ -1318,7 +1318,7 @@ if ($setup_free_access == TRUE) {
 			`userQuestionAnswer` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
 			`userCreated` timestamp NULL DEFAULT NULL COMMENT 'Timestamp of when the user was created.',
 			PRIMARY KEY (`id`)
-			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci ;
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci ;
 			", $users_db_table);
 		$db_conn->rawQuery($sql);
 		if (!check_setup($users_db_table,$database)) {
