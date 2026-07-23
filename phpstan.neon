@@ -3,6 +3,8 @@ includes:
 
 parameters:
     level: 0
+    bootstrapFiles:
+        - templates/helpers.php
     # Analysis of the full lib/ set peaks above the 128M default.
     tmpDir: .phpstan.cache
     # The baseline is generated on PHP 8.5 but CI runs 8.2; version-specific
