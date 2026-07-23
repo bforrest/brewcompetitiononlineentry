@@ -26,7 +26,7 @@ final class RegistrationController
 
     public function getForm(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
-        return $this->renderForm($response, [], 200);
+        return $this->renderForm($response, [], 200, validate: false);
     }
 
     public function postRegister(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
@@ -76,11 +76,13 @@ final class RegistrationController
         int $status,
         array $fieldErrors = [],
         array $generalErrors = [],
+        bool $validate = true,
     ): ResponseInterface {
         $options = $this->optionsRepository->options();
-        $form = $this->formFactory->fromRequest($input, $options, $fieldErrors, $generalErrors);
+        $form = $this->formFactory->fromRequest($input, $options, $fieldErrors, $generalErrors, $validate);
         $html = $this->layout->public(
             'Register',
+            $options->title,
             dirname(__DIR__, 3) . '/templates/Registration/register-form.php',
             ['form' => $form, 'options' => $options],
         );

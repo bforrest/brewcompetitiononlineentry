@@ -43,7 +43,7 @@ final class RegistrationOptionsRepository
 
         return new RegistrationFormOptions(
             title: (string) ($contest['contestName'] ?? ''),
-            guidance: (string) ($contest['contestRules'] ?? ''),
+            guidance: '',
             countryChoices: $this->choiceSource->countryChoices(),
             stateChoices: $this->choiceSource->stateChoices(),
             dropOffChoices: $dropOffAvailable ? $this->dropOffChoices() : [],
@@ -105,4 +105,5 @@ final class RegistrationOptionsRepository
     {
         return (int) $value === 1;
     }
+
 }

@@ -127,9 +127,11 @@ class RegistrationControllerTest extends TestCase
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('text/html; charset=utf-8', $response->getHeaderLine('Content-Type'));
         $this->assertStringContainsString('<!DOCTYPE html>', $html);
-        $this->assertStringContainsString('>Register</a>', $html);
+        $this->assertStringContainsString('>Rules</a>', $html);
+        $this->assertStringContainsString('<h1>Example Competition</h1>', $html);
         $this->assertStringContainsString('Example Competition', $html);
         $this->assertStringContainsString('<form id="register-form"', $html);
+        $this->assertStringNotContainsString('Please correct the following:', $html);
     }
 
     public function test_post_register_invalid_form_renders_html_with_submitted_values_and_errors(): void

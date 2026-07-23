@@ -62,6 +62,9 @@ final class RegistrationFormTemplateTest extends TestCase
         self::assertStringContainsString('required', $output);
         self::assertStringContainsString('text-warning', $output);
         self::assertStringContainsString('value="&lt;Ada&gt;"', $output);
+        self::assertStringContainsString('The information you provide beyond your first name, last name, and club is strictly for record-keeping and contact purposes.', $output);
+        self::assertStringContainsString('To register, create your account by filling out the fields below.', $output);
+        self::assertStringNotContainsString('Register to enter the competition.', $output);
         self::assertStringNotContainsString('<!DOCTYPE', $output);
         self::assertStringNotContainsString('<html', $output);
         self::assertStringNotContainsString('<head', $output);

@@ -22,7 +22,10 @@ final class RegistrationOptionsRepositoryIntegrationTest extends IntegrationTest
     {
         $this->updateContest([
             'contestName' => 'Fixture Invitational',
-            'contestRules' => '<p>Fixture registration guidance.</p>',
+            'contestRules' => json_encode([
+                'competition_rules' => '<p>Fixture registration guidance.</p>',
+                'competition_packing_shipping' => '<p>Fixture shipping guidance.</p>',
+            ], JSON_THROW_ON_ERROR),
             'contestShippingOpen' => time() - 3600,
             'contestShippingDeadline' => time() + 3600,
             'contestDropoffOpen' => time() - 3600,
@@ -44,7 +47,7 @@ final class RegistrationOptionsRepositoryIntegrationTest extends IntegrationTest
         $options = $this->repository->options();
 
         self::assertSame('Fixture Invitational', $options->title);
-        self::assertSame('<p>Fixture registration guidance.</p>', $options->guidance);
+        self::assertSame('', $options->guidance);
         self::assertSame('Alpha Fixture Drop-off', $options->dropOffChoices[(string) $firstDropOffId]);
         self::assertSame('Zulu Fixture Drop-off', $options->dropOffChoices[(string) $lastDropOffId]);
         self::assertLessThan(

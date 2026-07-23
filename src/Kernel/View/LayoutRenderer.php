@@ -32,21 +32,22 @@ final class LayoutRenderer
         return $this->wrap($identity, $title, '', false, $this->renderTemplate($templatePath, $vars));
     }
 
-    public function public(string $title, string $templatePath, array $vars = []): string
+    public function public(string $title, string $contestTitle, string $templatePath, array $vars = []): string
     {
-        return $this->wrapPublic($title, $this->renderTemplate($templatePath, $vars));
+        return $this->wrapPublic($title, $contestTitle, $this->renderTemplate($templatePath, $vars));
     }
 
-    private function wrapPublic(string $title, string $content): string
+    private function wrapPublic(string $title, string $contestTitle, string $content): string
     {
-        return $this->wrap(null, $title, '', false, $content);
+        return $this->wrap(null, $title, '', false, $content, $contestTitle);
     }
 
-    private function wrap(?Identity $identity, string $title, string $activeNav, bool $withSidebar, string $content): string
+    private function wrap(?Identity $identity, string $title, string $activeNav, bool $withSidebar, string $content, ?string $contestTitle = null): string
     {
         $cssCommonUrl = '/css/common.min.css';
         $themePref = $_SESSION['prefsTheme'] ?? 'default';
         $themeUrl = '/css/' . $themePref . '.min.css';
+        $isPublic = $contestTitle !== null;
 
         ob_start();
         include self::LAYOUT_DIR . '/head.php';
@@ -68,6 +69,33 @@ final class LayoutRenderer
         ob_start();
         include self::LAYOUT_DIR . '/footer.php';
         $footer = ob_get_clean();
+
+        if ($isPublic) {
+            $contestTitleHtml = e($contestTitle);
+
+            return <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+{$head}
+<body>
+{$nav}
+<div id="public-contest-header">
+    <div class="container">
+        <h1>{$contestTitleHtml}</h1>
+    </div>
+</div>
+<div id="main-content" class="container">
+    <div class="row">
+        <div class="col col-lg-9 col-md-8 col-sm-12 col-xs-12">
+            {$content}
+        </div>
+    </div>
+</div>
+{$footer}
+</body>
+</html>
+HTML;
+        }
 
         $titleHtml = e($title);
 

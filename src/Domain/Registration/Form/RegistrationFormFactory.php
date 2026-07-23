@@ -35,12 +35,15 @@ final class RegistrationFormFactory
         RegistrationFormOptions $options,
         array $fieldErrors = [],
         array $generalErrors = [],
+        bool $validate = true,
     ): RegistrationFormData {
         $missingRequiredErrors = [];
 
-        foreach (self::REQUIRED_FIELDS as $name) {
-            if (!isset($input[$name]) || $input[$name] === '') {
-                $missingRequiredErrors[$name] = 'This field is required.';
+        if ($validate) {
+            foreach (self::REQUIRED_FIELDS as $name) {
+                if (!isset($input[$name]) || $input[$name] === '') {
+                    $missingRequiredErrors[$name] = 'This field is required.';
+                }
             }
         }
 

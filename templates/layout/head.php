@@ -16,4 +16,5 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
     <link rel="stylesheet" type="text/css" href="<?= e($cssCommonUrl) ?>" />
     <link rel="stylesheet" type="text/css" href="<?= e($themeUrl) ?>" />
+    <link rel="stylesheet" type="text/css" href="/css/registration-public.css" />
 </head>
