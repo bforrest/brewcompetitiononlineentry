@@ -10,7 +10,6 @@
  * - $currentIdentity: Identity
  */
 ?>
-<div class="container">
     <div class="breadcrumb">
         <a href="/judging/locations">Locations</a> /
         <a href="/judging/tables?location=<?= $table->location()->value() ?>">Tables</a> /
@@ -19,7 +18,7 @@
 
     <div class="table-header">
         <h1><?= e($table->name()) ?></h1>
-        <span class="badge badge-<?= e($table->state()->cssClass()) ?>">
+        <span class="label label-<?= e(str_replace('badge-', '', $table->state()->cssClass())) ?>">
             <?= e($table->state()->label()) ?>
         </span>
     </div>
@@ -61,7 +60,7 @@
                     <input type="number" name="round" id="round" required min="1">
                 </div>
 
-                <button type="submit" class="button button-primary">Add Flight</button>
+                <button type="submit" class="btn btn-primary">Add Flight</button>
             </form>
         <?php endif; ?>
 
@@ -88,7 +87,7 @@
                                     <form method="post" action="/judging/tables/<?= $table->id()->value() ?>/flights/<?= $flight->id()->value() ?>" style="display:inline;">
                                         <input type="hidden" name="_method" value="DELETE">
                                         <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token'] ?? '') ?>">
-                                        <button type="submit" class="button button-small button-danger" onclick="return confirm('Remove this flight?')">
+                                        <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('Remove this flight?')">
                                             Remove
                                         </button>
                                     </form>
@@ -153,14 +152,13 @@
                     </select>
                 </div>
 
-                <button type="submit" class="button button-primary">Transition State</button>
+                <button type="submit" class="btn btn-primary">Transition State</button>
             </form>
         </div>
     <?php endif; ?>
 
     <div class="actions">
-        <a href="/judging/tables?location=<?= $table->location()->value() ?>" class="button">
+        <a href="/judging/tables?location=<?= $table->location()->value() ?>" class="btn btn-default">
             Back to Tables
         </a>
     </div>
-</div>

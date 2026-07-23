@@ -10,8 +10,7 @@
  * - $selectedState: TableState|null
  */
 ?>
-<div class="container">
-    <h1><?= e($locationName) ?> - Judging Tables</h1>
+<h1><?= e($locationName) ?> - Judging Tables</h1>
 
     <div class="judging-controls">
         <form method="get" class="state-filter">
@@ -26,7 +25,7 @@
             </select>
         </form>
 
-        <a href="/judging/tables/create?location=<?= e($location->value()) ?>" class="button button-primary">
+        <a href="/judging/tables/create?location=<?= e($location->value()) ?>" class="btn btn-primary">
             Create New Table
         </a>
     </div>
@@ -49,18 +48,18 @@
                     <tr>
                         <td><?= e($table->name()) ?></td>
                         <td>
-                            <span class="badge badge-<?= e($table->state()->cssClass()) ?>">
+                            <span class="label label-<?= e(str_replace('badge-', '', $table->state()->cssClass())) ?>">
                                 <?= e($table->state()->label()) ?>
                             </span>
                         </td>
                         <td><?= $table->flights()->count() ?></td>
                         <td><?= $table->entryLimit() ?></td>
                         <td>
-                            <a href="/judging/tables/<?= $table->id()->value() ?>" class="button button-small">
+                            <a href="/judging/tables/<?= $table->id()->value() ?>" class="btn btn-xs">
                                 View
                             </a>
                             <?php if ($table->isEditable()): ?>
-                                <a href="/judging/tables/<?= $table->id()->value() ?>/edit" class="button button-small">
+                                <a href="/judging/tables/<?= $table->id()->value() ?>/edit" class="btn btn-xs">
                                     Edit
                                 </a>
                             <?php endif; ?>
@@ -70,4 +69,3 @@
             </tbody>
         </table>
     <?php endif; ?>
-</div>

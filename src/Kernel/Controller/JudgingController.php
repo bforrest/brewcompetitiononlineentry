@@ -35,7 +35,8 @@ final class JudgingController
 {
     public function __construct(
         private readonly JudgingTableService $tableService,
-        private readonly JudgingScoreService $scoreService
+        private readonly JudgingScoreService $scoreService,
+        private readonly \Bcoem\Kernel\View\LayoutRenderer $layout
     ) {
     }
 
@@ -251,10 +252,20 @@ final class JudgingController
 
             $locationName = "Location #$locationId";
             $states = TableState::cases();
+            // Real, previously-latent bug: admin-table-list.php's "Create New
+            // Table" link calls $location->value() (a LocationId), but the
+            // original controller never defined $location - only $locationId
+            // (an int). Masked entirely by the broken include path (this
+            // task's Fix #1), which meant this line never actually executed.
+            $location = new LocationId($locationId);
 
-            ob_start();
-            include __DIR__ . '/../../templates/Judging/admin-table-list.php';
-            $html = ob_get_clean();
+            $html = $this->layout->admin(
+                $identity,
+                'Judging Tables',
+                'judging',
+                __DIR__ . '/../../../templates/Judging/admin-table-list.php',
+                compact('tables', 'location', 'locationName', 'states', 'selectedState')
+            );
 
             return ResponseHelper::html($response, $html);
         } catch (\Throwable $e) {
@@ -276,9 +287,13 @@ final class JudgingController
             $flights = $table->flights()->all();
             $allowedTransitions = $table->state()->getAllowedTransitions();
 
-            ob_start();
-            include __DIR__ . '/../../templates/Judging/admin-table-detail.php';
-            $html = ob_get_clean();
+            $html = $this->layout->admin(
+                $identity,
+                $table->name(),
+                'judging',
+                __DIR__ . '/../../../templates/Judging/admin-table-detail.php',
+                compact('table', 'flights', 'scores', 'allowedTransitions')
+            );
 
             return ResponseHelper::html($response, $html);
         } catch (\Throwable $e) {
@@ -304,12 +319,16 @@ final class JudgingController
             foreach ($scores as $score) {
                 $scoresIndex[$score->entryId()->value()] = $score;
             }
+            $scores = $scoresIndex;
 
             $currentIdentity = $identity;
 
-            ob_start();
-            include __DIR__ . '/../../templates/Judging/judge-scoresheet.php';
-            $html = ob_get_clean();
+            $html = $this->layout->authenticated(
+                $identity,
+                'Judging Scoresheet - ' . $table->name(),
+                __DIR__ . '/../../../templates/Judging/judge-scoresheet.php',
+                compact('table', 'flights', 'scores', 'currentIdentity')
+            );
 
             return ResponseHelper::html($response, $html);
         } catch (\Throwable $e) {
@@ -335,10 +354,15 @@ final class JudgingController
             $id = $id !== null ? (int) $id : null;
             $isEditMode = $id !== null;
             $table = $isEditMode ? $this->tableService->getTable(new TableId($id)) : null;
+            $location = new LocationId($locationId);
 
-            ob_start();
-            include __DIR__ . '/../../templates/Judging/table-form.php';
-            $html = ob_get_clean();
+            $html = $this->layout->admin(
+                $identity,
+                $isEditMode ? 'Edit Table' : 'Create New Table',
+                'judging',
+                __DIR__ . '/../../../templates/Judging/table-form.php',
+                compact('table', 'location', 'isEditMode')
+            );
 
             return ResponseHelper::html($response, $html);
         } catch (\Throwable $e) {
