@@ -96,6 +96,25 @@ class RegistrationServiceTest extends TestCase
         $this->assertSame(101, $id->value());
     }
 
+    public function test_register_stores_null_state_when_no_state_submitted(): void
+    {
+        // All four brewerState{US,CA,AUS,Non} fields default to '' when omitted
+        // (RegisterEntrantCommand.php:63-66) - e.g. a country with no state/province
+        // selector shown. resolveStateProvince() must tolerate this the same way
+        // brewerAddress/brewerCity/brewerZip/brewerCountry already do: blank in,
+        // NULL in the DB row (blank_to_null()), not a crash.
+        $this->repository->method('emailExists')->willReturn(false);
+        $this->captcha->method('verify')->willReturn(true);
+        $this->repository->method('staffRowExists')->willReturn(false);
+        $this->repository->method('insertUser')->willReturn(RegistrantId::from(404));
+
+        $this->repository->expects($this->once())->method('insertBrewerProfile')
+            ->with($this->callback(fn (array $row) => array_key_exists('brewerState', $row) && $row['brewerState'] === null));
+
+        $cmd = $this->baseCommand(['brewerStateUS' => '']);
+        $this->service->register($cmd, true, true, [], '127.0.0.1');
+    }
+
     public function test_register_updates_existing_staff_row_when_present(): void
     {
         $this->repository->method('emailExists')->willReturn(false);

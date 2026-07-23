@@ -200,7 +200,13 @@ final class RegistrationService
         if (strlen($state) <= 2) {
             $state = strtoupper($state);
         }
-        return sterilize($state);
+        // sterilize('') returns NULL (paths.php's `$sterilize == NULL` loose
+        // check treats '' as NULL), which would violate this method's :string
+        // contract. blank_to_null() at the call site (register(), below) is
+        // what turns a blank state into a NULL DB value - same as every other
+        // sterilize()d field on this row - so preserve '' here rather than
+        // let sterilize() collapse it early.
+        return sterilize($state) ?? '';
     }
 
     private function resolveClub(string $submitted, array $allowlist): ?string
