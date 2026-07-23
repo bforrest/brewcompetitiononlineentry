@@ -48,18 +48,27 @@
                     <tr>
                         <td><?= e($table->name()) ?></td>
                         <td>
-                            <span class="label label-<?= e(str_replace('badge-', '', $table->state()->cssClass())) ?>">
+                            <?php
+                            $stateLabelClass = match ($table->state()) {
+                                \Bcoem\Domain\Judging\ValueObject\TableState::Planning => 'default',
+                                \Bcoem\Domain\Judging\ValueObject\TableState::Active => 'primary',
+                                \Bcoem\Domain\Judging\ValueObject\TableState::Judged => 'success',
+                                \Bcoem\Domain\Judging\ValueObject\TableState::Locked => 'danger',
+                                \Bcoem\Domain\Judging\ValueObject\TableState::Archived => 'default',
+                            };
+                            ?>
+                            <span class="label label-<?= e($stateLabelClass) ?>">
                                 <?= e($table->state()->label()) ?>
                             </span>
                         </td>
                         <td><?= $table->flights()->count() ?></td>
                         <td><?= $table->entryLimit() ?></td>
                         <td>
-                            <a href="/judging/tables/<?= $table->id()->value() ?>" class="btn btn-xs">
+                            <a href="/judging/tables/<?= $table->id()->value() ?>" class="btn">
                                 View
                             </a>
                             <?php if ($table->isEditable()): ?>
-                                <a href="/judging/tables/<?= $table->id()->value() ?>/edit" class="btn btn-xs">
+                                <a href="/judging/tables/<?= $table->id()->value() ?>/edit" class="btn">
                                     Edit
                                 </a>
                             <?php endif; ?>

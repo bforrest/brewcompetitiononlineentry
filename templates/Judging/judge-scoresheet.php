@@ -22,7 +22,16 @@
         </div>
         <div class="info-item">
             <label>Status:</label>
-            <span class="label label-<?= e(str_replace('badge-', '', $table->state()->cssClass())) ?>">
+            <?php
+            $stateLabelClass = match ($table->state()) {
+                \Bcoem\Domain\Judging\ValueObject\TableState::Planning => 'default',
+                \Bcoem\Domain\Judging\ValueObject\TableState::Active => 'primary',
+                \Bcoem\Domain\Judging\ValueObject\TableState::Judged => 'success',
+                \Bcoem\Domain\Judging\ValueObject\TableState::Locked => 'danger',
+                \Bcoem\Domain\Judging\ValueObject\TableState::Archived => 'default',
+            };
+            ?>
+            <span class="label label-<?= e($stateLabelClass) ?>">
                 <?= e($table->state()->label()) ?>
             </span>
         </div>
@@ -47,7 +56,7 @@
             <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token'] ?? '') ?>">
             <input type="hidden" name="table_id" value="<?= $table->id()->value() ?>">
 
-            <table class="table table-bordered">
+            <table class="table">
                 <thead>
                     <tr>
                         <th>Round</th>

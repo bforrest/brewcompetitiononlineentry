@@ -18,7 +18,16 @@
 
     <div class="table-header">
         <h1><?= e($table->name()) ?></h1>
-        <span class="label label-<?= e(str_replace('badge-', '', $table->state()->cssClass())) ?>">
+        <?php
+        $stateLabelClass = match ($table->state()) {
+            \Bcoem\Domain\Judging\ValueObject\TableState::Planning => 'default',
+            \Bcoem\Domain\Judging\ValueObject\TableState::Active => 'primary',
+            \Bcoem\Domain\Judging\ValueObject\TableState::Judged => 'success',
+            \Bcoem\Domain\Judging\ValueObject\TableState::Locked => 'danger',
+            \Bcoem\Domain\Judging\ValueObject\TableState::Archived => 'default',
+        };
+        ?>
+        <span class="label label-<?= e($stateLabelClass) ?>">
             <?= e($table->state()->label()) ?>
         </span>
     </div>
@@ -87,7 +96,7 @@
                                     <form method="post" action="/judging/tables/<?= $table->id()->value() ?>/flights/<?= $flight->id()->value() ?>" style="display:inline;">
                                         <input type="hidden" name="_method" value="DELETE">
                                         <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token'] ?? '') ?>">
-                                        <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('Remove this flight?')">
+                                        <button type="submit" class="btn btn-danger" onclick="return confirm('Remove this flight?')">
                                             Remove
                                         </button>
                                     </form>

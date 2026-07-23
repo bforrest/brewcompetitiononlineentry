@@ -116,7 +116,7 @@ class JudgingHtmlRenderingTest extends TestCase
         $this->assertStringNotContainsString('badge-primary', $html);
         $this->assertStringNotContainsString('button-primary', $html);
         $this->assertStringContainsString('btn btn-primary', $html);
-        $this->assertStringContainsString('table table-bordered', $html);
+        $this->assertStringContainsString('class="table"', $html);
         $this->assertStringNotContainsString('class="sidebar', $html);
         $this->assertStringContainsString('<nav', $html);
     }
