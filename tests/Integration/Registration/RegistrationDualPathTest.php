@@ -57,7 +57,7 @@ class RegistrationDualPathTest extends IntegrationTestCase
      * RegistrationService::LAST_NAME_EXCEPTION_LANGS (['nl','es','de']), so
      * no standardize_name() call on the last name here either.
      */
-    /** @param array{brewerDropOff?: string, brewerJudge?: string, brewerSteward?: string, brewerStaff?: string, brewerJudgeWaiver?: string} $standardEntrant */
+    /** @param array{brewerDropOff?: string, brewerJudge?: string, brewerSteward?: string, brewerStaff?: string} $standardEntrant */
     private function registerViaLegacyPath(string $email, string $password, string $firstName, string $lastName, array $standardEntrant = []): array
     {
         require_once LIB . 'process.lib.php';
@@ -112,11 +112,11 @@ class RegistrationDualPathTest extends IntegrationTestCase
             'brewerCountry' => sterilize('United States'),
             'brewerPhone1' => sterilize('555-555-0100'),
             'brewerEmail' => $email,
-            'brewerDropOff' => blank_to_null($standardEntrant['brewerDropOff'] ?? '0'),
+            'brewerDropOff' => blank_to_null(sterilize($standardEntrant['brewerDropOff'] ?? '0')),
             'brewerJudge' => blank_to_null($standardEntrant['brewerJudge'] ?? 'N'),
             'brewerSteward' => blank_to_null($standardEntrant['brewerSteward'] ?? 'N'),
             'brewerStaff' => blank_to_null($standardEntrant['brewerStaff'] ?? ''),
-            'brewerJudgeWaiver' => blank_to_null($standardEntrant['brewerJudgeWaiver'] ?? 'Y'),
+            'brewerJudgeWaiver' => 'Y',
         ]);
 
         $this->insert('staff', [
@@ -216,11 +216,11 @@ class RegistrationDualPathTest extends IntegrationTestCase
     public function test_standard_entrant_delivery_volunteer_and_waiver_fields_match_across_paths(): void
     {
         $standardEntrant = [
-            'brewerDropOff' => '999',
+            'brewerDropOff' => ' 999 ',
             'brewerJudge' => 'Y',
             'brewerSteward' => 'Y',
             'brewerStaff' => 'Y',
-            'brewerJudgeWaiver' => 'Y',
+            'brewerJudgeWaiver' => 'N',
         ];
         $legacy = $this->registerViaLegacyPath(
             'legacy-standard-fields@test.example',
@@ -248,6 +248,7 @@ class RegistrationDualPathTest extends IntegrationTestCase
         $legacyBrewer = $this->select('brewer', "uid = {$legacy['userId']}")[0];
         $modernBrewer = $this->select('brewer', "uid = {$modernId->value()}")[0];
 
+        $this->assertSame('Y', $modernBrewer['brewerJudgeWaiver']);
         foreach (['brewerDropOff', 'brewerJudge', 'brewerSteward', 'brewerStaff', 'brewerJudgeWaiver'] as $field) {
             $this->assertSame($legacyBrewer[$field], $modernBrewer[$field], "Mismatch on {$field}");
         }

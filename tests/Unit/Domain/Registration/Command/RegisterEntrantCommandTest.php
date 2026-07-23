@@ -48,21 +48,28 @@ class RegisterEntrantCommandTest extends TestCase
         $this->assertSame('N', $cmd->brewerSteward);
     }
 
-    public function test_hydrates_standard_entrant_delivery_volunteer_and_waiver_values(): void
+    public function test_hydrates_standard_entrant_delivery_and_volunteer_values(): void
     {
         $cmd = new RegisterEntrantCommand($this->baseData() + [
             'brewerDropOff' => '999',
             'brewerJudge' => 'Y',
             'brewerSteward' => 'Y',
             'brewerStaff' => 'Y',
-            'brewerJudgeWaiver' => 'Y',
         ]);
 
         $this->assertSame('999', $cmd->brewerDropOff);
         $this->assertSame('Y', $cmd->brewerJudge);
         $this->assertSame('Y', $cmd->brewerSteward);
         $this->assertSame('Y', $cmd->brewerStaff);
-        $this->assertSame('Y', $cmd->brewerJudgeWaiver);
+    }
+
+    public function test_uses_legacy_waiver_value_regardless_of_submitted_value(): void
+    {
+        foreach (['N', ''] as $submittedWaiver) {
+            $cmd = new RegisterEntrantCommand($this->baseData() + ['brewerJudgeWaiver' => $submittedWaiver]);
+
+            $this->assertSame('Y', $cmd->brewerJudgeWaiver);
+        }
     }
 
     public function test_missing_required_field_throws(): void

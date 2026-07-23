@@ -96,28 +96,33 @@ class RegistrationServiceTest extends TestCase
         $this->assertSame(101, $id->value());
     }
 
-    public function test_register_persists_standard_entrant_delivery_volunteer_and_waiver_values(): void
+    public function test_register_persists_legacy_waiver_value_regardless_of_submission(): void
     {
-        $this->repository->method('emailExists')->willReturn(false);
-        $this->captcha->method('verify')->willReturn(true);
-        $this->repository->method('staffRowExists')->willReturn(false);
-        $this->repository->method('insertUser')->willReturn(RegistrantId::from(102));
+        foreach (['N', ''] as $submittedWaiver) {
+            $this->repository = $this->createMock(RegistrationRepository::class);
+            $this->captcha = $this->createMock(CaptchaVerifier::class);
+            $this->service = new RegistrationService($this->repository, $this->captcha);
+            $this->repository->method('emailExists')->willReturn(false);
+            $this->captcha->method('verify')->willReturn(true);
+            $this->repository->method('staffRowExists')->willReturn(false);
+            $this->repository->method('insertUser')->willReturn(RegistrantId::from(102));
 
-        $this->repository->expects($this->once())->method('insertBrewerProfile')
-            ->with($this->callback(fn (array $row) => $row['uid'] === 102
-                && $row['brewerDropOff'] === '999'
-                && $row['brewerJudge'] === 'Y'
-                && $row['brewerSteward'] === 'Y'
-                && $row['brewerStaff'] === 'Y'
-                && $row['brewerJudgeWaiver'] === 'Y'));
+            $this->repository->expects($this->once())->method('insertBrewerProfile')
+                ->with($this->callback(fn (array $row) => $row['uid'] === 102
+                    && $row['brewerDropOff'] === '999'
+                    && $row['brewerJudge'] === 'Y'
+                    && $row['brewerSteward'] === 'Y'
+                    && $row['brewerStaff'] === 'Y'
+                    && $row['brewerJudgeWaiver'] === 'Y'));
 
-        $this->service->register($this->baseCommand([
-            'brewerDropOff' => '999',
-            'brewerJudge' => 'Y',
-            'brewerSteward' => 'Y',
-            'brewerStaff' => 'Y',
-            'brewerJudgeWaiver' => 'Y',
-        ]), true, true, [], '127.0.0.1');
+            $this->service->register($this->baseCommand([
+                'brewerDropOff' => ' 999 ',
+                'brewerJudge' => 'Y',
+                'brewerSteward' => 'Y',
+                'brewerStaff' => 'Y',
+                'brewerJudgeWaiver' => $submittedWaiver,
+            ]), true, true, [], '127.0.0.1');
+        }
     }
 
     public function test_register_stores_null_state_when_no_state_submitted(): void

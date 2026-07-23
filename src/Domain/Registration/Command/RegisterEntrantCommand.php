@@ -71,7 +71,9 @@ final class RegisterEntrantCommand
         $this->brewerSteward = (string) ($data['brewerSteward'] ?? 'N');
         $this->brewerStaff = (string) ($data['brewerStaff'] ?? '');
         $this->brewerDropOff = (string) ($data['brewerDropOff'] ?? '0');
-        $this->brewerJudgeWaiver = (string) ($data['brewerJudgeWaiver'] ?? 'Y');
+        // process_brewer_info.inc.php initializes this to Y and never reads
+        // the submitted waiver field for the standard entrant path.
+        $this->brewerJudgeWaiver = 'Y';
         $this->brewerJudgeLocation = $data['brewerJudgeLocation'] ?? null;
         $this->brewerStewardLocation = $data['brewerStewardLocation'] ?? null;
         $this->captchaResponse = (string) ($data['g-recaptcha-response'] ?? '');
