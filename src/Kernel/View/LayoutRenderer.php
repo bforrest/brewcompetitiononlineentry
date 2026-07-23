@@ -32,7 +32,17 @@ final class LayoutRenderer
         return $this->wrap($identity, $title, '', false, $this->renderTemplate($templatePath, $vars));
     }
 
-    private function wrap(Identity $identity, string $title, string $activeNav, bool $withSidebar, string $content): string
+    public function public(string $title, string $templatePath, array $vars = []): string
+    {
+        return $this->wrapPublic($title, $this->renderTemplate($templatePath, $vars));
+    }
+
+    private function wrapPublic(string $title, string $content): string
+    {
+        return $this->wrap(null, $title, '', false, $content);
+    }
+
+    private function wrap(?Identity $identity, string $title, string $activeNav, bool $withSidebar, string $content): string
     {
         $cssCommonUrl = '/css/common.min.css';
         $themePref = $_SESSION['prefsTheme'] ?? 'default';
