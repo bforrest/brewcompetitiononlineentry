@@ -539,7 +539,7 @@ if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) &
 				  `payment_entries` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 				  `payment_time` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 				  PRIMARY KEY (`id`)
-				) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",$prefix."payments");
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",$prefix."payments");
 				
 				$db_conn->rawQuery($sql);
 				if ($db_conn->getLastErrno() !== 0) {
@@ -613,7 +613,7 @@ if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) &
 					  `payment_entries` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 					  `payment_time` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 					  PRIMARY KEY (`id`)
-					) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",$prefix."payments");
+					) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",$prefix."payments");
 					
 					$db_conn->rawQuery($sql);
 					if ($db_conn->getLastErrno() !== 0) {
