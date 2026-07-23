@@ -27,6 +27,12 @@ if (table_exists($prefix."system")) {
 	$system_name_change = TRUE;
 }
 
+// Convert any remaining MyISAM tables to InnoDB. Safe no-op for tables
+// already on InnoDB. Runs on every load regardless of stored version so
+// existing installs get converted the next time an operator visits this
+// page - failures are surfaced below as a notice, not a blocker.
+$innodb_conversion_failures = convert_myisam_tables_to_innodb($connection, $prefix);
+
 require_once (DB.'common.db.php');
 require_once (INCLUDES.'constants.inc.php');
 require_once (LANG.'language.lang.php');
@@ -73,6 +79,14 @@ $filename = INCLUDES."version.inc.php";
 $update_alerts = "";
 $update_body = "";
 $output = "";
+
+if (!empty($innodb_conversion_failures)) {
+	$update_alerts .= "<div class=\"alert alert-warning\"><span class=\"fa fa-lg fa-exclamation-triangle\"></span> <strong>"
+		. count($innodb_conversion_failures)
+		. " table(s) could not be converted to InnoDB:</strong> "
+		. htmlspecialchars(implode(', ', array_keys($innodb_conversion_failures)))
+		. "</div>";
+}
 
 if (file_exists($filename)) {
 
