@@ -38,18 +38,16 @@
 
         if (message === '') {
             field.removeAttribute('aria-invalid');
+            field.classList.remove('is-invalid');
             existing?.remove();
-            if (group.querySelector('.help-block') === null) {
-                group.classList.remove('has-error');
-            }
             return true;
         }
 
         field.setAttribute('aria-invalid', 'true');
-        group.classList.add('has-error');
+        field.classList.add('is-invalid');
         const error = existing ?? document.createElement('span');
         error.id = errorId;
-        error.className = 'help-block';
+        error.className = 'help-block invalid-feedback d-block';
         error.textContent = message;
         if (existing === null) {
             field.parentElement?.append(error);

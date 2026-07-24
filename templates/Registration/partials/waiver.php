@@ -4,12 +4,13 @@
 ?>
 <fieldset>
     <legend>Waiver</legend>
-    <div class="form-group">
-        <div class="col-sm-offset-3 col-sm-6">
-            <div class="checkbox">
-                <label><input type="checkbox" name="brewerJudgeWaiver" value="Y"<?= ($form->values['brewerJudgeWaiver'] ?? 'Y') === 'Y' ? ' checked' : '' ?> required> I agree to the competition waiver.</label>
+    <div class="mb-3 row">
+        <div class="offset-sm-3 offset-lg-2 col-xs-12 col-sm-9 col-lg-10">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="brewerJudgeWaiver" value="Y" id="brewerJudgeWaiver"<?= ($form->values['brewerJudgeWaiver'] ?? 'Y') === 'Y' ? ' checked' : '' ?> required>
+                <label class="form-check-label" for="brewerJudgeWaiver">I agree to the competition waiver.</label>
             </div>
-            <span class="help-block">You must agree to the waiver to register.</span>
+            <div class="help-block">You must agree to the waiver to register.</div>
         </div>
     </div>
 </fieldset>
