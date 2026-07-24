@@ -138,3 +138,94 @@ The Recommendation section near the end of this document is where these provisio
 | `create_bs_popover()` 5395-5420 | 0 | 0 | Unit/HtmlGeneratorsTest.php | 0 | 0 | keep-as-legacy-only |
 | `simpleEncrypt()` 5421-5454 | 5 | 0 | Unit/SecurityAndCryptoTest.php | 0 | 0 | keep-as-legacy-only |
 | `simpleDecrypt()` 5455-5488 | 5 | 0 | Unit/SecurityAndCryptoTest.php | 0 | 0 | keep-as-legacy-only |
+
+## Narrative: High-Priority Functions
+
+The master table above is mechanically generated and flat — every function gets one row regardless of how much traffic it carries or what shape of risk it represents. This section is not: it is the union of three deliberately-chosen groups, each read from source (not inferred from the table), because these are the functions any future extraction or remediation work will actually touch first.
+
+Selection is the union of:
+1. All 3 functions where the escape-discard bug fires (`escape_discard_count > 0`).
+2. The top 15 functions that execute SQL (`sql_query_calls > 0`), ranked by `legacy_callers + modern_callers` descending — the file's highest-traffic, DB-touching functions.
+3. The 2 functions already wrapped by a modern adapter, regardless of caller rank.
+
+20 functions total (no overlap between the groups).
+
+### Escape-discard bug functions
+
+### `convert_to_ba()` (4082-4150), `convert_to_pro()` (4151-4197), `remove_sensitive_data()` (4198-4355)
+
+All three share the exact anti-pattern documented in `Docs/SQLi Remediation - mysqli_real_escape_string Audit.md`'s "Pattern B": each builds a complete UPDATE statement with `sprintf()` against already-interpolated values, then calls `mysqli_real_escape_string($connection, $updateSQL)` on the *finished query string* and discards the result. This is not fixable by capturing the return value — by the time the call runs, any attacker-controlled value already went through `sprintf()` unescaped. These are one-time admin-triggered conversion utilities (BJCP-to-BA and BA-to-Pro style conversion, and a data-scrubbing routine), not high-traffic request-path code, but the fix is identical regardless: delete the dead escape call, escape each interpolated value individually at its `sprintf()` argument position (the working template is `includes/process/process_brewer.inc.php:593`, cited in the same audit doc). Confirmed directly in source: `convert_to_ba()` (lines 4128-4130 and 4142-4144) builds two separate `UPDATE {prefix}brewing ...` statements per loop iteration/call and calls the discard pattern on both.
+
+### Top 15 SQL-executing functions by combined caller count
+
+Ranked via `awk -F'\t' 'NR>1 && $7>0 {print $1"\t"($4+$5)}' Docs/superpowers/scripts/2026-07-24-phase3.8-audit-data.tsv | sort -t$'\t' -k2 -rn | head -15`.
+
+### `style_convert()` (1369-1817)
+
+The single highest-traffic function selected here (53 combined callers) and one of the largest in the file (448 lines). It's a nine-branch dispatch on a `$type` parameter (`"1"` through `"9"`, minus dead/commented `"2"`-internals and `"5"`), each branch a completely different code path: `$type=="1"` does no SQL at all — it `include`s `styles.inc.php` and walks an in-memory `$style_sets` array keyed by `$_SESSION['prefsStyleSet']` and `$_SESSION['style_set_category_end']`; `$type=="4"` (lines ~1600-1701) runs one `SELECT ... FROM {prefix}styles WHERE id='%s'` per style *and* builds raw Bootstrap modal HTML strings inline — data lookup and view rendering interleaved in the same loop; `$type=="6"`,`"7"`,`"8"`,`"9"` each run their own single-row `sprintf()`-templated style lookup. Requires `config.php` and `language.lang.php` unconditionally and `styles.inc.php` conditionally. Any extraction has to treat this as up to 9 separate functions behind one name — the `$type` values are effectively an undocumented internal API baked into call sites across the codebase.
+
+### `get_table_info()` (1818-2123)
+
+Second-highest by caller count (49) and the file's single highest SQL-surface function (14 query-execution sites, tallied by the collector script). Dispatches on `$method` (`"basic"`, `"location"`, `"styles"`, `"assigned"`, `"list"`, `"count_total"`, `"score_total"`, `"count"`, `"count_scores"`, `"count_single_table"`), each building its own query against `judging_tables`/`judging_locations`/`judging_scores`/`brewing`, several resolved to archive-suffixed table names via `get_suffix()` plus an extra archive-lookup query. Notably, the initial table-info query (lines 1856-1858) is built with **raw string interpolation of `$table_id` and `$param` directly into the SQL string — no `sprintf()`, no escaping call of any kind**: `$query_table = "SELECT * FROM $judging_tables_db_table"; ... $query_table .= " WHERE id='$table_id'"; ... $query_table .= " WHERE tableLocation='$param'";`. This is a distinct, currently-unflagged SQLi surface: the escape-discard detector only catches the specific "escape-then-discard" pattern from the SQLi audit, not "never escaped at all," which is what's happening here. Reads `$_SESSION['prefsStyleSet']` and `$_SESSION['jPrefsTablePlanning']`; calls `get_suffix()` and `style_number_const()`.
+
+### `get_participant_count()` (2585-2640)
+
+41 combined callers, 1 SQL call site (single query per invocation, but 11 possible query bodies). Dispatches on `$type` (`default`, `judge`, `judge-assigned`, `steward-assigned`, `steward`, `staff`, `staff-assigned`, `organizer-assigned`, `received-entrant`, `with-entries`, `received-club`), building a `COUNT(*)`/`COUNT(DISTINCT ...)` query per type against archive-suffixable `brewer`/`staff`/`brewing` tables. The `organizer-assigned` branch is a two-table join returning an associative array (`first_name`/`last_name`/`uid`) instead of the scalar int every other branch returns — a return-shape inconsistency any typed extraction must handle explicitly rather than assume a uniform `int` signature. `$filter` is interpolated directly into table names (e.g. `$brewer_db_table = $prefix."brewer_".$filter`) with no allow-list check inside the function itself.
+
+### `brewer_info()` (2481-2529)
+
+39 combined callers. Looks up a brewer by `uid` first; if `mysqli_num_rows()` is 0, falls back to a second query by `id` — two sequential round trips in the miss case. Assembles the result into a single caret-delimited (`^`) string of 17 positional fields (name, phone, BJCP judge rank/ID, address, email, clubs, discount, and — gated on `$_SESSION['prefsProEdition']` — brewery name and TTB/production info decoded from a `brewerBreweryInfo` JSON column) rather than an array or object. Callers parse this string positionally by index, which is a real obstacle to extraction: a typed replacement can't just return the row array, every call site depends on this exact field ordering and the `^`-join format.
+
+### `table_exists()` (3200-3210)
+
+26 combined callers. Very small function but the most directly unescaped-interpolation site reviewed in this batch: `$query_exists = "SHOW TABLES LIKE '".$table_name."'";` — plain string concatenation, no `sprintf()` placeholder, no `mysqli_real_escape_string()` call at all. `$table_name` is caller-supplied and nothing inside this function validates or escapes it.
+
+### `get_entry_count()` (2530-2560)
+
+23 combined callers, 1 SQL site with 9 possible WHERE-clause variants appended based on `$method` (`paid`, `received`, `paid-received`, `unpaid-received`, `paid-not-received`, `total-logged`, `unconfirmed`, `placing-entries`, `scored`). The appended clause fragments are hardcoded literals (no interpolated user data in the WHERE itself), but — same pattern as `get_participant_count()` — `$filter` is interpolated straight into the table name (`$judging_scores_db_table = $prefix."judging_scores_".$filter`).
+
+### `table_assignments()` (3224-3331)
+
+17 combined callers. Fetches a user's judging/stewarding table assignments via one properly `sprintf()`-templated query (`SELECT ... FROM {prefix}judging_assignments WHERE bid='%s' AND assignment='%s'`), then formats each row into one of five different output shapes selected by `$method2` (0, 1, 2, 3, or default) — raw `<tr>` HTML strings for two of them, a bare array of table IDs for `method2==2`, anchor-tag HTML for `method2==1`. Calls `get_table_info()` twice per row (once with `"basic"`, once with `"location"`) and `getTimeZoneDateTime()`. The four presentation branches are interleaved inside the same `do...while` fetch loop as the one data fetch — an extraction needs to separate "get the assignments" from "render them four different ways" rather than move this as a single unit.
+
+### `table_location()` (2182-2213)
+
+15 combined callers. Two-query lookup (`judging_tables` → `tableLocation` column, then `judging_locations` filtered by that id), both properly `sprintf()`-templated with `'%s'` placeholders — no raw-interpolation issue here, unlike several others in this list. Formats through `getTimeZoneDateTime()` using time zone/date/time-format values passed in as parameters rather than read directly from `$_SESSION`, making this one of the cleaner functions in the batch to extract.
+
+### `styles_active()` (3837-3929)
+
+12 combined callers, 4 SQL call sites. Three-mode dispatch (`$method` 0/1/2: distinct active style groups; count of BOS-eligible style types; full active style list with names), plus an archive path that resolves `$style_set`/`$style_types_db` via an extra lookup query keyed on `$archive`. Reads `$_SESSION['prefsStyleSet']`. Worth flagging: the `$method==2` branch's result loop (`do { $a[] = ...; } while ($row_styles = mysqli_fetch_assoc($styles));`) has no guard for a zero-row result the way the `$method==0` branch does (which checks `if ($row_styles)` before entering its loop) — a `do...while` on a false `$row_styles` would emit a PHP warning/notice on the first iteration. Not a currently-observed failure (the style table is presumably never empty in practice), but a pre-existing correctness gap worth carrying into any extraction rather than reproducing unnoticed.
+
+### `get_archive_count()` (3575-3583)
+
+11 combined callers. Like `table_exists()`, built with raw interpolation and no escaping: `$query_archive_count = "SELECT COUNT(*) as 'count' FROM \`$table\`";` — backtick-quoted but not escaped, no `sprintf()`. `$table` is a caller-supplied parameter. A second unescaped-interpolation site the escape-discard-only scan (Task 1/2's methodology) does not surface, because it never calls `mysqli_real_escape_string()` at all — there's nothing to discard.
+
+### `judge_entries()` (3461-3489)
+
+10 combined callers, 1 SQL site. Single `sprintf()`-templated query listing a brewer's entries ordered by `brewCategorySort`. Branches on `$_SESSION['prefsStyleSet'] == "BA"` to decide which columns to display, and on `$method` to decide whether each entry is wrapped in an admin-linking `<a href="...index.php?section=admin&go=entries&filter=...">` (HTML built directly in what is otherwise a data-fetch function) or returned as a plain label.
+
+### `eval_exits()` (4640-4684)
+
+10 combined callers, 1 SQL site with two shapes: `$eid=="default"` fetches all distinct eids (`SELECT DISTINCT eid FROM ...`); a specific `$eid` fetches the full row (`SELECT * ... WHERE eid='%s'`, `sprintf()`-templated). `$method` (`judge_scores`, `consensus_scores`, or default) then controls three different return semantics from the same rows: raw eid list, a computed per-evaluation score sum (aroma+appearance+flavor+mouthfeel+overall), or the stored `evalFinalScore` consensus value. Three distinct behaviors behind one signature — a straight port would need three typed methods, not one.
+
+### `style_type()` (2124-2170)
+
+9 combined callers, 2 SQL sites out of 4 total `$method` branches. `$method=="1"` and `$method=="2"` (when `$source=="bcoe"`) are pure in-memory `switch` lookup tables mapping between numeric and text type codes — no database access. `$method=="2"` (when `$source=="custom"`) and `$method=="3"` both hit `{prefix}style_types` via `sprintf()`. Because half the branches never touch the DB, an extraction should split the static mapping table from the DB-backed lookup rather than moving the whole function as a single SQL-executing unit.
+
+### `check_special_ingredients()` (2900-2932)
+
+9 combined callers, 1 SQL site. Looks up `brewStyleReqSpec` for a style (branching on BJCP2025 vs. other version formats for how it builds the `WHERE` clause), then applies a hardcoded exception list (`C2-C`, `C2-D`, `C4-C` — specific 2025 cider styles) that forces a `FALSE` return regardless of what the database flag says. This business rule is embedded directly in application code rather than being data-driven; an extraction has to carry the exception list forward deliberately rather than let it silently disappear as "just the DB lookup."
+
+### `brewer_assignment()` (2823-2880)
+
+9 combined callers, 1 SQL site. Looks up a user's row in `{prefix}staff` (or an archive-suffixed variant) and formats a human-readable assignment label per `$method` (`"1"` builds an array of role labels — organizer/BOS/judge/steward/staff — sourced from `language.lang.php`, which is `require`d inline; `"3"` maps a `$filter` value to a label; default falls through to `$r = ""`). Independent of this audit's SQLi focus, there is a latent bug at lines 2857-2858: the `"staff_judge"` case (`case "staff_judge": // for $filter URL variable`) branches on `elseif ($a == "stewards")` / `elseif ($a == "staff")` / `elseif ($a == "bos")`, but `$a` is never assigned anywhere in this function — the comment implies it should be `$filter`. This branch is effectively dead unless `$a` happens to be set as a leftover global from a prior call elsewhere in the request, which is exactly the kind of latent-state risk worth flagging for any team about to extract this function's logic.
+
+### Already adapter-wrapped functions
+
+### `limit_subcategory()` (3609-3679)
+
+Already partially extracted: `src/Domain/Entry/Adapter/LegacyQueryAdapter::limitSubcategory()` wraps this directly (`require_once` + a straight passthrough call), per that adapter's own docblock stating the intended long-term rule ("no direct calls to common.lib.php outside this class"). Not yet a full extraction — the adapter is a typed pass-through, not a reimplementation — but it establishes the shape any further extraction from this file should follow. Confirmed in source: the function builds a style lookup (`SELECT id FROM {prefix}styles WHERE ...`, `sprintf()`-templated) and then one of two entry-count queries depending on `$_SESSION['prefsStyleSet'] == "BA"`, comparing the count against `$pref_num` and an optional per-subcategory exception (`$pref_exception_sub_num`/`$pref_exception_sub_array`) to decide whether an entry limit has been reached.
+
+### `open_or_closed()` (3588-3608)
+
+Wrapped by `src/Domain/Registration/Service/RegistrationService.php` (found during Phase 3.7 — see [[project-modernization]]'s note that this function had to be required on-demand from `common.lib.php` specifically because `paths.php` alone doesn't define it). Same adapter-shape opportunity as `limit_subcategory()` above, currently done via a direct `require_once` in the service rather than a dedicated adapter class. Confirmed in source: this is a pure function with no SQL and no global reads beyond its three parameters — it compares `$now` against `$date1`/`$date2` and returns `0` (not yet open), `1` (open), or `2` (closed), the simplest function in this entire narrative section and the easiest candidate for a genuine (not just passthrough) reimplementation.
