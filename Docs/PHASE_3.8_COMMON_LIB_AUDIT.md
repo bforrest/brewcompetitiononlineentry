@@ -1,0 +1,140 @@
+# Phase 3.8: `lib/common.lib.php` Audit
+
+**Date:** 2026-07-24
+**Scope:** Full inventory of all 111 functions in `lib/common.lib.php` (5,488 lines) — the largest untouched file in the modernization roadmap. See `Docs/superpowers/specs/2026-07-24-phase3.8-common-lib-audit-design.md` for the approved design and `Docs/superpowers/specs/2026-07-21-phase3-sequencing-strategies.md` for how this phase fits the broader plan.
+
+This is an audit-only deliverable. No code in `lib/common.lib.php` or its callers changed as part of this document.
+
+## Scope & Methodology
+
+Caller counts, SQL-execution flags, and test coverage below come from a repo-wide static `grep` for each function's name (script: `Docs/superpowers/scripts/2026-07-24-phase3.8-audit-collect.sh`; raw data: the sibling `.tsv` in the same directory), not from tracing actual runtime call graphs. Two limitations follow directly from that:
+
+- **False negatives:** dynamic dispatch (a function called via a variable holding its name, `call_user_func`, etc.) would not be counted. No such pattern is known to exist for these functions today, but this audit did not exhaustively rule it out.
+- **False positives:** a "caller" is any line anywhere in a `.php` file containing the literal text `functionname(` — including inside comments or docblocks that merely *reference* the function without calling it (several exist in this codebase's `src/Domain/Registration` files, which cite `lib/common.lib.php` line numbers in comments). Caller counts above roughly 2-3 are unlikely to be entirely comment noise, but low counts (1-2) for any function flagged below as a "dead-code candidate" or "extraction candidate" should be read as a lead, not a verified fact.
+
+**SQL execution** is flagged per-function as "contains at least one `mysqli_query()`/`mysqli_multi_query()` call" — this is a *surface area* flag (this function is part of the file's 130 total SQL-execution call sites, confirmed by whole-file `grep -c`), not a per-function vulnerability confirmation. The codebase has zero prepared-statement usage anywhere (confirmed in `Docs/SQLi Remediation - mysqli_real_escape_string Audit.md`), so any function that executes SQL at all is a candidate for the file's eventual Track B (parameterization) work regardless of whether its current escaping happens to be correct.
+
+**Escape-discard bug** flags the specific, already-documented anti-pattern from the SQLi Remediation audit: `mysqli_real_escape_string()` called without capturing its return value. This file has exactly 5 such sites (verified: whole-file `grep -c` for the pattern equals the per-function sum), concentrated in three functions — see the narrative section below.
+
+**Classification** in the table is a provisional, mechanically-computed label, not a final recommendation:
+- *dead-code candidate (unverified)* — zero legacy callers, zero modern callers, no test references found.
+- *extraction candidate* — executes SQL (see above).
+- *keep-as-legacy-only* — has callers or tests, but no SQL execution.
+
+The Recommendation section near the end of this document is where these provisional labels get corrected against things the script cannot know (e.g. two functions already have a modern adapter wrapping them; several "extraction candidate" functions are already the tested source of truth via Approval/Integration tests, not blindly duplicatable).
+
+## Master Function Table
+
+| Function (line range) | Legacy callers | Modern callers | Test coverage | SQL execution | Escape-discard bug | Classification (provisional) |
+|---|---|---|---|---|---|---|
+| `csrf_token_generate()` 14-33 | 7 | 1 | none | 0 | 0 | keep-as-legacy-only |
+| `password_verify_legacy()` 34-47 | 5 | 0 | Integration/PasswordLegacyMigrationTest.php;Unit/SecurityAndCryptoTest.php | 0 | 0 | keep-as-legacy-only |
+| `password_needs_legacy_upgrade()` 48-58 | 3 | 0 | Integration/PasswordLegacyMigrationTest.php;Unit/SecurityAndCryptoTest.php | 0 | 0 | keep-as-legacy-only |
+| `upgrade_legacy_password_hash()` 59-72 | 3 | 0 | Integration/PasswordLegacyMigrationTest.php | 0 | 0 | keep-as-legacy-only |
+| `version_check()` 73-92 | 1 | 0 | bootstrap.php | 0 | 0 | keep-as-legacy-only |
+| `search_array()` 93-103 | 0 | 0 | Unit/StringUtilitiesTest.php | 0 | 0 | keep-as-legacy-only |
+| `in_string()` 104-108 | 0 | 0 | Unit/StringUtilitiesTest.php | 0 | 0 | keep-as-legacy-only |
+| `designations()` 109-118 | 5 | 0 | Unit/HtmlGeneratorsTest.php | 0 | 0 | keep-as-legacy-only |
+| `build_action_link()` 119-166 | 11 | 0 | Approval/LinkBuilderApprovalTest.php;Unit/UrlAndNavigationTest.php | 0 | 0 | keep-as-legacy-only |
+| `build_output_link()` 167-184 | 0 | 0 | Approval/LinkBuilderApprovalTest.php;Unit/UrlAndNavigationTest.php | 0 | 0 | keep-as-legacy-only |
+| `build_form_action()` 185-200 | 7 | 0 | Approval/LinkBuilderApprovalTest.php;Unit/UrlAndNavigationTest.php | 0 | 0 | keep-as-legacy-only |
+| `build_public_url()` 201-228 | 120 | 0 | Approval/LinkBuilderApprovalTest.php;Unit/UrlAndNavigationTest.php | 0 | 0 | keep-as-legacy-only |
+| `display_array_content()` 229-243 | 17 | 0 | Unit/StringUtilitiesTest.php | 0 | 0 | keep-as-legacy-only |
+| `addOrdinalNumberSuffix()` 244-258 | 79 | 0 | Unit/OrdinalAndNumberFunctionsTest.php | 0 | 0 | keep-as-legacy-only |
+| `purge_entries()` 259-410 | 5 | 0 | none | 5 | 0 | extraction candidate |
+| `random_generator()` 411-428 | 40 | 0 | Unit/SecurityAndCryptoTest.php | 0 | 0 | keep-as-legacy-only |
+| `relocate()` 429-467 | 67 | 0 | none | 0 | 0 | keep-as-legacy-only |
+| `check_judging_numbers()` 468-482 | 0 | 0 | none | 1 | 0 | dead-code candidate (unverified) |
+| `temp_convert()` 483-494 | 0 | 0 | Unit/ConversionFunctionsTest.php | 0 | 0 | keep-as-legacy-only |
+| `weight_convert()` 495-516 | 0 | 0 | Unit/ConversionFunctionsTest.php | 0 | 0 | keep-as-legacy-only |
+| `volume_convert()` 517-539 | 0 | 0 | Unit/ConversionFunctionsTest.php | 0 | 0 | keep-as-legacy-only |
+| `GetSQLValueString()` 540-569 | 16 | 0 | Unit/HtmlGeneratorsTest.php | 0 | 0 | keep-as-legacy-only |
+| `currency_info()` 570-812 | 3 | 0 | Unit/SecurityAndCryptoTest.php | 0 | 0 | keep-as-legacy-only |
+| `total_fees()` 813-994 | 6 | 0 | Integration/TotalFeesTest.php | 8 | 0 | extraction candidate |
+| `total_fees_paid()` 995-1298 | 6 | 0 | none | 11 | 0 | extraction candidate |
+| `total_entries_brewer()` 1299-1310 | 0 | 0 | none | 1 | 0 | dead-code candidate (unverified) |
+| `total_not_paid_brewer()` 1311-1328 | 6 | 0 | none | 2 | 0 | extraction candidate |
+| `total_paid_received()` 1329-1345 | 5 | 0 | Integration/BestBrewerPointsTest.php | 1 | 0 | extraction candidate |
+| `total_paid()` 1346-1356 | 0 | 0 | none | 1 | 0 | dead-code candidate (unverified) |
+| `total_nopay_received()` 1357-1368 | 1 | 0 | none | 1 | 0 | extraction candidate |
+| `style_convert()` 1369-1817 | 53 | 0 | Approval/StyleConvertApprovalTest.php | 7 | 0 | extraction candidate |
+| `get_table_info()` 1818-2123 | 49 | 0 | Integration/GetTableInfoTest.php | 14 | 0 | extraction candidate |
+| `style_type()` 2124-2170 | 9 | 0 | Approval/StyleTypeApprovalTest.php | 2 | 0 | extraction candidate |
+| `check_bos_loc()` 2171-2181 | 0 | 0 | none | 1 | 0 | dead-code candidate (unverified) |
+| `table_location()` 2182-2213 | 15 | 0 | none | 2 | 0 | extraction candidate |
+| `score_count()` 2214-2237 | 5 | 0 | none | 1 | 0 | extraction candidate |
+| `best_brewer_points()` 2238-2346 | 12 | 0 | Integration/BestBrewerPointsTest.php | 0 | 0 | keep-as-legacy-only |
+| `bjcp_rank()` 2347-2432 | 7 | 0 | Unit/OrdinalAndNumberFunctionsTest.php | 0 | 0 | keep-as-legacy-only |
+| `srm_color()` 2433-2470 | 6 | 0 | Approval/SrmColorApprovalTest.php;Unit/OrdinalAndNumberFunctionsTest.php | 0 | 0 | keep-as-legacy-only |
+| `get_contact_count()` 2471-2480 | 2 | 0 | none | 1 | 0 | extraction candidate |
+| `brewer_info()` 2481-2529 | 39 | 0 | Integration/BrewerInfoTest.php | 2 | 0 | extraction candidate |
+| `get_entry_count()` 2530-2560 | 23 | 0 | none | 1 | 0 | extraction candidate |
+| `get_evaluation_count()` 2561-2584 | 6 | 0 | none | 1 | 0 | extraction candidate |
+| `get_participant_count()` 2585-2640 | 41 | 0 | none | 1 | 0 | extraction candidate |
+| `display_place()` 2641-2696 | 52 | 0 | Integration/DisplayPlaceTest.php;Unit/OrdinalAndNumberFunctionsTest.php | 0 | 0 | keep-as-legacy-only |
+| `entry_info()` 2697-2706 | 7 | 0 | Approval/EntryInfoApprovalTest.php | 1 | 0 | extraction candidate |
+| `get_suffix()` 2707-2712 | 18 | 0 | none | 0 | 0 | keep-as-legacy-only |
+| `score_check()` 2713-2725 | 3 | 0 | none | 1 | 0 | extraction candidate |
+| `minibos_check()` 2726-2736 | 6 | 0 | none | 1 | 0 | extraction candidate |
+| `winner_check()` 2737-2822 | 3 | 0 | none | 5 | 0 | extraction candidate |
+| `brewer_assignment()` 2823-2880 | 9 | 0 | none | 1 | 0 | extraction candidate |
+| `entries_unconfirmed()` 2881-2899 | 4 | 0 | none | 1 | 0 | extraction candidate |
+| `check_special_ingredients()` 2900-2932 | 9 | 0 | none | 1 | 0 | extraction candidate |
+| `entries_no_special()` 2933-2957 | 2 | 0 | none | 1 | 0 | extraction candidate |
+| `data_integrity_check()` 2958-3128 | 3 | 0 | none | 9 | 0 | extraction candidate |
+| `readable_number()` 3129-3173 | 3 | 0 | Unit/OrdinalAndNumberFunctionsTest.php | 0 | 0 | keep-as-legacy-only |
+| `winner_method()` 3174-3199 | 0 | 0 | none | 0 | 0 | dead-code candidate (unverified) |
+| `table_exists()` 3200-3210 | 26 | 0 | none | 1 | 0 | extraction candidate |
+| `judge_assignment()` 3211-3223 | 1 | 0 | none | 1 | 0 | extraction candidate |
+| `table_assignments()` 3224-3331 | 17 | 0 | none | 1 | 0 | extraction candidate |
+| `available_at_location()` 3332-3360 | 0 | 0 | none | 1 | 0 | dead-code candidate (unverified) |
+| `str_osplit()` 3361-3364 | 2 | 0 | Unit/UrlAndNavigationTest.php | 0 | 0 | keep-as-legacy-only |
+| `readable_judging_number()` 3365-3381 | 6 | 0 | none | 0 | 0 | keep-as-legacy-only |
+| `dropoff_location()` 3382-3393 | 2 | 0 | none | 1 | 0 | extraction candidate |
+| `judge_steward_availability()` 3394-3460 | 3 | 0 | none | 1 | 0 | extraction candidate |
+| `judge_entries()` 3461-3489 | 10 | 0 | none | 1 | 0 | extraction candidate |
+| `judging_winner_display()` 3490-3494 | 7 | 0 | none | 0 | 0 | keep-as-legacy-only |
+| `format_phone_us()` 3495-3549 | 23 | 0 | none | 0 | 0 | keep-as-legacy-only |
+| `check_judging_flights()` 3550-3574 | 0 | 0 | none | 3 | 0 | dead-code candidate (unverified) |
+| `get_archive_count()` 3575-3583 | 11 | 0 | none | 1 | 0 | extraction candidate |
+| `number_pad()` 3584-3587 | 3 | 0 | Unit/OrdinalAndNumberFunctionsTest.php | 0 | 0 | keep-as-legacy-only |
+| `open_or_closed()` 3588-3608 | 6 | 3 | Unit/Domain/Registration/Service/RegistrationServiceTest.php;Unit/OrdinalAndNumberFunctionsTest.php | 0 | 0 | keep-as-legacy-only |
+| `limit_subcategory()` 3609-3679 | 5 | 3 | none | 3 | 0 | extraction candidate |
+| `highlight_required()` 3680-3754 | 0 | 0 | none | 4 | 0 | dead-code candidate (unverified) |
+| `user_check()` 3755-3772 | 0 | 0 | none | 1 | 0 | dead-code candidate (unverified) |
+| `judging_location_info()` 3773-3800 | 6 | 1 | none | 1 | 0 | extraction candidate |
+| `yes_no()` 3801-3836 | 41 | 0 | none | 0 | 0 | keep-as-legacy-only |
+| `styles_active()` 3837-3929 | 12 | 0 | none | 4 | 0 | extraction candidate |
+| `check_exension()` 3930-3946 | 0 | 0 | Unit/StringUtilitiesTest.php | 0 | 0 | keep-as-legacy-only |
+| `open_limit()` 3947-3962 | 2 | 0 | Unit/OrdinalAndNumberFunctionsTest.php | 0 | 0 | keep-as-legacy-only |
+| `obfuscateURL()` 3963-4016 | 14 | 0 | Unit/SecurityAndCryptoTest.php | 0 | 0 | keep-as-legacy-only |
+| `deobfuscateURL()` 4017-4054 | 2 | 0 | Unit/SecurityAndCryptoTest.php | 0 | 0 | keep-as-legacy-only |
+| `get_ba_style_info()` 4055-4081 | 0 | 0 | none | 0 | 0 | dead-code candidate (unverified) |
+| `convert_to_ba()` 4082-4150 | 0 | 0 | none | 4 | 2 | dead-code candidate (unverified) |
+| `convert_to_pro()` 4151-4197 | 0 | 0 | none | 3 | 1 | dead-code candidate (unverified) |
+| `remove_sensitive_data()` 4198-4355 | 0 | 0 | none | 5 | 2 | dead-code candidate (unverified) |
+| `verify_token()` 4356-4388 | 2 | 0 | Integration/VerifyTokenTest.php;Unit/SecurityAndCryptoTest.php | 1 | 0 | extraction candidate |
+| `tiebreak_rule()` 4389-4493 | 43 | 0 | none | 0 | 0 | keep-as-legacy-only |
+| `is_dir_empty()` 4494-4501 | 4 | 0 | none | 0 | 0 | keep-as-legacy-only |
+| `pro_am_check()` 4502-4514 | 1 | 0 | none | 1 | 0 | extraction candidate |
+| `is_html()` 4515-4518 | 27 | 0 | Unit/StringUtilitiesTest.php | 0 | 0 | keep-as-legacy-only |
+| `style_number_const()` 4519-4545 | 52 | 1 | Unit/HtmlGeneratorsTest.php | 0 | 0 | keep-as-legacy-only |
+| `user_flight_assignment()` 4546-4559 | 2 | 0 | none | 1 | 0 | extraction candidate |
+| `entry_flight_assignment()` 4560-4570 | 2 | 0 | none | 1 | 0 | extraction candidate |
+| `flight_count_info()` 4571-4623 | 4 | 0 | none | 3 | 0 | extraction candidate |
+| `user_submitted_eval()` 4624-4639 | 2 | 0 | none | 1 | 0 | extraction candidate |
+| `eval_exits()` 4640-4684 | 10 | 0 | none | 1 | 0 | extraction candidate |
+| `remove_accents()` 4685-5216 | 5 | 0 | Unit/StringUtilitiesTest.php | 0 | 0 | keep-as-legacy-only |
+| `truncate_string()` 5217-5231 | 18 | 0 | Unit/StringUtilitiesTest.php | 0 | 0 | keep-as-legacy-only |
+| `place_heirarchy()` 5232-5250 | 8 | 0 | Unit/OrdinalAndNumberFunctionsTest.php | 0 | 0 | keep-as-legacy-only |
+| `normalizeClubs()` 5251-5257 | 6 | 0 | Unit/StringUtilitiesTest.php | 0 | 0 | keep-as-legacy-only |
+| `clean_up_text()` 5258-5264 | 0 | 0 | Unit/StringUtilitiesTest.php | 0 | 0 | keep-as-legacy-only |
+| `prep_redirect_link()` 5265-5274 | 173 | 0 | Unit/UrlAndNavigationTest.php;bootstrap.php | 0 | 0 | keep-as-legacy-only |
+| `display_array_content_style()` 5275-5304 | 0 | 0 | none | 0 | 0 | dead-code candidate (unverified) |
+| `admin_relocate()` 5305-5313 | 1 | 0 | Unit/StringUtilitiesTest.php | 0 | 0 | keep-as-legacy-only |
+| `scrub_filename()` 5314-5319 | 1 | 0 | Unit/StringUtilitiesTest.php | 0 | 0 | keep-as-legacy-only |
+| `clean_filename()` 5320-5366 | 1 | 0 | Unit/StringUtilitiesTest.php | 0 | 0 | keep-as-legacy-only |
+| `create_bs_alert()` 5367-5394 | 8 | 0 | Unit/HtmlGeneratorsTest.php | 0 | 0 | keep-as-legacy-only |
+| `create_bs_popover()` 5395-5420 | 0 | 0 | Unit/HtmlGeneratorsTest.php | 0 | 0 | keep-as-legacy-only |
+| `simpleEncrypt()` 5421-5454 | 5 | 0 | Unit/SecurityAndCryptoTest.php | 0 | 0 | keep-as-legacy-only |
+| `simpleDecrypt()` 5455-5488 | 5 | 0 | Unit/SecurityAndCryptoTest.php | 0 | 0 | keep-as-legacy-only |
