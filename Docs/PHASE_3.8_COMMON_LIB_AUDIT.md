@@ -229,3 +229,38 @@ Already partially extracted: `src/Domain/Entry/Adapter/LegacyQueryAdapter::limit
 ### `open_or_closed()` (3588-3608)
 
 Wrapped by `src/Domain/Registration/Service/RegistrationService.php` (found during Phase 3.7 — see [[project-modernization]]'s note that this function had to be required on-demand from `common.lib.php` specifically because `paths.php` alone doesn't define it). Same adapter-shape opportunity as `limit_subcategory()` above, currently done via a direct `require_once` in the service rather than a dedicated adapter class. Confirmed in source: this is a pure function with no SQL and no global reads beyond its three parameters — it compares `$now` against `$date1`/`$date2` and returns `0` (not yet open), `1` (open), or `2` (closed), the simplest function in this entire narrative section and the easiest candidate for a genuine (not just passthrough) reimplementation.
+
+## Recommendation
+
+**Can `lib/common.lib.php` be deleted?** No, not yet. It is `require`d unconditionally by `site/bootstrap.php` (i.e. on every legacy page render) and directly by four self-bootstrapping side doors (`update.php`, `handle.php`, `setup.php`, `qr.php`). 14 of its 111 functions show zero static callers outside itself — the rest are load-bearing by at least one measure (a legacy caller, a modern adapter, or a test asserting its behavior directly).
+
+### Bucket 1: Confirmed-dead candidates (14 functions)
+
+- `check_judging_numbers()` (468-482)
+- `total_entries_brewer()` (1299-1310)
+- `total_paid()` (1346-1356)
+- `check_bos_loc()` (2171-2181)
+- `winner_method()` (3174-3199)
+- `available_at_location()` (3332-3360)
+- `check_judging_flights()` (3550-3574)
+- `highlight_required()` (3680-3754)
+- `user_check()` (3755-3772)
+- `get_ba_style_info()` (4055-4081)
+- `convert_to_ba()` (4082-4150)
+- `convert_to_pro()` (4151-4197)
+- `remove_sensitive_data()` (4198-4355)
+- `display_array_content_style()` (5275-5304)
+
+None were empirically (curl) verified as unreachable — that's explicitly out of scope for this pass (see the design doc). Recommended next step: a small, standalone future PR that empirically confirms each (the same method `config/access_policy.php`'s own audit used) before deleting.
+
+### Bucket 2: Extraction-worthy
+
+The 3 escape-discard-bug functions (`convert_to_ba`, `convert_to_pro`, `remove_sensitive_data`) and the highest-traffic SQL-executing functions from the narrative section above are the strongest candidates for a future targeted-extraction phase, following the `LegacyQueryAdapter` shape already established by `limit_subcategory()` and `open_or_closed()`. This phase does not pick which one goes first — that's a future phase's own brainstorm.
+
+### Bucket 3: Legacy-only-forever
+
+No function in this file is a clear "never worth moving" case purely by nature (unlike, say, a one-time install script) — even the display/formatting functions (`srm_color`, `style_convert`, etc.) are exercised on every relevant page render. This bucket is empty for this file; noted for completeness since the design doc named it as a possible outcome, not a required one.
+
+### Superseded functions: none found
+
+Checked directly: `grep -rl "srmColor\|SrmColor\|bestBrewerPoints\|BestBrewerPoints" src/Domain/` returns no matches. None of the Approval/Integration-tested functions in this file (`style_convert`, `srm_color`, `style_type`, `entry_info`, `build_action_link`, `build_output_link`, `build_form_action`, `build_public_url`, `best_brewer_points`, `total_fees`, `get_table_info`, `display_place`, `verify_token`) are reimplemented in `src/Domain/` — each is tested *as* the legacy source of truth, not as a stand-in for an existing `src/Domain` reimplementation (per each test file's own docblock, e.g. `SrmColorApprovalTest.php`'s stated purpose of pinning `srm_color()`'s own output table). No function qualifies for the "superseded by src/Domain equivalent" label today.
