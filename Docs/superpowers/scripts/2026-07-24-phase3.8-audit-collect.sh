@@ -22,7 +22,7 @@ while IFS= read -r line; do
   fi
 done < <(grep -n "^function " "$LIB_FILE")
 TOTAL=${#FUNC_LINES[@]}
-LAST_LINE=$(wc -l < "$LIB_FILE")
+LAST_LINE=$(awk 'END{print NR}' "$LIB_FILE")
 
 printf 'function\tstart_line\tend_line\tlegacy_callers\tmodern_callers\ttest_files\tsql_query_calls\tescape_discard_count\n' > "$TSV_OUT"
 printf '| Function (line range) | Legacy callers | Modern callers | Test coverage | SQL execution | Escape-discard bug | Classification (provisional) |\n' > "$MD_OUT"
@@ -43,7 +43,8 @@ for i in "${!FUNC_LINES[@]}"; do
 
   # Temporarily disable pipefail for grep commands (bash 3.2 compatibility)
   set +o pipefail
-  MATCHES=$(grep -rn --include="*.php" -F "${fname}(" . \
+  # Use word-boundary pattern to avoid substring collisions (e.g., relocate vs admin_relocate)
+  MATCHES=$(grep -rn --include="*.php" -E "(^|[^A-Za-z0-9_])${fname}\(" . \
     --exclude-dir=vendor --exclude-dir=.worktrees --exclude-dir=.phpstan.cache \
     --exclude-dir=.git --exclude-dir=node_modules \
     | grep -v "^\./lib/common\.lib\.php:${start_line}:" || true)

@@ -15,7 +15,7 @@ display_array_content	229	243	17	0	Unit/StringUtilitiesTest.php	0	0
 addOrdinalNumberSuffix	244	258	79	0	Unit/OrdinalAndNumberFunctionsTest.php	0	0
 purge_entries	259	410	5	0	none	5	0
 random_generator	411	428	40	0	Unit/SecurityAndCryptoTest.php	0	0
-relocate	429	467	69	0	Unit/StringUtilitiesTest.php	0	0
+relocate	429	467	67	0	none	0	0
 check_judging_numbers	468	482	0	0	none	1	0
 temp_convert	483	494	0	0	Unit/ConversionFunctionsTest.php	0	0
 weight_convert	495	516	0	0	Unit/ConversionFunctionsTest.php	0	0
@@ -44,7 +44,7 @@ get_entry_count	2530	2560	23	0	none	1	0
 get_evaluation_count	2561	2584	6	0	none	1	0
 get_participant_count	2585	2640	41	0	none	1	0
 display_place	2641	2696	52	0	Integration/DisplayPlaceTest.php;Unit/OrdinalAndNumberFunctionsTest.php	0	0
-entry_info	2697	2706	12	0	Approval/EntryInfoApprovalTest.php	1	0
+entry_info	2697	2706	7	0	Approval/EntryInfoApprovalTest.php	1	0
 get_suffix	2707	2712	18	0	none	0	0
 score_check	2713	2725	3	0	none	1	0
 minibos_check	2726	2736	6	0	none	1	0
@@ -75,11 +75,11 @@ limit_subcategory	3609	3679	5	3	none	3	0
 highlight_required	3680	3754	0	0	none	4	0
 user_check	3755	3772	0	0	none	1	0
 judging_location_info	3773	3800	6	1	none	1	0
-yes_no	3801	3836	56	0	none	0	0
+yes_no	3801	3836	41	0	none	0	0
 styles_active	3837	3929	12	0	none	4	0
 check_exension	3930	3946	0	0	Unit/StringUtilitiesTest.php	0	0
 open_limit	3947	3962	2	0	Unit/OrdinalAndNumberFunctionsTest.php	0	0
-obfuscateURL	3963	4016	17	0	Unit/SecurityAndCryptoTest.php	0	0
+obfuscateURL	3963	4016	14	0	Unit/SecurityAndCryptoTest.php	0	0
 deobfuscateURL	4017	4054	2	0	Unit/SecurityAndCryptoTest.php	0	0
 get_ba_style_info	4055	4081	0	0	none	0	0
 convert_to_ba	4082	4150	0	0	none	4	2
@@ -109,4 +109,4 @@ clean_filename	5320	5366	1	0	Unit/StringUtilitiesTest.php	0	0
 create_bs_alert	5367	5394	8	0	Unit/HtmlGeneratorsTest.php	0	0
 create_bs_popover	5395	5420	0	0	Unit/HtmlGeneratorsTest.php	0	0
 simpleEncrypt	5421	5454	5	0	Unit/SecurityAndCryptoTest.php	0	0
-simpleDecrypt	5455	    5488	5	0	Unit/SecurityAndCryptoTest.php	0	0
+simpleDecrypt	5455	5488	5	0	Unit/SecurityAndCryptoTest.php	0	0
