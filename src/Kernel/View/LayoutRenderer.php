@@ -75,6 +75,16 @@ final class LayoutRenderer
         $heroImageUrl = e($view->hero->imageUrl);
         $heroHeading = e($view->hero->heading);
         $heroSubheading = e($view->hero->subheading);
+        $hostName = e($view->contest->hostName);
+        $hostPresentation = $view->contest->hostWebsite === null
+            ? $hostName
+            : '<a class="link-light" href="' . e($view->contest->hostWebsite) . '" target="_blank" rel="noopener noreferrer">' . $hostName . '</a>';
+        $hostLocation = $view->contest->hostLocation === null
+            ? ''
+            : ' <span class="text-light-emphasis">&mdash; ' . e($view->contest->hostLocation) . '</span>';
+        $hostLogo = $view->contest->logoPath === null
+            ? ''
+            : '<img class="img-fluid mb-3" src="' . e($view->contest->logoPath) . '" alt="' . $hostName . ' logo">';
 
         return <<<HTML
 <!DOCTYPE html>
@@ -86,9 +96,11 @@ final class LayoutRenderer
 <div id="sticky-home" class="contains-link d-print-none"><a href="#home" aria-label="Return to top"><i class="fas fa-arrow-circle-up fa-2x" aria-hidden="true"></i></a></div>
 <section class="landing-hero text-light bg-dark pt-5 pb-4" aria-labelledby="landing-title">
     <div class="container-xxl pt-4">
+        {$hostLogo}
         <img class="img-fluid mb-3" src="{$heroImageUrl}" alt="" role="presentation">
         <h1 id="landing-title" class="fw-bold animate__animated animate__fadeInDown">{$heroHeading}</h1>
         <p class="lead mb-0">{$heroSubheading}</p>
+        <p class="mb-0">Hosted by {$hostPresentation}{$hostLocation}</p>
     </div>
 </section>
 </header>

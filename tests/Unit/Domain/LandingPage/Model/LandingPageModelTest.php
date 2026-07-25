@@ -41,12 +41,30 @@ final class LandingPageModelTest extends TestCase
             register: '/register',
             login: '/index.php?section=login',
             logout: '/includes/process.inc.php?section=logout',
+            account: 'javascript:alert(1)',
             contact: '/#contact',
             sponsors: '/#sponsors',
-            hostWebsite: 'javascript:alert(1)',
+            hostWebsite: 'https://host.example.test',
             resultsPdf: '/includes/output.inc.php?section=export-results&view=pdf',
             resultsHtml: '/includes/output.inc.php?section=export-results&view=html',
         );
+    }
+
+    public function test_landing_links_expose_a_validated_account_url(): void
+    {
+        $links = new LandingPageLinks(
+            register: '/register',
+            login: '/index.php?section=login',
+            logout: '/includes/process.inc.php?section=logout&action=logout',
+            account: '/index.php?section=list',
+            contact: '/#contact',
+            sponsors: '/#sponsors',
+            hostWebsite: null,
+            resultsPdf: '/results.pdf',
+            resultsHtml: '/results.html',
+        );
+
+        self::assertSame('/index.php?section=list', $links->account);
     }
 
     public function test_url_bearing_models_accept_relative_http_and_https_urls(): void
@@ -98,6 +116,7 @@ final class LandingPageModelTest extends TestCase
                 '/register',
                 '/login',
                 '/logout',
+                '/account',
                 '/#contact',
                 '/#sponsors',
                 $url,
@@ -121,6 +140,7 @@ final class LandingPageModelTest extends TestCase
             '/register',
             '/login',
             '/logout',
+            '/account',
             '/#contact',
             '/#sponsors',
             'HTTPS://host.example/path',
@@ -236,7 +256,7 @@ final class LandingPageModelTest extends TestCase
 
     private function links(): LandingPageLinks
     {
-        return new LandingPageLinks('/register', '/login', '/logout', '/#contact', '/#sponsors', null, '/results.pdf', '/results.html');
+        return new LandingPageLinks('/register', '/login', '/logout', '/account', '/#contact', '/#sponsors', null, '/results.pdf', '/results.html');
     }
 
     private function copy(): LandingPageCopy

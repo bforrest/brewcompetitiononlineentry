@@ -18,8 +18,14 @@ declare(strict_types=1);
     <p><?= e($view->copy->judgeOpenMessage) ?></p>
     <?php endif; ?>
 
-    <?php if (($view->capacity->entryLimit !== null && $view->capacity->entryCount >= $view->capacity->entryLimit)
-        || ($view->capacity->paidEntryLimit !== null && $view->capacity->paidEntryCount >= $view->capacity->paidEntryLimit)): ?>
-    <p class="alert alert-warning mb-0" role="alert"><?= e($view->copy->entryLimitMessage) ?></p>
+</section>
+<section id="volunteers" class="container-xxl py-4" aria-labelledby="volunteers-heading">
+    <h2 id="volunteers-heading"><?= e($view->copy->volunteers) ?></h2>
+    <?php if ($view->judgeStatus === \Bcoem\Domain\Shared\ValueObject\WindowStatus::Open): ?>
+    <p class="mb-0"><?= e($view->copy->judgeOpenMessage) ?></p>
+    <?php elseif ($view->judgeStatus === \Bcoem\Domain\Shared\ValueObject\WindowStatus::Upcoming): ?>
+    <p class="mb-0"><?= e($view->copy->upcomingMessage) ?></p>
+    <?php else: ?>
+    <p class="mb-0"><?= e($view->copy->closedMessage) ?></p>
     <?php endif; ?>
 </section>

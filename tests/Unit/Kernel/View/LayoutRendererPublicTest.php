@@ -81,14 +81,37 @@ class LayoutRendererPublicTest extends TestCase
         self::assertStringNotContainsString('<script>alert(', $html);
         self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
         self::assertStringContainsString('target="_blank" rel="noopener noreferrer"', $html);
+        self::assertStringContainsString('Fixture Brewers', $html);
+        self::assertStringContainsString('href="https://fixture.example.test"', $html);
+        self::assertStringContainsString('src="/user_images/fixture-logo.svg"', $html);
+        self::assertStringContainsString('Chicago, IL', $html);
+        self::assertStringContainsString('<section id="volunteers"', $html);
+        self::assertStringContainsString('Entry status</dt><dd class="col-sm-8">Open</dd>', $html);
+        self::assertStringContainsString('Drop-off status</dt><dd class="col-sm-8">Upcoming</dd>', $html);
+        self::assertStringContainsString('Shipping status</dt><dd class="col-sm-8">Open</dd>', $html);
+        self::assertStringContainsString('datetime="2024-12-03T04:26:40+00:00"', $html);
+        self::assertStringContainsString('December 3, 2024 4:26 AM UTC', $html);
+        self::assertStringNotContainsString('href="/#sponsors">Sponsors</a>', $html);
     }
 
-    private function landingView(): LandingPageViewModel
+    public function test_landing_uses_the_typed_account_link_for_authenticated_viewers(): void
+    {
+        $renderer = new LayoutRenderer();
+        $template = dirname(__DIR__, 4) . '/templates/LandingPage/home.php';
+
+        $html = $renderer->landing($this->landingView(true), $template);
+
+        self::assertStringContainsString('Hello, Ada Brewer', $html);
+        self::assertStringContainsString('href="/index.php?section=list">Account</a>', $html);
+        self::assertStringNotContainsString('name="loginUsername"', $html);
+    }
+
+    private function landingView(bool $loggedIn = false): LandingPageViewModel
     {
         return new LandingPageViewModel(
-            new ContestOverview('Fixture Invitational', 'Fixture Brewers', 'https://fixture.example.test', 'Chicago, IL', null),
-            false,
-            null,
+            new ContestOverview('Fixture Invitational', 'Fixture Brewers', 'https://fixture.example.test', 'Chicago, IL', '/user_images/fixture-logo.svg'),
+            $loggedIn,
+            $loggedIn ? 'Ada Brewer' : null,
             WindowStatus::Open,
             WindowStatus::Open,
             WindowStatus::Upcoming,
@@ -105,7 +128,7 @@ class LayoutRendererPublicTest extends TestCase
                 new WinnerRow('Best of Show', 1, 1, 'Alex Brewer', null, 'Fixture Stout', 'Stout', null, null, 42.5),
             ]),
             new HeroPresentation('/user_images/hero.jpg', 'Fixture Invitational', 'Great beer, good company.'),
-            new LandingPageLinks('/register', '/index.php?section=login', '/includes/process.inc.php?section=logout&action=logout', '/#contact', '/#sponsors', 'https://fixture.example.test', '/results.pdf', '/results.html'),
+            new LandingPageLinks('/register', '/index.php?section=login', '/includes/process.inc.php?section=logout&action=logout', '/index.php?section=list', '/#contact', '/#sponsors', 'https://fixture.example.test', '/results.pdf', '/results.html'),
             new LandingPageCopy('Register', 'Log In', 'Log Out', 'Rules', 'Volunteers', 'Entry Info', 'Contact', 'Sponsors', 'Officials', 'Results', 'Registration opens soon.', 'Registration is open.', 'Registration is closed.', 'Judge registration is open.', 'Entry capacity is nearly full.', 'Winners will be posted soon.'),
         );
     }

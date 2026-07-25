@@ -12,13 +12,14 @@ final readonly class LandingPageLinks
         public string $register,
         public string $login,
         public string $logout,
+        public string $account,
         public string $contact,
         public string $sponsors,
         public ?string $hostWebsite,
         public string $resultsPdf,
         public string $resultsHtml,
     ) {
-        foreach ([$register, $login, $logout, $contact, $sponsors, $hostWebsite, $resultsPdf, $resultsHtml] as $url) {
+        foreach ([$register, $login, $logout, $account, $contact, $sponsors, $hostWebsite, $resultsPdf, $resultsHtml] as $url) {
             SafeUrl::assert($url);
         }
     }

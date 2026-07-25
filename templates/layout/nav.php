@@ -18,13 +18,15 @@
                 <a class="nav-item nav-link" href="#volunteers"><?= e($view->copy->volunteers) ?></a>
                 <a class="nav-item nav-link" href="#entry-info"><?= e($view->copy->entryInfo) ?></a>
                 <a class="nav-item nav-link" href="<?= e($view->links->contact) ?>"><?= e($view->copy->contact) ?></a>
+                <?php if ($view->sponsors !== []): ?>
                 <a class="nav-item nav-link" href="<?= e($view->links->sponsors) ?>"><?= e($view->copy->sponsors) ?></a>
+                <?php endif; ?>
                 <?php if ($view->archives !== []): ?>
                 <button class="btn btn-outline-light ms-md-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#archive-list" aria-controls="archive-list"><?= e($view->copy->results) ?></button>
                 <?php endif; ?>
                 <?php if ($view->loggedIn): ?>
                 <?php if ($view->viewerName !== null): ?><span class="navbar-text px-2">Hello, <?= e($view->viewerName) ?></span><?php endif; ?>
-                <a class="nav-item nav-link" href="<?= e($view->links->register) ?>">Account</a>
+                <a class="nav-item nav-link" href="<?= e($view->links->account) ?>">Account</a>
                 <a class="nav-item nav-link" href="<?= e($view->links->logout) ?>"><?= e($view->copy->logout) ?></a>
                 <?php else: ?>
                 <a class="nav-item nav-link" href="<?= e($view->links->register) ?>"><?= e($view->copy->register) ?></a>
