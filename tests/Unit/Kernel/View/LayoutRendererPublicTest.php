@@ -3,6 +3,21 @@ declare(strict_types=1);
 
 namespace BCOEM\Tests\Unit\Kernel\View;
 
+use Bcoem\Domain\LandingPage\Model\Archive;
+use Bcoem\Domain\LandingPage\Model\CompetitionLimits;
+use Bcoem\Domain\LandingPage\Model\CompetitionLocations;
+use Bcoem\Domain\LandingPage\Model\ContestOverview;
+use Bcoem\Domain\LandingPage\Model\JudgingProgress;
+use Bcoem\Domain\LandingPage\Model\WinnerMethod;
+use Bcoem\Domain\LandingPage\Model\WinnerRow;
+use Bcoem\Domain\LandingPage\Model\WinnerSummary;
+use Bcoem\Domain\LandingPage\Presentation\Alert;
+use Bcoem\Domain\LandingPage\Presentation\AlertLevel;
+use Bcoem\Domain\LandingPage\Presentation\HeroPresentation;
+use Bcoem\Domain\LandingPage\Presentation\LandingPageCopy;
+use Bcoem\Domain\LandingPage\Presentation\LandingPageLinks;
+use Bcoem\Domain\LandingPage\Presentation\LandingPageViewModel;
+use Bcoem\Domain\Shared\ValueObject\WindowStatus;
 use Bcoem\Kernel\View\LayoutRenderer;
 use PHPUnit\Framework\TestCase;
 
@@ -46,5 +61,52 @@ class LayoutRendererPublicTest extends TestCase
         $this->assertStringNotContainsString('<h1>Register</h1>', $html);
         $this->assertStringContainsString('<p class="fixture-content">hello from fixture</p>', $html);
         $this->assertStringContainsString('<footer class="site-footer bg-dark text-light', $html);
+    }
+
+    public function test_landing_renders_typed_model_in_bootstrap_five_chrome(): void
+    {
+        $renderer = new LayoutRenderer();
+        $template = dirname(__DIR__, 4) . '/templates/LandingPage/home.php';
+
+        $html = $renderer->landing($this->landingView(), $template);
+
+        self::assertStringContainsString('<main id="main-content"', $html);
+        self::assertStringContainsString('data-bs-toggle="collapse"', $html);
+        self::assertStringContainsString('data-bs-toggle="offcanvas"', $html);
+        self::assertStringContainsString('name="loginUsername"', $html);
+        self::assertStringContainsString('name="loginPassword"', $html);
+        self::assertStringContainsString('action="/includes/process.inc.php?section=login&amp;action=login"', $html);
+        self::assertStringNotContainsString('data-toggle=', $html);
+        self::assertStringNotContainsString('navbar-default', $html);
+        self::assertStringNotContainsString('<script>alert(', $html);
+        self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
+        self::assertStringContainsString('target="_blank" rel="noopener noreferrer"', $html);
+    }
+
+    private function landingView(): LandingPageViewModel
+    {
+        return new LandingPageViewModel(
+            new ContestOverview('Fixture Invitational', 'Fixture Brewers', 'https://fixture.example.test', 'Chicago, IL', null),
+            false,
+            null,
+            WindowStatus::Open,
+            WindowStatus::Open,
+            WindowStatus::Upcoming,
+            WindowStatus::Upcoming,
+            WindowStatus::Open,
+            new CompetitionLimits(20, 18, 30, 25, 3),
+            new JudgingProgress(false, false, false, 0),
+            new CompetitionLocations('Fixture Shipping', '123 Brew Street', 'Awards after judging.', 'Fixture Hall', '456 Malt Ave', 1_733_200_000),
+            [new Alert(AlertLevel::Info, '<script>alert(1)</script>', 'Learn more', '/#rules')],
+            [],
+            [],
+            [new Archive('2025', 0, '2021')],
+            new WinnerSummary(WinnerMethod::Overall, '2021', [
+                new WinnerRow('Best of Show', 1, 1, 'Alex Brewer', null, 'Fixture Stout', 'Stout', null, null, 42.5),
+            ]),
+            new HeroPresentation('/user_images/hero.jpg', 'Fixture Invitational', 'Great beer, good company.'),
+            new LandingPageLinks('/register', '/index.php?section=login', '/includes/process.inc.php?section=logout&action=logout', '/#contact', '/#sponsors', 'https://fixture.example.test', '/results.pdf', '/results.html'),
+            new LandingPageCopy('Register', 'Log In', 'Log Out', 'Rules', 'Volunteers', 'Entry Info', 'Contact', 'Sponsors', 'Officials', 'Results', 'Registration opens soon.', 'Registration is open.', 'Registration is closed.', 'Judge registration is open.', 'Entry capacity is nearly full.', 'Winners will be posted soon.'),
+        );
     }
 }

@@ -5,6 +5,7 @@
  * - $cssCommonUrl: string
  * - $themeUrl: string
  * - $isPublic: bool
+ * - $isLanding: bool, only for the typed landing page
  */
 ?>
 <head>

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Bcoem\Kernel\View;
 
+use Bcoem\Domain\LandingPage\Presentation\LandingPageViewModel;
 use Bcoem\Security\Identity;
 
 /**
@@ -37,9 +38,65 @@ final class LayoutRenderer
         return $this->wrapPublic($title, $contestTitle, $this->renderTemplate($templatePath, $vars));
     }
 
+    public function landing(LandingPageViewModel $view, string $templatePath): string
+    {
+        return $this->wrapLanding(
+            $view,
+            $this->renderTemplate($templatePath, ['view' => $view]),
+        );
+    }
+
     private function wrapPublic(string $title, string $contestTitle, string $content): string
     {
         return $this->wrap(null, $title, '', false, $content, $contestTitle);
+    }
+
+    private function wrapLanding(LandingPageViewModel $view, string $content): string
+    {
+        $identity = null;
+        $title = $view->contest->name;
+        $contestTitle = $view->contest->name;
+        $isPublic = true;
+        $isLanding = true;
+
+        ob_start();
+        include self::LAYOUT_DIR . '/head.php';
+        $head = ob_get_clean();
+
+        ob_start();
+        include self::LAYOUT_DIR . '/nav.php';
+        $nav = ob_get_clean();
+
+        ob_start();
+        include self::LAYOUT_DIR . '/footer.php';
+        $footer = ob_get_clean();
+
+        $contestTitleHtml = e($contestTitle);
+        $heroImageUrl = e($view->hero->imageUrl);
+        $heroHeading = e($view->hero->heading);
+        $heroSubheading = e($view->hero->subheading);
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+{$head}
+<body>
+<header id="home" class="site-header">
+{$nav}
+<div id="sticky-home" class="contains-link d-print-none"><a href="#home" aria-label="Return to top"><i class="fas fa-arrow-circle-up fa-2x" aria-hidden="true"></i></a></div>
+<section class="landing-hero text-light bg-dark pt-5 pb-4" aria-labelledby="landing-title">
+    <div class="container-xxl pt-4">
+        <img class="img-fluid mb-3" src="{$heroImageUrl}" alt="" role="presentation">
+        <h1 id="landing-title" class="fw-bold animate__animated animate__fadeInDown">{$heroHeading}</h1>
+        <p class="lead mb-0">{$heroSubheading}</p>
+    </div>
+</section>
+</header>
+{$content}
+{$footer}
+</body>
+</html>
+HTML;
     }
 
     private function wrap(?Identity $identity, string $title, string $activeNav, bool $withSidebar, string $content, ?string $contestTitle = null): string
