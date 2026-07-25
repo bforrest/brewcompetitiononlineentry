@@ -29,10 +29,25 @@ async function captureLandingContract(page: Page): Promise<LandingContract> {
   };
 }
 
+const HERO_GRADIENT = 'linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.75))';
+const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+
 async function normalizeLandingScreenshot(page: Page): Promise<void> {
-  await page.locator('#hero').evaluate(hero => {
-    hero.style.backgroundImage = 'linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.75))';
-  });
+  const heroGradient = await page.locator('#hero').evaluate((hero, transparentPixel) => {
+    const backgroundImage = getComputedStyle(hero).backgroundImage;
+    const urlLayer = backgroundImage.match(/,\s*url\((?:"[^"]*"|'[^']*'|[^)]*)\)\s*$/);
+
+    if (!urlLayer || urlLayer.index === undefined) {
+      throw new Error(`Expected #hero background to end with a url(...) layer; received: ${backgroundImage}`);
+    }
+
+    const gradientLayer = backgroundImage.slice(0, urlLayer.index).trim();
+    hero.style.backgroundImage = `${gradientLayer}, url("${transparentPixel}")`;
+
+    return gradientLayer;
+  }, TRANSPARENT_PIXEL);
+
+  expect(heroGradient).toBe(HERO_GRADIENT);
 }
 
 test.describe.serial('landing page dual-path parity', () => {
