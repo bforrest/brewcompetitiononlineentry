@@ -11,6 +11,7 @@ use Bcoem\Domain\Registration\Exception\RegistrationClosedException;
 use Bcoem\Domain\Registration\Repository\RegistrationRepository;
 use Bcoem\Domain\Registration\ValueObject\Email;
 use Bcoem\Domain\Registration\ValueObject\RegistrantId;
+use Bcoem\Domain\Shared\ValueObject\DateWindow;
 
 /**
  * Entrant self-registration orchestration. Ports
@@ -267,44 +268,40 @@ final class RegistrationService
 
     public function isRegistrationOpen(): bool
     {
-        return $this->windowState()['registrationOpen'];
+        return $this->isRegistrationOpenAt(time());
     }
 
     public function isJudgeWindowOpen(): bool
     {
-        return $this->windowState()['judgeWindowOpen'];
+        return $this->isJudgeWindowOpenAt(time());
+    }
+
+    public function isRegistrationOpenAt(int $now): bool
+    {
+        return $this->windowStateAt($now)['registrationOpen'];
+    }
+
+    public function isJudgeWindowOpenAt(int $now): bool
+    {
+        return $this->windowStateAt($now)['judgeWindowOpen'];
     }
 
     /** @return array{registrationOpen: bool, judgeWindowOpen: bool} */
-    private function windowState(): array
+    private function windowStateAt(int $now): array
     {
-        // open_or_closed() lives in lib/common.lib.php, NOT paths.php -
-        // unlike sterilize()/blank_to_null() above, requiring paths.php
-        // alone does not define it. common.lib.php's own top-level
-        // `include(LIB.'date_time.lib.php')` needs the LIB constant, which
-        // only paths.php defines, so paths.php must be loaded first (it
-        // already is by the time this runs in a real request - Connection::
-        // class's DI factory in container.php requires it before
-        // RegistrationRepository/RegistrationService can be built at all -
-        // but this guard makes the method correct standalone too, matching
-        // the same require-paths.php-then-common.lib.php shape
-        // src/Domain/Entry/Adapter/LegacyQueryAdapter.php uses for other
-        // common.lib.php-only functions).
-        if (!function_exists('open_or_closed')) {
-            if (!defined('LIB')) {
-                require_once ROOT . 'paths.php';
-            }
-            require_once LIB . 'common.lib.php';
-        }
-
         $dates = $this->repository->contestDates();
         if ($dates === null) {
             return ['registrationOpen' => true, 'judgeWindowOpen' => true];
         }
 
-        $now = time();
-        $registrationOpen = open_or_closed($now, $dates['contestRegistrationOpen'], $dates['contestRegistrationDeadline']) === 1;
-        $judgeWindowOpen = open_or_closed($now, $dates['contestJudgeOpen'], $dates['contestJudgeDeadline']) === 1;
+        $registrationOpen = (new DateWindow(
+            (int) $dates['contestRegistrationOpen'],
+            (int) $dates['contestRegistrationDeadline'],
+        ))->isOpenAt($now);
+        $judgeWindowOpen = (new DateWindow(
+            (int) $dates['contestJudgeOpen'],
+            (int) $dates['contestJudgeDeadline'],
+        ))->isOpenAt($now);
 
         // Mirrors constants.inc.php:262-265: once any judging session has
         // started, legacy force-closes both registration and entry windows

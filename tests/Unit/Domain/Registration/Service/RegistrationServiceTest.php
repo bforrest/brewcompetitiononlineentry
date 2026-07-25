@@ -303,4 +303,35 @@ class RegistrationServiceTest extends TestCase
         $this->assertFalse($this->service->isRegistrationOpen());
         $this->assertFalse($this->service->isJudgeWindowOpen());
     }
+
+    public function test_registration_window_uses_half_open_boundaries(): void
+    {
+        $this->repository->method('contestDates')->willReturn([
+            'contestRegistrationOpen' => 1000,
+            'contestRegistrationDeadline' => 2000,
+            'contestJudgeOpen' => 1000,
+            'contestJudgeDeadline' => 2000,
+        ]);
+        $this->repository->method('anyJudgingSessionStarted')->willReturn(false);
+
+        self::assertTrue($this->service->isRegistrationOpenAt(1000));
+        // Deliberate correction: legacy open_or_closed() leaves this exact
+        // closing instant in numeric state 0 rather than marking it closed.
+        self::assertFalse($this->service->isRegistrationOpenAt(2000));
+        self::assertFalse($this->service->isRegistrationOpenAt(2001));
+    }
+
+    public function test_judging_started_override_closes_explicit_windows(): void
+    {
+        $this->repository->method('contestDates')->willReturn([
+            'contestRegistrationOpen' => 1000,
+            'contestRegistrationDeadline' => 2000,
+            'contestJudgeOpen' => 1000,
+            'contestJudgeDeadline' => 2000,
+        ]);
+        $this->repository->method('anyJudgingSessionStarted')->willReturn(true);
+
+        self::assertFalse($this->service->isRegistrationOpenAt(1500));
+        self::assertFalse($this->service->isJudgeWindowOpenAt(1500));
+    }
 }

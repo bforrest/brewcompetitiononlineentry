@@ -73,7 +73,7 @@ class RegistrationRepository
 
     /**
      * Prepared-statement equivalent of legacy's judging_location_info($id)[5]
-     * (lib/common.lib.php:3773 - a raw mysqli_query this repository must not
+     * (the legacy helper's raw mysqli_query this repository must not
      * call directly per phpstan.neon's "no mysqli_* outside Connection" rule).
      *
      * judgingLocType is a tinyint(2) column; mysqli's native driver returns
