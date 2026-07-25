@@ -30,10 +30,11 @@ async function captureLandingContract(page: Page): Promise<LandingContract> {
 }
 
 const HERO_GRADIENT = 'linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.75))';
-const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+const TRANSPARENT_SVG_PIXEL =
+  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%221%22 height=%221%22%3E%3Crect width=%221%22 height=%221%22 fill=%22transparent%22/%3E%3C/svg%3E';
 
 async function normalizeLandingScreenshot(page: Page): Promise<void> {
-  const heroGradient = await page.locator('#hero').evaluate((hero, transparentPixel) => {
+  const heroGradient = await page.locator('#hero').evaluate((hero, transparentSvgPixel) => {
     const backgroundImage = getComputedStyle(hero).backgroundImage;
     const urlLayer = backgroundImage.match(/,\s*url\((?:"[^"]*"|'[^']*'|[^)]*)\)\s*$/);
 
@@ -42,10 +43,10 @@ async function normalizeLandingScreenshot(page: Page): Promise<void> {
     }
 
     const gradientLayer = backgroundImage.slice(0, urlLayer.index).trim();
-    hero.style.backgroundImage = `${gradientLayer}, url("${transparentPixel}")`;
+    hero.style.backgroundImage = `${gradientLayer}, url("${transparentSvgPixel}")`;
 
     return gradientLayer;
-  }, TRANSPARENT_PIXEL);
+  }, TRANSPARENT_SVG_PIXEL);
 
   expect(heroGradient).toBe(HERO_GRADIENT);
 }
