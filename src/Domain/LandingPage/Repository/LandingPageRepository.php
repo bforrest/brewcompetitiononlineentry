@@ -17,7 +17,7 @@ use Bcoem\Domain\LandingPage\Model\WinnerMethod;
 use Bcoem\Domain\LandingPage\Model\WinnerRow;
 use Bcoem\Domain\LandingPage\Model\WinnerSummary;
 
-final class LandingPageRepository
+final class LandingPageRepository implements LandingPageReadRepository
 {
     private string $tablePrefix;
 
