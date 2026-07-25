@@ -11,6 +11,8 @@ use Bcoem\Domain\LandingPage\Model\Contact;
 use Bcoem\Domain\LandingPage\Model\ContestOverview;
 use Bcoem\Domain\LandingPage\Model\JudgingProgress;
 use Bcoem\Domain\LandingPage\Model\Sponsor;
+use Bcoem\Domain\LandingPage\Model\WinnerMethod;
+use Bcoem\Domain\LandingPage\Model\WinnerRow;
 use Bcoem\Domain\LandingPage\Model\WinnerSummary;
 use Bcoem\Domain\LandingPage\Presentation\Alert;
 use Bcoem\Domain\LandingPage\Presentation\AlertLevel;
@@ -60,11 +62,73 @@ final class LandingPageModelTest extends TestCase
         self::assertSame('/images/hero.jpg', $hero->imageUrl);
     }
 
-    public function test_url_bearing_models_reject_unsafe_urls(): void
+    /**
+     * @dataProvider unsafeUrlCases
+     * @param callable(string): object $construct
+     */
+    public function test_url_bearing_models_reject_unsafe_urls(string $url, callable $construct): void
     {
         $this->expectException(\InvalidArgumentException::class);
 
-        new Sponsor('Sponsor', 'javascript:alert(1)', null, null, null, 1);
+        $construct($url);
+    }
+
+    /** @return iterable<string, array{string, callable(string): object}> */
+    public static function unsafeUrlCases(): iterable
+    {
+        $constructors = [
+            'contest' => static fn (string $url): ContestOverview => new ContestOverview(
+                'Contest',
+                'Host',
+                $url,
+                null,
+                null,
+            ),
+            'sponsor' => static fn (string $url): Sponsor => new Sponsor(
+                'Sponsor',
+                $url,
+                null,
+                null,
+                null,
+                1,
+            ),
+            'alert' => static fn (string $url): Alert => new Alert(AlertLevel::Info, 'Message', 'More', $url),
+            'hero' => static fn (string $url): HeroPresentation => new HeroPresentation($url, 'Heading', 'Subheading'),
+            'links' => static fn (string $url): LandingPageLinks => new LandingPageLinks(
+                '/register',
+                '/login',
+                '/logout',
+                '/#contact',
+                '/#sponsors',
+                $url,
+                '/results.pdf',
+                '/results.html',
+            ),
+        ];
+
+        foreach ($constructors as $name => $construct) {
+            yield $name . ' rejects scheme relative' => ['//evil.example/path', $construct];
+            yield $name . ' rejects triple slash' => ['///evil.example/path', $construct];
+            yield $name . ' rejects backslash' => ['/\\evil.example/path', $construct];
+            yield $name . ' rejects malformed HTTP' => ['https://', $construct];
+            yield $name . ' rejects unsafe scheme' => ['javascript:alert(1)', $construct];
+        }
+    }
+
+    public function test_url_bearing_models_accept_case_insensitive_http_schemes(): void
+    {
+        $links = new LandingPageLinks(
+            '/register',
+            '/login',
+            '/logout',
+            '/#contact',
+            '/#sponsors',
+            'HTTPS://host.example/path',
+            '/results.pdf',
+            '/results.html',
+        );
+
+        self::assertSame('HTTPS://host.example/path', $links->hostWebsite);
     }
 
     public function test_context_rejects_unsupported_locale(): void
@@ -79,6 +143,26 @@ final class LandingPageModelTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
 
         new LandingPageContext('en-US', null, [4]);
+    }
+
+    /**
+     * @dataProvider invalidBeverageStyleTypeLists
+     * @param array<mixed> $types
+     */
+    public function test_context_rejects_non_integer_or_non_list_beverage_style_types(array $types): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new LandingPageContext('en-US', null, $types);
+    }
+
+    /** @return iterable<string, array{array<mixed>}> */
+    public static function invalidBeverageStyleTypeLists(): iterable
+    {
+        yield 'numeric string' => [['1']];
+        yield 'null' => [[null]];
+        yield 'boolean' => [[true]];
+        yield 'sparse keys' => [[1 => 1]];
     }
 
     public function test_view_model_accepts_typed_lists_and_scalar_read_models(): void
@@ -98,8 +182,12 @@ final class LandingPageModelTest extends TestCase
             alerts: [new Alert(AlertLevel::Info, 'Message')],
             contacts: [new Contact('Ada', 'Brewer', 'Organizer', 'ada@example.test')],
             sponsors: [new Sponsor('Sponsor', null, null, null, null, 1)],
-            archives: [new Archive('2025', 0, 1)],
-            winners: new WinnerSummary(0, 1, 0),
+            archives: [new Archive('2025', 0, 'BJCP2021')],
+            winners: new WinnerSummary(
+                WinnerMethod::Overall,
+                'BJCP2021',
+                [new WinnerRow('Table 1', 2, 1, 'Ada Brewer', null, 'Winning Entry', '1A: Style', null, 'Club', 42.5)],
+            ),
             hero: new HeroPresentation('/hero.jpg', 'Heading', 'Subheading'),
             links: $this->links(),
             copy: $this->copy(),
@@ -108,7 +196,8 @@ final class LandingPageModelTest extends TestCase
         self::assertSame('Contest', $view->contest->name);
         self::assertSame('Ada', $view->contacts[0]->firstName);
         self::assertSame(2000, $view->locations->awardsAt);
-        self::assertSame(0, $view->winners->method);
+        self::assertSame(WinnerMethod::Overall, $view->winners->method);
+        self::assertSame('Winning Entry', $view->winners->rows[0]->entryName);
     }
 
     public function test_view_model_rejects_a_non_alert_list_member(): void
@@ -131,11 +220,18 @@ final class LandingPageModelTest extends TestCase
             contacts: [],
             sponsors: [],
             archives: [],
-            winners: new WinnerSummary(0, 1, 0),
+            winners: new WinnerSummary(WinnerMethod::Overall, 'BJCP2021', []),
             hero: new HeroPresentation('/hero.jpg', 'Heading', 'Subheading'),
             links: $this->links(),
             copy: $this->copy(),
         );
+    }
+
+    public function test_winner_summary_rejects_untyped_rows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new WinnerSummary(WinnerMethod::Category, 'BJCP2021', ['not a winner row']);
     }
 
     private function links(): LandingPageLinks

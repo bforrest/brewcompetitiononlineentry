@@ -15,8 +15,11 @@ final readonly class LandingPageContext
         if (!in_array($locale, ['en-US', 'en-GB', 'es-419'], true)) {
             throw new \InvalidArgumentException('Unsupported landing-page locale.');
         }
+        if (!array_is_list($beverageStyleTypes)) {
+            throw new \InvalidArgumentException('Beverage style types must be a list.');
+        }
         foreach ($beverageStyleTypes as $type) {
-            if ($type < 0 || $type > 3) {
+            if (!is_int($type) || $type < 0 || $type > 3) {
                 throw new \InvalidArgumentException('Invalid beverage style type.');
             }
         }

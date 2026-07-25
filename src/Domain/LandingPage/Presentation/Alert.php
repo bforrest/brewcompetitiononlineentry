@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bcoem\Domain\LandingPage\Presentation;
 
+use Bcoem\Domain\LandingPage\Validation\SafeUrl;
+
 final readonly class Alert
 {
     public function __construct(
@@ -12,17 +14,6 @@ final readonly class Alert
         public ?string $linkLabel = null,
         public ?string $linkUrl = null,
     ) {
-        self::assertSafeUrl($linkUrl);
-    }
-
-    private static function assertSafeUrl(?string $url): void
-    {
-        if ($url === null || str_starts_with($url, '/')) {
-            return;
-        }
-        $scheme = parse_url($url, PHP_URL_SCHEME);
-        if (!in_array($scheme, ['http', 'https'], true)) {
-            throw new \InvalidArgumentException('Only relative, HTTP, and HTTPS URLs are allowed.');
-        }
+        SafeUrl::assert($linkUrl);
     }
 }

@@ -9,7 +9,7 @@ final readonly class Archive
     public function __construct(
         public string $suffix,
         public int $winnerMethod,
-        public int $styleSet,
+        public string $styleSet,
     ) {
     }
 }

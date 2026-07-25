@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bcoem\Domain\LandingPage\Model;
 
+use Bcoem\Domain\LandingPage\Validation\SafeUrl;
+
 final readonly class ContestOverview
 {
     public function __construct(
@@ -19,18 +21,7 @@ final readonly class ContestOverview
         if (trim($hostName) === '') {
             throw new \InvalidArgumentException('Host name must not be blank.');
         }
-        self::assertSafeUrl($hostWebsite);
-        self::assertSafeUrl($logoPath);
-    }
-
-    private static function assertSafeUrl(?string $url): void
-    {
-        if ($url === null || str_starts_with($url, '/')) {
-            return;
-        }
-        $scheme = parse_url($url, PHP_URL_SCHEME);
-        if (!in_array($scheme, ['http', 'https'], true)) {
-            throw new \InvalidArgumentException('Only relative, HTTP, and HTTPS URLs are allowed.');
-        }
+        SafeUrl::assert($hostWebsite);
+        SafeUrl::assert($logoPath);
     }
 }

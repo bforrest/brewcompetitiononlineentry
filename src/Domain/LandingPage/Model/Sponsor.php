@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bcoem\Domain\LandingPage\Model;
 
+use Bcoem\Domain\LandingPage\Validation\SafeUrl;
+
 final readonly class Sponsor
 {
     public function __construct(
@@ -14,18 +16,7 @@ final readonly class Sponsor
         public ?string $location,
         public int $level,
     ) {
-        self::assertSafeUrl($websiteUrl);
-        self::assertSafeUrl($imagePath);
-    }
-
-    private static function assertSafeUrl(?string $url): void
-    {
-        if ($url === null || str_starts_with($url, '/')) {
-            return;
-        }
-        $scheme = parse_url($url, PHP_URL_SCHEME);
-        if (!in_array($scheme, ['http', 'https'], true)) {
-            throw new \InvalidArgumentException('Only relative, HTTP, and HTTPS URLs are allowed.');
-        }
+        SafeUrl::assert($websiteUrl);
+        SafeUrl::assert($imagePath);
     }
 }
