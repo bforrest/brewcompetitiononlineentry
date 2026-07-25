@@ -1,7 +1,7 @@
 # Modern Landing Page Parity — Design
 
 **Date:** 2026-07-24
-**Status:** Proposed for user review
+**Status:** Approved, with the documented exact-close edge-case correction
 **Scope:** Replace the rendering of `GET /` with a modern Slim controller and
 templates that reproduce the observable visual states and user interactions of
 the current no-query-string `index.php` homepage. Keep the legacy implementation
@@ -188,8 +188,14 @@ It must preserve the exact legacy boundaries:
 | Condition | Status |
 |---|---|
 | `now < opensAt` | `Upcoming` |
-| `opensAt <= now <= closesAt` | `Open` |
-| `now > closesAt` | `Closed` |
+| `opensAt <= now < closesAt` | `Open` |
+| `now >= closesAt` | `Closed` |
+
+This intentionally corrects one narrow legacy edge-case bug:
+`open_or_closed()` uses separate `< closesAt` and `> closesAt` comparisons, so
+at the exact closing timestamp neither branch matches and the function falls
+back to `0` ("upcoming"). The modern value object treats the closing timestamp
+as closed. All other legacy boundary behavior remains unchanged.
 
 The landing-page service uses `DateWindow` for registration, entry, judge,
 drop-off, shipping, and payment windows. Missing optional drop-off or shipping
