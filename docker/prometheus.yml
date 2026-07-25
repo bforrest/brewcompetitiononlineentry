@@ -3,12 +3,6 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'web'
+  - job_name: prometheus
     static_configs:
-      - targets: ['web:80']
-    metrics_path: '/metrics'
-    scheme: http
-
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
+      - targets: ["localhost:9090"]
