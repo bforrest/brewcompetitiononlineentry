@@ -104,6 +104,95 @@ final class LandingPageControllerTest extends TestCase
         );
     }
 
+    public function test_valid_selected_style_uses_its_matching_hero_image(): void
+    {
+        $_SESSION['prefsSelectedStyles'] = '[{"brewStyleType":"1"}]';
+        $request = (new ServerRequestFactory())
+            ->createServerRequest('GET', '/')
+            ->withAttribute('identity', Identity::fromSession([]));
+
+        $response = $this->controller()->show(
+            $request,
+            (new ResponseFactory())->createResponse(),
+        );
+
+        self::assertStringContainsString(
+            'src="/images/beer-barley-malt_3000x500.jpg"',
+            (string) $response->getBody(),
+        );
+    }
+
+    public function test_array_or_object_session_identity_fields_are_anonymous(): void
+    {
+        $_SESSION = [
+            'loginUsername' => ['not', 'a', 'username'],
+            'userLevel' => new \stdClass(),
+        ];
+        $request = (new ServerRequestFactory())
+            ->createServerRequest('GET', '/')
+            ->withAttribute('identity', 'not-an-identity');
+
+        $response = $this->controller()->show(
+            $request,
+            (new ResponseFactory())->createResponse(),
+        );
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('href="/register">Register</a>', $html);
+        self::assertStringNotContainsString('Hello,', $html);
+    }
+
+    public function test_scalar_session_identity_fields_are_safely_normalized(): void
+    {
+        $_SESSION = [
+            'loginUsername' => 42,
+            'userLevel' => 2,
+        ];
+        $request = (new ServerRequestFactory())
+            ->createServerRequest('GET', '/')
+            ->withAttribute('identity', 'not-an-identity');
+
+        $response = $this->controller()->show(
+            $request,
+            (new ResponseFactory())->createResponse(),
+        );
+
+        self::assertStringContainsString('Hello, 42', (string) $response->getBody());
+    }
+
+    /**
+     * @dataProvider invalidStyleTypeValues
+     */
+    public function test_invalid_selected_style_types_are_ignored_before_valid_selection(mixed $styleType): void
+    {
+        $_SESSION['prefsSelectedStyles'] = json_encode([
+            ['brewStyleType' => $styleType],
+            ['brewStyleType' => 3],
+        ], JSON_THROW_ON_ERROR);
+        $request = (new ServerRequestFactory())
+            ->createServerRequest('GET', '/')
+            ->withAttribute('identity', Identity::fromSession([]));
+
+        $response = $this->controller()->show(
+            $request,
+            (new ResponseFactory())->createResponse(),
+        );
+
+        self::assertStringContainsString(
+            'src="/images/mead-bottles_3000x500.jpg"',
+            (string) $response->getBody(),
+        );
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function invalidStyleTypeValues(): iterable
+    {
+        yield 'boolean' => [true];
+        yield 'array' => [[1]];
+        yield 'trailing text' => ['2junk'];
+        yield 'out of range' => [4];
+    }
+
     private function controller(): LandingPageController
     {
         $now = time();

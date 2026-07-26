@@ -26,7 +26,7 @@ final class LandingPageController
         $session = isset($_SESSION) && is_array($_SESSION) ? $_SESSION : [];
         $identity = $request->getAttribute('identity');
         if (!$identity instanceof Identity) {
-            $identity = Identity::fromSession($session);
+            $identity = Identity::fromSession($this->identitySession($session));
         }
 
         $stylePreference = is_string($session['prefsSelectedStyles'] ?? null)
@@ -65,6 +65,41 @@ final class LandingPageController
     }
 
     /**
+     * @param array<string, mixed> $session
+     * @return array<string, string>
+     */
+    private function identitySession(array $session): array
+    {
+        $identitySession = [];
+        $username = $session['loginUsername'] ?? null;
+        if (is_scalar($username)) {
+            $identitySession['loginUsername'] = (string) $username;
+        }
+
+        $userLevel = $this->userLevel($session['userLevel'] ?? null);
+        if ($userLevel !== null) {
+            $identitySession['userLevel'] = $userLevel;
+        }
+
+        return $identitySession;
+    }
+
+    private function userLevel(mixed $value): ?string
+    {
+        if (is_int($value)) {
+            return $value >= 0 && $value <= 3 ? (string) $value : null;
+        }
+
+        if (!is_string($value) || !ctype_digit($value)) {
+            return null;
+        }
+
+        $level = (int) $value;
+
+        return $level >= 0 && $level <= 3 ? $value : null;
+    }
+
+    /**
      * @param mixed $preference
      * @return list<int>
      */
@@ -74,18 +109,33 @@ final class LandingPageController
             return [0];
         }
 
-        $types = [0];
+        $types = [];
         foreach ($preference as $style) {
             if (!is_array($style) || !isset($style['brewStyleType'])) {
                 continue;
             }
 
-            $type = (int) $style['brewStyleType'];
-            if ($type >= 1 && $type <= 3) {
+            $type = $this->styleType($style['brewStyleType']);
+            if ($type !== null) {
                 $types[] = $type;
             }
         }
 
-        return array_values(array_unique($types));
+        return $types === [] ? [0] : array_values(array_unique($types));
+    }
+
+    private function styleType(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value >= 0 && $value <= 3 ? $value : null;
+        }
+
+        if (!is_string($value) || !ctype_digit($value)) {
+            return null;
+        }
+
+        $type = (int) $value;
+
+        return $type >= 0 && $type <= 3 ? $type : null;
     }
 }
