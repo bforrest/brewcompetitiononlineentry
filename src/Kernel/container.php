@@ -17,6 +17,9 @@ use Bcoem\Domain\Judging\Repository\JudgingTableRepository;
 use Bcoem\Domain\Judging\Service\JudgingScoreService;
 use Bcoem\Domain\Judging\Service\JudgingTableService;
 use Bcoem\Domain\Judging\Service\JudgingValidationService;
+use Bcoem\Domain\LandingPage\Repository\LandingPageRepository;
+use Bcoem\Domain\LandingPage\Service\LandingPageCopyAdapter;
+use Bcoem\Domain\LandingPage\Service\LandingPageService;
 use Bcoem\Domain\Export\Repository\BrewingExportRepository;
 use Bcoem\Domain\Export\Repository\ParticipantExportRepository;
 use Bcoem\Domain\Export\Repository\JudgingExportRepository;
@@ -31,6 +34,7 @@ use Bcoem\Domain\Registration\Service\GoogleRecaptchaVerifier;
 use Bcoem\Domain\Registration\Service\HCaptchaVerifier;
 use Bcoem\Domain\Registration\Service\NullCaptchaVerifier;
 use Bcoem\Domain\Registration\Service\RegistrationService;
+use Bcoem\Kernel\Controller\LandingPageController;
 use Bcoem\Kernel\Controller\RegistrationController;
 use Bcoem\Kernel\View\LayoutRenderer;
 use GuzzleHttp\Client;
@@ -298,6 +302,24 @@ $containerBuilder->addDefinitions([
 
     LayoutRenderer::class => static fn (): LayoutRenderer =>
         new LayoutRenderer(),
+
+    LandingPageRepository::class => static fn (ContainerInterface $container): LandingPageRepository =>
+        new LandingPageRepository($container->get(Connection::class)),
+
+    LandingPageCopyAdapter::class => static fn (): LandingPageCopyAdapter =>
+        new LandingPageCopyAdapter(),
+
+    LandingPageService::class => static fn (ContainerInterface $container): LandingPageService =>
+        new LandingPageService(
+            $container->get(LandingPageRepository::class),
+            $container->get(LandingPageCopyAdapter::class),
+        ),
+
+    LandingPageController::class => static fn (ContainerInterface $container): LandingPageController =>
+        new LandingPageController(
+            $container->get(LandingPageService::class),
+            $container->get(LayoutRenderer::class),
+        ),
 
     CaptchaVerifier::class => static function (): CaptchaVerifier {
         if ((int) ($_SESSION['prefsCAPTCHA'] ?? 0) === 0) {
