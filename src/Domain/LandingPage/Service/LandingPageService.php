@@ -35,7 +35,7 @@ final class LandingPageService
             ?? throw new \RuntimeException('Contest overview is not configured.');
         $windows = $this->repository->competitionWindows()
             ?? throw new \RuntimeException('Competition windows are not configured.');
-        $judging = $this->repository->judgingProgress();
+        $judging = $this->repository->judgingProgress($now);
 
         $registration = $this->status(
             $windows->registrationOpensAt,
@@ -55,13 +55,19 @@ final class LandingPageService
             $now,
         );
 
+        $capacity = $this->repository->competitionLimits();
         if ($judging->started) {
             $registration = WindowStatus::Closed;
             $entry = WindowStatus::Closed;
         }
+        if ($this->capacityReached($capacity)) {
+            $entry = WindowStatus::Closed;
+        }
 
-        $copy = $this->copy->forLocale($context->locale);
-        $capacity = $this->repository->competitionLimits();
+        $copy = $this->copyForView(
+            $this->copy->forLocale($context->locale),
+            $windows->registrationOpensAt,
+        );
 
         return new LandingPageViewModel(
             contest: $contest,
@@ -83,6 +89,7 @@ final class LandingPageService
                 $judging,
                 $copy,
                 $now,
+                $identity->loggedIn,
             ),
             contacts: $this->repository->contacts(),
             sponsors: $this->repository->sponsors(),
@@ -136,37 +143,43 @@ final class LandingPageService
         JudgingProgress $judging,
         LandingPageCopy $copy,
         int $now,
+        bool $loggedIn,
     ): array {
         $alerts = [];
 
-        if ($registration === WindowStatus::Upcoming) {
-            $alerts[] = new Alert(AlertLevel::Info, $copy->upcomingMessage);
-        } elseif ($registration === WindowStatus::Open) {
-            $alerts[] = new Alert(AlertLevel::Success, $copy->openMessage, $copy->register, '/register');
-        } else {
-            $alerts[] = new Alert(AlertLevel::Warning, $copy->closedMessage, $copy->login, '/index.php?section=login');
+        if (!$loggedIn) {
+            if ($registration === WindowStatus::Upcoming) {
+                $alerts[] = new Alert(AlertLevel::Info, $copy->upcomingMessage);
+            } elseif ($registration === WindowStatus::Open) {
+                $alerts[] = new Alert(AlertLevel::Success, $copy->openMessage, $copy->register, '/register');
+            } else {
+                $alerts[] = new Alert(AlertLevel::Warning, $copy->closedMessage, $copy->login, '/index.php?section=login');
+            }
+
+            if ($registration !== WindowStatus::Open && $judge === WindowStatus::Open) {
+                $alerts[] = new Alert(
+                    AlertLevel::Info,
+                    $copy->judgeOpenMessage,
+                    $copy->register,
+                    '/register',
+                );
+            }
         }
 
-        if ($registration !== WindowStatus::Open && $judge === WindowStatus::Open) {
-            $alerts[] = new Alert(
-                AlertLevel::Info,
-                $copy->judgeOpenMessage,
-                $copy->register,
-                '/register',
-            );
-        }
-
-        if ($registration === WindowStatus::Open && $entry === WindowStatus::Open) {
+        if ($registration === WindowStatus::Open) {
             $alerts = [
                 ...$alerts,
-                ...$this->capacityAlerts($capacity, $copy),
+                ...$this->reachedCapacityAlerts($capacity, $copy),
             ];
+            if (!$this->capacityReached($capacity) && $entry === WindowStatus::Open) {
+                $alerts = [
+                    ...$alerts,
+                    ...$this->nearCapacityAlerts($capacity, $copy),
+                ];
+            }
         }
 
-        if (
-            $judging->ended
-            && (!$judging->displayWinners || $now < $judging->winnerReleaseAt)
-        ) {
+        if ($judging->displayWinners && $now < $judging->winnerReleaseAt) {
             $alerts[] = new Alert(AlertLevel::Info, $copy->winnerDelayMessage);
         }
 
@@ -174,7 +187,7 @@ final class LandingPageService
     }
 
     /** @return list<Alert> */
-    private function capacityAlerts(CompetitionLimits $capacity, LandingPageCopy $copy): array
+    private function reachedCapacityAlerts(CompetitionLimits $capacity, LandingPageCopy $copy): array
     {
         $alerts = [];
 
@@ -182,15 +195,6 @@ final class LandingPageService
             $alerts[] = new Alert(
                 AlertLevel::Warning,
                 sprintf($copy->entryLimitMessage, $capacity->entryLimit),
-            );
-        } elseif (
-            $capacity->entryLimit !== null
-            && $capacity->nearLimitThreshold > 0
-            && $capacity->entryCount >= $capacity->nearLimitThreshold
-        ) {
-            $alerts[] = new Alert(
-                AlertLevel::Warning,
-                $copy->openMessage . ' ' . $capacity->entryCount . '/' . $capacity->entryLimit,
             );
         }
 
@@ -200,11 +204,45 @@ final class LandingPageService
         ) {
             $alerts[] = new Alert(
                 AlertLevel::Warning,
-                sprintf($copy->entryLimitMessage, $capacity->paidEntryLimit),
+                sprintf($copy->paidEntryLimitMessage, $capacity->paidEntryLimit),
             );
         }
 
         return $alerts;
+    }
+
+    /** @return list<Alert> */
+    private function nearCapacityAlerts(CompetitionLimits $capacity, LandingPageCopy $copy): array
+    {
+        if (
+            $capacity->entryLimit === null
+            || $capacity->nearLimitThreshold <= 0
+            || $capacity->entryCount < $capacity->nearLimitThreshold
+        ) {
+            return [];
+        }
+
+        return [
+            new Alert(
+                AlertLevel::Warning,
+                sprintf(
+                    $copy->nearLimitMessage,
+                    $capacity->entryCount,
+                    $capacity->entryLimit,
+                ),
+            ),
+        ];
+    }
+
+    private function capacityReached(CompetitionLimits $capacity): bool
+    {
+        return (
+            $capacity->entryLimit !== null
+            && $capacity->entryCount >= $capacity->entryLimit
+        ) || (
+            $capacity->paidEntryLimit !== null
+            && $capacity->paidEntryCount >= $capacity->paidEntryLimit
+        );
     }
 
     private function visibleWinners(JudgingProgress $judging, int $now): WinnerSummary
@@ -259,6 +297,33 @@ final class LandingPageService
             hostWebsite: $contest->hostWebsite,
             resultsPdf: $resultsBase . 'pdf',
             resultsHtml: $resultsBase . 'html',
+        );
+    }
+
+    private function copyForView(LandingPageCopy $copy, int $registrationOpensAt): LandingPageCopy
+    {
+        return new LandingPageCopy(
+            register: $copy->register,
+            login: $copy->login,
+            logout: $copy->logout,
+            rules: $copy->rules,
+            volunteers: $copy->volunteers,
+            entryInfo: $copy->entryInfo,
+            contact: $copy->contact,
+            sponsors: $copy->sponsors,
+            officials: $copy->officials,
+            results: $copy->results,
+            upcomingMessage: sprintf(
+                $copy->upcomingMessage,
+                gmdate('F j, Y g:i A \U\T\C', $registrationOpensAt),
+            ),
+            openMessage: $copy->openMessage,
+            closedMessage: $copy->closedMessage,
+            judgeOpenMessage: $copy->judgeOpenMessage,
+            entryLimitMessage: $copy->entryLimitMessage,
+            nearLimitMessage: $copy->nearLimitMessage,
+            paidEntryLimitMessage: $copy->paidEntryLimitMessage,
+            winnerDelayMessage: $copy->winnerDelayMessage,
         );
     }
 }

@@ -129,7 +129,7 @@ class LayoutRendererPublicTest extends TestCase
             ]),
             new HeroPresentation('/user_images/hero.jpg', 'Fixture Invitational', 'Great beer, good company.'),
             new LandingPageLinks('/register', '/index.php?section=login', '/includes/process.inc.php?section=logout&action=logout', '/index.php?section=list', '/#contact', '/#sponsors', 'https://fixture.example.test', '/results.pdf', '/results.html'),
-            new LandingPageCopy('Register', 'Log In', 'Log Out', 'Rules', 'Volunteers', 'Entry Info', 'Contact', 'Sponsors', 'Officials', 'Results', 'Registration opens soon.', 'Registration is open.', 'Registration is closed.', 'Judge registration is open.', 'Entry capacity is nearly full.', 'Winners will be posted soon.'),
+            new LandingPageCopy('Register', 'Log In', 'Log Out', 'Rules', 'Volunteers', 'Entry Info', 'Contact', 'Sponsors', 'Officials', 'Results', 'Registration opens soon.', 'Registration is open.', 'Registration is closed.', 'Judge registration is open.', 'Entry capacity is full.', 'Entry capacity is nearly full.', 'Paid entry capacity is full.', 'Winners will be posted soon.'),
         );
     }
 }

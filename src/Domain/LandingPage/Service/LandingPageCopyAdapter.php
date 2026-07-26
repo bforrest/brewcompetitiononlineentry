@@ -34,6 +34,8 @@ final class LandingPageCopyAdapter
             closedMessage: $catalog['closed_message'],
             judgeOpenMessage: $catalog['judge_open_message'],
             entryLimitMessage: $catalog['entry_limit_message'],
+            nearLimitMessage: $catalog['near_limit_message'],
+            paidEntryLimitMessage: $catalog['paid_entry_limit_message'],
             winnerDelayMessage: $catalog['winner_delay_message'],
         );
     }

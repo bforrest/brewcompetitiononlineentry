@@ -104,7 +104,7 @@ final class LandingPageRepository implements LandingPageReadRepository
         );
     }
 
-    public function judgingProgress(): JudgingProgress
+    public function judgingProgress(int $now): JudgingProgress
     {
         $rows = $this->connection->select(
             'SELECT judgingDate, judgingDateEnd FROM '
@@ -129,7 +129,6 @@ final class LandingPageRepository implements LandingPageReadRepository
             }
         }
 
-        $now = time();
         $started = $timestamps !== [] && $now > min($timestamps);
         $ended = $timestamps !== [] && $now > max($timestamps) + 86400;
 

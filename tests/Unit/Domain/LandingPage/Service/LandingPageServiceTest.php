@@ -49,7 +49,37 @@ final class LandingPageServiceTest extends TestCase
         )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 1500);
 
         self::assertSame(WindowStatus::Upcoming, $view->registrationStatus);
-        self::assertTrue($this->hasAlert($view->alerts, 'Account registration has not opened yet.'));
+        self::assertTrue($this->hasAlert(
+            $view->alerts,
+            'Account registration will open January 1, 1970 12:33 AM UTC. '
+            . 'Please return then to register your account.',
+        ));
+    }
+
+    public function test_fixed_timestamp_drives_judging_progress_without_wall_clock_reads(): void
+    {
+        $service = $this->service(
+            judgingAt: static fn (int $now): JudgingProgress => new JudgingProgress(
+                $now >= 1500,
+                false,
+                false,
+                0,
+            ),
+        );
+
+        $before = $service->viewFor(
+            Identity::fromSession([]),
+            new LandingPageContext('en-US', null, [1]),
+            1499,
+        );
+        $atStart = $service->viewFor(
+            Identity::fromSession([]),
+            new LandingPageContext('en-US', null, [1]),
+            1500,
+        );
+
+        self::assertSame(WindowStatus::Open, $before->registrationStatus);
+        self::assertSame(WindowStatus::Closed, $atStart->registrationStatus);
     }
 
     public function test_closed_registration_with_open_judge_window_builds_judge_cta(): void
@@ -85,6 +115,38 @@ final class LandingPageServiceTest extends TestCase
             'The limit of 100 entries has been reached. No further entries will be accepted.',
         );
         self::assertSame(AlertLevel::Warning, $alert->level);
+        self::assertSame(WindowStatus::Closed, $view->entryStatus);
+    }
+
+    public function test_paid_entry_limit_force_closes_entries_and_uses_paid_copy(): void
+    {
+        $view = $this->service(
+            limits: new CompetitionLimits(70, 80, 100, 80, 90),
+        )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 1500);
+
+        self::assertSame(WindowStatus::Closed, $view->entryStatus);
+        self::assertTrue($this->hasAlert(
+            $view->alerts,
+            'The limit of 80 paid entries has been reached. No further entries will be accepted.',
+        ));
+        self::assertFalse($this->hasAlert(
+            $view->alerts,
+            'The limit of 80 entries has been reached.',
+        ));
+    }
+
+    public function test_reached_limit_alert_remains_when_entry_date_window_is_closed(): void
+    {
+        $view = $this->service(
+            windows: $this->windows(entryClosesAt: 1400),
+            limits: new CompetitionLimits(100, 70, 100, 80, 90),
+        )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 1500);
+
+        self::assertSame(WindowStatus::Closed, $view->entryStatus);
+        self::assertTrue($this->hasAlert(
+            $view->alerts,
+            'The limit of 100 entries has been reached. No further entries will be accepted.',
+        ));
     }
 
     public function test_near_limit_threshold_builds_capacity_warning_only_at_threshold(): void
@@ -96,8 +158,21 @@ final class LandingPageServiceTest extends TestCase
             limits: new CompetitionLimits(90, 20, 100, null, 90),
         )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 1500);
 
-        self::assertFalse($this->hasAlert($below->alerts, '90/100'));
-        self::assertTrue($this->hasAlert($at->alerts, '90/100'));
+        self::assertFalse($this->hasAlert($below->alerts, '89 of 100'));
+        self::assertTrue($this->hasAlert(
+            $at->alerts,
+            'The entry limit nearly reached! 90 of 100 maximum entries have been added into the system.',
+        ));
+    }
+
+    public function test_near_limit_alert_is_hidden_when_entry_date_window_is_closed(): void
+    {
+        $view = $this->service(
+            windows: $this->windows(entryClosesAt: 1400),
+            limits: new CompetitionLimits(90, 20, 100, null, 90),
+        )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 1500);
+
+        self::assertFalse($this->hasAlert($view->alerts, '90 of 100'));
     }
 
     public function test_missing_optional_windows_are_effectively_open(): void
@@ -149,6 +224,57 @@ final class LandingPageServiceTest extends TestCase
         self::assertTrue($this->hasAlert($view->alerts, 'Winning entries have not been posted yet. Please check back later.'));
     }
 
+    public function test_winner_delay_does_not_require_judging_to_have_ended(): void
+    {
+        $view = $this->service(
+            judging: new JudgingProgress(false, false, true, 2000),
+        )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 1500);
+
+        self::assertTrue($this->hasAlert(
+            $view->alerts,
+            'Winning entries have not been posted yet. Please check back later.',
+        ));
+    }
+
+    public function test_disabled_winner_display_does_not_build_delay_alert(): void
+    {
+        $view = $this->service(
+            judging: new JudgingProgress(true, true, false, 2000),
+        )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 1500);
+
+        self::assertFalse($this->hasAlert(
+            $view->alerts,
+            'Winning entries have not been posted yet. Please check back later.',
+        ));
+        self::assertSame([], $view->winners->rows);
+    }
+
+    public function test_winners_are_visible_after_release_without_delay_alert(): void
+    {
+        $view = $this->service(
+            judging: new JudgingProgress(true, true, true, 2000),
+        )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 2001);
+
+        self::assertCount(1, $view->winners->rows);
+        self::assertFalse($this->hasAlert(
+            $view->alerts,
+            'Winning entries have not been posted yet. Please check back later.',
+        ));
+    }
+
+    public function test_winners_are_visible_at_exact_release_boundary(): void
+    {
+        $view = $this->service(
+            judging: new JudgingProgress(true, true, true, 2000),
+        )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 2000);
+
+        self::assertCount(1, $view->winners->rows);
+        self::assertFalse($this->hasAlert(
+            $view->alerts,
+            'Winning entries have not been posted yet. Please check back later.',
+        ));
+    }
+
     public function test_authenticated_viewer_gets_account_links_and_safe_greeting(): void
     {
         $view = $this->service()->viewFor(
@@ -161,6 +287,28 @@ final class LandingPageServiceTest extends TestCase
         self::assertSame('<Ada & Co>', $view->viewerName);
         self::assertSame('/index.php?section=list', $view->links->account);
         self::assertSame('/includes/process.inc.php?section=logout&action=logout', $view->links->logout);
+    }
+
+    public function test_authenticated_viewer_does_not_get_anonymous_register_or_login_alerts(): void
+    {
+        $identity = Identity::fromSession([
+            'loginUsername' => 'entrant@example.test',
+            'userLevel' => '2',
+        ]);
+        $context = new LandingPageContext('en-US', 'Ada', [1]);
+
+        $open = $this->service()->viewFor($identity, $context, 1500);
+        $closed = $this->service(
+            windows: $this->windows(registrationClosesAt: 1400),
+        )->viewFor($identity, $context, 1500);
+
+        foreach ([...$open->alerts, ...$closed->alerts] as $alert) {
+            self::assertNotSame('/register', $alert->linkUrl);
+            self::assertNotSame('/index.php?section=login', $alert->linkUrl);
+        }
+        self::assertFalse($this->hasAlert($open->alerts, 'Entry registration is open!'));
+        self::assertFalse($this->hasAlert($closed->alerts, 'Account registration is closed.'));
+        self::assertFalse($this->hasAlert($closed->alerts, 'Judge or steward registration is open.'));
     }
 
     public function test_blank_viewer_name_falls_back_to_identity_username(): void
@@ -202,6 +350,7 @@ final class LandingPageServiceTest extends TestCase
         ?CompetitionWindows $windows = null,
         ?CompetitionLimits $limits = null,
         ?JudgingProgress $judging = null,
+        ?\Closure $judgingAt = null,
         ?array $contacts = null,
         ?array $sponsors = null,
         ?WinnerSummary $winners = null,
@@ -220,8 +369,10 @@ final class LandingPageServiceTest extends TestCase
         $repository->method('competitionLimits')->willReturn(
             $limits ?? new CompetitionLimits(5, 3, 100, 80, 90),
         );
-        $repository->method('judgingProgress')->willReturn(
-            $judging ?? new JudgingProgress(false, false, true, 0),
+        $repository->method('judgingProgress')->willReturnCallback(
+            $judgingAt ?? static fn (int $now): JudgingProgress => (
+                $judging ?? new JudgingProgress(false, false, true, 0)
+            ),
         );
         $repository->method('locations')->willReturn(
             new CompetitionLocations(null, null, null, null, null, null),

@@ -96,7 +96,7 @@ final class LandingPageRepositoryIntegrationTest extends IntegrationTestCase
         self::assertSame(5, $limits->paidEntryLimit);
         self::assertSame(9, $limits->nearLimitThreshold);
 
-        $judging = $this->repository->judgingProgress();
+        $judging = $this->repository->judgingProgress($now);
         self::assertTrue($judging->started);
         self::assertFalse($judging->ended);
         self::assertTrue($judging->displayWinners);

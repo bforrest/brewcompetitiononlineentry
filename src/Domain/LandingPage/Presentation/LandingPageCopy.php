@@ -22,6 +22,8 @@ final readonly class LandingPageCopy
         public string $closedMessage,
         public string $judgeOpenMessage,
         public string $entryLimitMessage,
+        public string $nearLimitMessage,
+        public string $paidEntryLimitMessage,
         public string $winnerDelayMessage,
     ) {
     }

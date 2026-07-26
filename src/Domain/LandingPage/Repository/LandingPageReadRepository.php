@@ -22,7 +22,7 @@ interface LandingPageReadRepository
 
     public function competitionLimits(): CompetitionLimits;
 
-    public function judgingProgress(): JudgingProgress;
+    public function judgingProgress(int $now): JudgingProgress;
 
     public function locations(): CompetitionLocations;
 

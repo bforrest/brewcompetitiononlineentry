@@ -218,6 +218,8 @@ final class LandingPageModelTest extends TestCase
         self::assertSame(2000, $view->locations->awardsAt);
         self::assertSame(WinnerMethod::Overall, $view->winners->method);
         self::assertSame('Winning Entry', $view->winners->rows[0]->entryName);
+        self::assertSame('Near capacity', $view->copy->nearLimitMessage);
+        self::assertSame('Paid capacity', $view->copy->paidEntryLimitMessage);
     }
 
     public function test_view_model_rejects_a_non_alert_list_member(): void
@@ -263,7 +265,8 @@ final class LandingPageModelTest extends TestCase
     {
         return new LandingPageCopy(
             'Register', 'Login', 'Logout', 'Rules', 'Volunteers', 'Entry info', 'Contact', 'Sponsors',
-            'Officials', 'Results', 'Upcoming', 'Open', 'Closed', 'Judge open', 'Entry limit', 'Winner delay',
+            'Officials', 'Results', 'Upcoming', 'Open', 'Closed', 'Judge open', 'Entry limit',
+            'Near capacity', 'Paid capacity', 'Winner delay',
         );
     }
 }
