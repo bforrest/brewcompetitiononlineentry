@@ -53,6 +53,10 @@ final class LandingPageControllerTest extends TestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('text/html; charset=utf-8', $response->getHeaderLine('Content-Type'));
         self::assertStringContainsString('<main id="main-content"', (string) $response->getBody());
+        self::assertStringContainsString(
+            'src="/images/misc-cropped-bottles_3000x500.jpg"',
+            (string) $response->getBody(),
+        );
     }
 
     public function test_authenticated_request_renders_greeting_and_account_link(): void
@@ -107,6 +111,24 @@ final class LandingPageControllerTest extends TestCase
     public function test_valid_selected_style_uses_its_matching_hero_image(): void
     {
         $_SESSION['prefsSelectedStyles'] = '[{"brewStyleType":"1"}]';
+        $request = (new ServerRequestFactory())
+            ->createServerRequest('GET', '/')
+            ->withAttribute('identity', Identity::fromSession([]));
+
+        $response = $this->controller()->show(
+            $request,
+            (new ResponseFactory())->createResponse(),
+        );
+
+        self::assertStringContainsString(
+            'src="/images/beer-barley-malt_3000x500.jpg"',
+            (string) $response->getBody(),
+        );
+    }
+
+    public function test_fallback_style_type_is_ignored_when_valid_style_is_selected(): void
+    {
+        $_SESSION['prefsSelectedStyles'] = '[{"brewStyleType":0},{"brewStyleType":1}]';
         $request = (new ServerRequestFactory())
             ->createServerRequest('GET', '/')
             ->withAttribute('identity', Identity::fromSession([]));

@@ -127,7 +127,7 @@ final class LandingPageController
     private function styleType(mixed $value): ?int
     {
         if (is_int($value)) {
-            return $value >= 0 && $value <= 3 ? $value : null;
+            return $value >= 1 && $value <= 3 ? $value : null;
         }
 
         if (!is_string($value) || !ctype_digit($value)) {
@@ -136,6 +136,6 @@ final class LandingPageController
 
         $type = (int) $value;
 
-        return $type >= 0 && $type <= 3 ? $type : null;
+        return $type >= 1 && $type <= 3 ? $type : null;
     }
 }
