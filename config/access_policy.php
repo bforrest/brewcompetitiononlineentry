@@ -313,6 +313,9 @@ return [
     'registration.form' => Role::Anonymous,
     'registration.create' => Role::Anonymous,
 
+    // Modern landing page (public root route)
+    'landing.page' => Role::Anonymous,
+
     // Phase 3.2: Judging routes
     'judging.tables.list.api' => Role::Admin,
     'judging.tables.detail.api' => Role::Admin,

@@ -133,6 +133,17 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
     // generic /{section}/... pattern (Slim/FastRoute matches static routes
     // before dynamic ones, but registration order is what makes intent
     // clear here too - see Task 9 brief Step 4a).
+    $getLandingPageController = function () use ($container): \Bcoem\Kernel\Controller\LandingPageController {
+        static $controller;
+        return $controller ??= $container->get(\Bcoem\Kernel\Controller\LandingPageController::class);
+    };
+    $getLegacyRootHandler = function () use ($container): callable {
+        static $handler;
+        return $handler ??= $container->has(\Bcoem\Legacy\LegacyPageHandler::class)
+            ? $container->get(\Bcoem\Legacy\LegacyPageHandler::class)
+            : new \Bcoem\Legacy\LegacyPageHandler();
+    };
+
     $app->get('/index.php', new \Bcoem\Legacy\LegacyPageHandler())->setName('section');
     // GET, not just POST (Task 10 fix): process.inc.php's $action/$section
     // dispatch always reads from $_GET (includes/url_variables.inc.php),
@@ -150,7 +161,18 @@ function buildApp(?\Psr\Container\ContainerInterface $container = null): App
     // applies to POST, so GET-based actions like logout are unaffected by
     // it, matching today's real (GET, token-less) logout link.
     $app->map(['GET', 'POST'], '/includes/process.inc.php', new \Bcoem\Legacy\LegacyProcessHandler())->setName('process');
-    $app->get('/', new \Bcoem\Legacy\LegacyPageHandler())->setName('section');
+    $app->get(
+        '/',
+        function ($request, $response) use ($getLandingPageController, $getLegacyRootHandler) {
+            // The modern cutover is only the literal static root. Query-string
+            // root requests remain on the legacy front-controller contract.
+            if ($request->getQueryParams() !== []) {
+                return $getLegacyRootHandler()($request, $response);
+            }
+
+            return $getLandingPageController()->show($request, $response);
+        },
+    )->setName('landing.page');
 
     // includes/output.inc.php is a self-bootstrapping side door gated on its
     // own output:section:* policy namespace (Task 3a), distinct from the

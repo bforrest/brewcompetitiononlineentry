@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 ?>
-<main id="main-content">
+<main id="main-content" data-modern-landing-page="true">
     <?php require __DIR__ . '/partials/alerts.php'; ?>
     <?php require __DIR__ . '/partials/registration.php'; ?>
     <?php require __DIR__ . '/partials/at-a-glance.php'; ?>
