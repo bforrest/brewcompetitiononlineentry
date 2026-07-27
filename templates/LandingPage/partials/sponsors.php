@@ -13,7 +13,7 @@ declare(strict_types=1);
                     <?php if ($sponsor->imagePath !== null): ?><img class="img-fluid mb-3" src="<?= e($sponsor->imagePath) ?>" alt="<?= e($sponsor->name) ?> logo"><?php endif; ?>
                     <?php if ($sponsor->description !== null): ?><p class="card-text"><?= e($sponsor->description) ?></p><?php endif; ?>
                     <?php if ($sponsor->location !== null): ?><p class="card-text"><small class="text-body-secondary"><?= e($sponsor->location) ?></small></p><?php endif; ?>
-                    <?php if ($sponsor->websiteUrl !== null): ?><a class="card-link" href="<?= e($sponsor->websiteUrl) ?>" target="_blank" rel="noopener noreferrer">Visit <?= e($sponsor->name) ?></a><?php endif; ?>
+                    <?php if ($sponsor->websiteUrl !== null): ?><a class="card-link" href="<?= e($sponsor->websiteUrl) ?>" target="_blank" rel="noopener noreferrer"><?= e(sprintf($view->copy->visitSponsor, $sponsor->name)) ?></a><?php endif; ?>
                 </div>
             </div>
         </article>

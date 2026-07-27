@@ -11,6 +11,24 @@ declare(strict_types=1);
         </span>
         <?php endif; ?>
     </div>
+    <?php if ($view->bestOfShow !== null && $view->bestOfShow->rows !== []): ?>
+    <h3 class="h4 mt-4"><?= e($view->copy->bestOfShow) ?></h3>
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead><tr><th scope="col"><?= e($view->copy->place) ?></th><th scope="col"><?= e($view->copy->entry) ?></th><th scope="col"><?= e($view->copy->brewer) ?></th><th scope="col"><?= e($view->copy->style) ?></th></tr></thead>
+            <tbody>
+            <?php foreach ($view->bestOfShow->rows as $winner): ?>
+            <tr>
+                <td><?= e((string) $winner->place) ?></td>
+                <td><strong><?= e($winner->entryName) ?></strong><br><small><?= e($winner->groupName) ?></small></td>
+                <td><?= e($winner->brewerName) ?><?php if ($winner->coBrewerName !== null): ?> &amp; <?= e($winner->coBrewerName) ?><?php endif; ?><?php if ($winner->club !== null): ?><br><small><?= e($winner->club) ?></small><?php endif; ?></td>
+                <td><?= e($winner->style) ?></td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php endif; ?>
     <?php if (!$view->judging->displayWinners): ?>
     <p class="mb-0"><?= e($view->copy->winnerDelayMessage) ?></p>
     <?php elseif ($view->winners->rows === []): ?>
@@ -18,7 +36,7 @@ declare(strict_types=1);
     <?php else: ?>
     <div class="table-responsive">
         <table class="table table-striped align-middle">
-            <thead><tr><th scope="col">Place</th><th scope="col">Entry</th><th scope="col">Brewer</th><th scope="col">Style</th><th scope="col">Score</th></tr></thead>
+            <thead><tr><th scope="col"><?= e($view->copy->place) ?></th><th scope="col"><?= e($view->copy->entry) ?></th><th scope="col"><?= e($view->copy->brewer) ?></th><th scope="col"><?= e($view->copy->style) ?></th><th scope="col"><?= e($view->copy->score) ?></th></tr></thead>
             <tbody>
             <?php foreach ($view->winners->rows as $winner): ?>
             <tr>

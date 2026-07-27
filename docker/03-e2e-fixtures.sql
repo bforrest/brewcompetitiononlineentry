@@ -47,6 +47,16 @@
 
 USE bcoem;
 
+-- Destructive landing fixtures hard-fail unless the operator explicitly opts
+-- in and this Docker-only marker proves the selected database is disposable.
+CREATE TABLE IF NOT EXISTS bcoem_e2e_disposable_database (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  marker VARCHAR(64) NOT NULL
+) ENGINE=InnoDB;
+INSERT INTO bcoem_e2e_disposable_database (id, marker)
+VALUES (1, 'BCOEM_E2E_DISPOSABLE_V1')
+ON DUPLICATE KEY UPDATE marker = VALUES(marker);
+
 UPDATE baseline_preferences SET prefsCAPTCHA = 0, prefsDisplayWinners = 'N';
 
 -- Landing-page state-matrix baseline

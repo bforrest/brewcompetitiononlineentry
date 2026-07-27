@@ -95,7 +95,7 @@ final class LandingPageRepositoryIntegrationTest extends IntegrationTestCase
         self::assertSame(1, $limits->paidEntryCount);
         self::assertSame(10, $limits->entryLimit);
         self::assertSame(5, $limits->paidEntryLimit);
-        self::assertSame(9, $limits->nearLimitThreshold);
+        self::assertSame(10, $limits->nearLimitThreshold);
 
         $judging = $this->repository->judgingProgress($now);
         self::assertTrue($judging->started);
@@ -164,8 +164,9 @@ final class LandingPageRepositoryIntegrationTest extends IntegrationTestCase
         $contacts = $this->repository->contacts();
         self::assertContainsOnlyInstancesOf(Contact::class, $contacts);
         self::assertCount(1, $contacts);
+        self::assertGreaterThan(0, $contacts[0]->id);
         self::assertSame('Ada', $contacts[0]->firstName);
-        self::assertSame('ada@example.test', $contacts[0]->email);
+        self::assertObjectNotHasProperty('email', $contacts[0]);
 
         $sponsors = $this->repository->sponsors();
         self::assertContainsOnlyInstancesOf(Sponsor::class, $sponsors);
@@ -176,9 +177,11 @@ final class LandingPageRepositoryIntegrationTest extends IntegrationTestCase
 
         $archives = $this->repository->visibleArchives();
         self::assertContainsOnlyInstancesOf(Archive::class, $archives);
-        self::assertCount(1, $archives);
-        self::assertSame('2025', $archives[0]->suffix);
-        self::assertSame(1, $archives[0]->winnerMethod);
+        self::assertSame(
+            [],
+            $archives,
+            'An enabled archive without an existing populated score table is not navigable.',
+        );
     }
 
     public function test_sponsors_are_hidden_when_the_feature_preference_is_disabled(): void

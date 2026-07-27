@@ -18,6 +18,9 @@ final class LandingPageCopyAdapterTest extends TestCase
         self::assertSame('Log Out', $copy->logout);
         self::assertSame('Competition Officials', $copy->officials);
         self::assertSame('Past Winners', $copy->pastWinners);
+        self::assertSame('At a glance', $copy->atAGlance);
+        self::assertSame('Drop-off locations', $copy->dropoffLocations);
+        self::assertSame('Register as a steward', $copy->registerSteward);
         self::assertSame(
             'The limit of %d entries has been reached. No further entries will be accepted.',
             $copy->entryLimitMessage,
@@ -63,6 +66,12 @@ final class LandingPageCopyAdapterTest extends TestCase
         self::assertSame('Cerrar Sesión', $copy->logout);
         self::assertSame('Funcionarios de la Competencia', $copy->officials);
         self::assertSame('Ganadores Anteriores', $copy->pastWinners);
+        self::assertSame('De un vistazo', $copy->atAGlance);
+        self::assertSame('Lugares de entrega', $copy->dropoffLocations);
+        self::assertSame('Registrarse como auxiliar', $copy->registerSteward);
+        self::assertSame('Próximamente', $copy->statusUpcoming);
+        self::assertSame('Abierto', $copy->statusOpen);
+        self::assertSame('Cerrado', $copy->statusClosed);
         self::assertSame(
             'Se ha alcanzado el límite de %d entradas. No se aceptarán más entradas.',
             $copy->entryLimitMessage,

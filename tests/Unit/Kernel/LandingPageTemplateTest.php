@@ -35,6 +35,8 @@ final class LandingPageTemplateTest extends TestCase
             'alerts.php',
             'registration.php',
             'at-a-glance.php',
+            'rules.php',
+            'entry-info.php',
             'winners.php',
             'contacts.php',
             'sponsors.php',
@@ -58,7 +60,7 @@ final class LandingPageTemplateTest extends TestCase
                 foreach ($expectedPartials as $partial) {
                     self::assertStringContainsString("require __DIR__ . '/partials/{$partial}';", $contents);
                 }
-                self::assertSame(8, preg_match_all('/\brequire\b/', $contents));
+                self::assertSame(10, preg_match_all('/\brequire\b/', $contents));
                 continue;
             }
 

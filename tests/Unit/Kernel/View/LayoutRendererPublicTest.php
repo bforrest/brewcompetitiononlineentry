@@ -4,9 +4,15 @@ declare(strict_types=1);
 namespace BCOEM\Tests\Unit\Kernel\View;
 
 use Bcoem\Domain\LandingPage\Model\Archive;
+use Bcoem\Domain\LandingPage\Model\BestOfShowSummary;
+use Bcoem\Domain\LandingPage\Model\BestOfShowWinner;
 use Bcoem\Domain\LandingPage\Model\CompetitionLimits;
 use Bcoem\Domain\LandingPage\Model\CompetitionLocations;
+use Bcoem\Domain\LandingPage\Model\CompetitionRules;
+use Bcoem\Domain\LandingPage\Model\Contact;
+use Bcoem\Domain\LandingPage\Model\ContactMode;
 use Bcoem\Domain\LandingPage\Model\ContestOverview;
+use Bcoem\Domain\LandingPage\Model\DropoffLocation;
 use Bcoem\Domain\LandingPage\Model\JudgingProgress;
 use Bcoem\Domain\LandingPage\Model\WinnerMethod;
 use Bcoem\Domain\LandingPage\Model\WinnerRow;
@@ -15,7 +21,12 @@ use Bcoem\Domain\LandingPage\Presentation\Alert;
 use Bcoem\Domain\LandingPage\Presentation\AlertLevel;
 use Bcoem\Domain\LandingPage\Presentation\HeroPresentation;
 use Bcoem\Domain\LandingPage\Presentation\LandingPageCopy;
+use Bcoem\Domain\LandingPage\Presentation\LandingAction;
+use Bcoem\Domain\LandingPage\Presentation\LandingPageActions;
+use Bcoem\Domain\LandingPage\Presentation\LandingPageDateRange;
+use Bcoem\Domain\LandingPage\Presentation\LandingPageDates;
 use Bcoem\Domain\LandingPage\Presentation\LandingPageLinks;
+use Bcoem\Domain\LandingPage\Presentation\LandingPageSections;
 use Bcoem\Domain\LandingPage\Presentation\LandingPageViewModel;
 use Bcoem\Domain\Shared\ValueObject\WindowStatus;
 use Bcoem\Kernel\View\LayoutRenderer;
@@ -106,8 +117,8 @@ class LayoutRendererPublicTest extends TestCase
         self::assertStringContainsString('Entry status</dt><dd class="col-sm-8">Open</dd>', $html);
         self::assertStringContainsString('Drop-off status</dt><dd class="col-sm-8">Upcoming</dd>', $html);
         self::assertStringContainsString('Shipping status</dt><dd class="col-sm-8">Open</dd>', $html);
-        self::assertStringContainsString('datetime="2024-12-03T04:26:40+00:00"', $html);
-        self::assertStringContainsString('December 3, 2024 4:26 AM UTC', $html);
+        self::assertStringContainsString('<time>08/02/2026 2:00 PM, CDT</time>', $html);
+        self::assertStringNotContainsString('December 3, 2024 4:26 AM UTC', $html);
         self::assertStringNotContainsString('href="/#sponsors">Sponsors</a>', $html);
     }
 
@@ -136,6 +147,34 @@ class LayoutRendererPublicTest extends TestCase
         );
     }
 
+    public function test_landing_renders_rules_dropoffs_actions_dates_contacts_and_best_of_show(): void
+    {
+        $renderer = new LayoutRenderer();
+        $template = dirname(__DIR__, 4) . '/templates/LandingPage/home.php';
+
+        $html = $renderer->landing($this->landingView(), $template);
+
+        self::assertStringContainsString('Competition rules for everyone.', $html);
+        self::assertStringContainsString('Two plain bottles.', $html);
+        self::assertStringContainsString('Fixture Bottle Shop', $html);
+        self::assertStringContainsString('07/24/2026 9:00 AM, CDT', $html);
+        self::assertStringContainsString(
+            'href="/index.php?section=brew&amp;go=entry&amp;action=add"',
+            $html,
+        );
+        self::assertStringContainsString(
+            'href="/index.php?section=register&amp;go=steward"',
+            $html,
+        );
+        self::assertStringContainsString(
+            'href="/includes/output.inc.php?section=contact&amp;action=edit&amp;tb=no-print&amp;token=fixture"',
+            $html,
+        );
+        self::assertStringNotContainsString('ada@example.test', $html);
+        self::assertStringContainsString('Best of Show', $html);
+        self::assertStringContainsString('Winning Mead', $html);
+    }
+
     private function landingView(bool $loggedIn = false, string $archiveSuffix = '2025'): LandingPageViewModel
     {
         return new LandingPageViewModel(
@@ -148,14 +187,29 @@ class LayoutRendererPublicTest extends TestCase
             WindowStatus::Upcoming,
             WindowStatus::Open,
             new CompetitionLimits(20, 18, 30, 25, 3),
-            new JudgingProgress(false, false, false, 0),
-            false,
-            new CompetitionLocations('Fixture Shipping', '123 Brew Street', 'Awards after judging.', 'Fixture Hall', '456 Malt Ave', 1_733_200_000),
+            new JudgingProgress(false, false, true, 0, true),
+            true,
+            new CompetitionLocations(
+                'Fixture Shipping',
+                '123 Brew Street',
+                'Awards after judging.',
+                'Fixture Hall',
+                '456 Malt Ave',
+                1_733_200_000,
+                true,
+                [new DropoffLocation('Fixture Bottle Shop', '789 Hops Road', null, null, 'Rear entrance')],
+            ),
             [
                 new Alert(AlertLevel::Info, '<script>alert(1)</script>', 'Learn more', '/#rules'),
                 new Alert(AlertLevel::Warning, 'Registration closed.', 'Log In', '#login-modal'),
             ],
-            [],
+            [new Contact(
+                7,
+                'Ada',
+                'Brewer',
+                'Organizer',
+                '/includes/output.inc.php?section=contact&action=edit&tb=no-print&token=fixture',
+            )],
             [],
             [new Archive($archiveSuffix, 0, '2021')],
             new WinnerSummary(WinnerMethod::Overall, '2021', [
@@ -184,6 +238,34 @@ class LayoutRendererPublicTest extends TestCase
                 paidEntryLimitMessage: 'Paid entry capacity is full.',
                 winnerDelayMessage: 'Winners will be posted soon.',
             ),
+            new CompetitionRules('Competition rules for everyone.', 'Two plain bottles.'),
+            new LandingPageDates(
+                new LandingPageDateRange('07/24/2026 9:00 AM, CDT', '07/31/2026 5:00 PM, CDT', 1, 2),
+                new LandingPageDateRange('07/24/2026 9:00 AM, CDT', '07/31/2026 5:00 PM, CDT', 1, 2),
+                new LandingPageDateRange('07/24/2026 9:00 AM, CDT', '07/31/2026 5:00 PM, CDT', 1, 2),
+                new LandingPageDateRange(null, null, null, null),
+                new LandingPageDateRange(null, null, null, null),
+                '08/02/2026 2:00 PM, CDT',
+            ),
+            new LandingPageActions(
+                new LandingAction('Register', '/index.php?section=register&go=entrant'),
+                new LandingAction('Add entry', '/index.php?section=brew&go=entry&action=add'),
+                new LandingAction('Register as a judge', '/index.php?section=register&go=judge'),
+                new LandingAction('Register as a steward', '/index.php?section=register&go=steward'),
+            ),
+            new LandingPageSections(true, true, true, true, true, true, false),
+            ContactMode::Directory,
+            new BestOfShowSummary([
+                new BestOfShowWinner(
+                    'Mead',
+                    1,
+                    'Ada Brewer',
+                    null,
+                    'Winning Mead',
+                    'M1A: Dry Mead',
+                    'Fixture Club',
+                ),
+            ]),
         );
     }
 }

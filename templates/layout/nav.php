@@ -10,23 +10,31 @@
 <?php if ($isPublic && ($isLanding ?? false)): ?>
 <nav id="site-nav" class="site-nav family-sans navbar navbar-expand-md navbar-dark fixed-top bg-dark" aria-labelledby="landing-title">
     <div class="container-fluid">
-        <a class="navbar-brand" href="#home"><i class="fas fa-home me-2" aria-hidden="true"></i><span class="visually-hidden">Home</span></a>
-        <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#public-nav-toggler" aria-controls="public-nav-toggler" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
+        <a class="navbar-brand" href="#home"><i class="fas fa-home me-2" aria-hidden="true"></i><span class="visually-hidden"><?= e($view->copy->home) ?></span></a>
+        <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#public-nav-toggler" aria-controls="public-nav-toggler" aria-expanded="false" aria-label="<?= e($view->copy->toggleNavigation) ?>"><span class="navbar-toggler-icon"></span></button>
         <section class="collapse navbar-collapse" id="public-nav-toggler">
             <div class="navbar-nav ms-auto">
+                <?php if ($view->sections?->rules ?? true): ?>
                 <a class="nav-item nav-link" href="#rules"><?= e($view->copy->rules) ?></a>
+                <?php endif; ?>
+                <?php if ($view->sections?->volunteers ?? true): ?>
                 <a class="nav-item nav-link" href="#volunteers"><?= e($view->copy->volunteers) ?></a>
+                <?php endif; ?>
+                <?php if ($view->sections?->entryInfo ?? true): ?>
                 <a class="nav-item nav-link" href="#entry-info"><?= e($view->copy->entryInfo) ?></a>
+                <?php endif; ?>
+                <?php if ($view->sections?->contact ?? true): ?>
                 <a class="nav-item nav-link" href="<?= e($view->links->contact) ?>"><?= e($view->copy->contact) ?></a>
-                <?php if ($view->sponsors !== []): ?>
+                <?php endif; ?>
+                <?php if (($view->sections?->sponsors ?? true) && $view->sponsors !== []): ?>
                 <a class="nav-item nav-link" href="<?= e($view->links->sponsors) ?>"><?= e($view->copy->sponsors) ?></a>
                 <?php endif; ?>
                 <?php if ($view->archives !== []): ?>
                 <button class="btn btn-outline-light ms-md-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#archive-list" aria-controls="archive-list"><?= e($view->copy->pastWinners) ?></button>
                 <?php endif; ?>
                 <?php if ($view->loggedIn): ?>
-                <?php if ($view->viewerName !== null): ?><span class="navbar-text px-2">Hello, <?= e($view->viewerName) ?></span><?php endif; ?>
-                <a class="nav-item nav-link" href="<?= e($view->links->account) ?>">Account</a>
+                <?php if ($view->viewerName !== null): ?><span class="navbar-text px-2"><?= e(sprintf($view->copy->hello, $view->viewerName)) ?></span><?php endif; ?>
+                <a class="nav-item nav-link" href="<?= e($view->links->account) ?>"><?= e($view->copy->account) ?></a>
                 <a class="nav-item nav-link" href="<?= e($view->links->logout) ?>"><?= e($view->copy->logout) ?></a>
                 <?php else: ?>
                 <a class="nav-item nav-link" href="<?= e($view->links->register) ?>"><?= e($view->copy->register) ?></a>

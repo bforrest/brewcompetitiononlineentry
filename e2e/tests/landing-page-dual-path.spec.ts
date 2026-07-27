@@ -59,7 +59,8 @@ async function controlContract(locator: Locator) {
 async function captureLandingContract(page: Page): Promise<LandingContract> {
   const regions = await page.locator('main section[id], #main-content section[id]')
     .evaluateAll(nodes => nodes.map(node => node.id).filter(Boolean));
-  const loginTrigger = page.getByRole('link', { name: 'Log In', exact: true });
+  const loginTrigger = page.getByRole('navigation').first()
+    .getByRole('link', { name: 'Log In', exact: true });
   const registerTrigger = page.getByRole('link', { name: /register/i }).first();
   const contactTrigger = page.getByRole('link', { name: /contact/i }).first();
   const loginTarget = await loginTrigger.getAttribute('data-bs-target')
@@ -107,13 +108,8 @@ function canonicalDestination(page: Page, value: string): string {
 }
 
 function canonicalContract(page: Page, contract: LandingContract): LandingContract {
-  const regions = contract.regions
-    .map(region => ['entry-info', 'rules', 'winners'].includes(region) ? 'at-a-glance' : region)
-    .filter((region, index, all) => all.indexOf(region) === index);
-
   return {
     ...contract,
-    regions,
     loginAction: canonicalDestination(page, contract.loginAction),
     links: Object.fromEntries(
       Object.entries(contract.links).map(([name, destination]) => [
@@ -147,7 +143,7 @@ async function normalizeLandingScreenshot(page: Page): Promise<void> {
 }
 
 function landingDefinition(page: Page, term: string) {
-  return page.locator('#rules dt')
+  return page.locator('#at-a-glance dt')
     .filter({ hasText: new RegExp(`^${term}$`, 'i') })
     .locator('xpath=following-sibling::dd[1]');
 }
@@ -174,7 +170,9 @@ test.describe.serial('landing page dual-path parity', () => {
     const loginModal = page.locator(legacy.links.login);
     await expect(loginModal).toHaveCount(1);
     await expect(loginModal).toBeHidden();
-    await page.getByRole('link', { name: 'Log In', exact: true }).click();
+    await page.getByRole('navigation').first()
+      .getByRole('link', { name: 'Log In', exact: true })
+      .click();
     await expect(loginModal).toBeVisible();
     await expect(loginModal.locator('input[name="loginUsername"]')).toBeVisible();
     await expect(loginModal.locator('input[name="loginPassword"]')).toBeVisible();
@@ -201,25 +199,93 @@ test.describe.serial('landing page dual-path parity', () => {
     });
   });
 
+  test('modern desktop baseline is reviewable independently', async ({ page }) => {
+    await page.goto('/');
+    await normalizeLandingScreenshot(page);
+
+    await expect(page).toHaveScreenshot('landing-modern-desktop.png', {
+      fullPage: true,
+      animations: 'disabled',
+    });
+  });
+
+  test.describe('mobile modern baseline', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test('preserves the modern mobile landing page', async ({ page }) => {
+      await page.goto('/');
+      await normalizeLandingScreenshot(page);
+
+      await expect(page).toHaveScreenshot('landing-modern-mobile.png', {
+        fullPage: true,
+        animations: 'disabled',
+      });
+    });
+  });
+
   test('modern root matches the legacy public contract', async ({ page }) => {
     await page.goto('/index.php');
     const legacy = canonicalContract(page, await captureLandingContract(page));
+    const legacyText = await page.locator('#main-content').innerText();
 
     await page.goto('/');
     const modern = canonicalContract(page, await captureLandingContract(page));
+    const modernText = await page.locator('#main-content').innerText();
 
     expect(modern.title).toBe(legacy.title);
-    expect(modern.regions).toEqual(legacy.regions);
+    expect(legacy.regions).toEqual(['at-a-glance', 'volunteers', 'contact']);
+    expect(modern.regions).toEqual([
+      'registration',
+      'volunteers',
+      'at-a-glance',
+      'rules',
+      'entry-info',
+      'contact',
+    ]);
     expect(modern.loginAction).toBe(legacy.loginAction);
     expect(modern.loginFields.sort((a, b) => a.name.localeCompare(b.name)))
       .toEqual(legacy.loginFields.sort((a, b) => a.name.localeCompare(b.name)));
     expect(modern.controls).toEqual(legacy.controls);
     expect(modern.links).toEqual(legacy.links);
+    for (const visibleDate of ['06/01/2023', '12/31/2029']) {
+      expect(legacyText).toContain(visibleDate);
+      expect(modernText).toContain(visibleDate);
+    }
+  });
+
+  test('closed winner state records raw regions and keeps result destinations aligned', async ({ page }) => {
+    const now = Math.floor(Date.now() / 1000);
+    await setLandingWindows(
+      [now - 172_800, now - 86_400],
+      [now - 172_800, now - 86_400],
+      [now - 172_800, now - 86_400],
+    );
+    await setLandingWinnerDisplay(true, now - 3_600, [now - 172_800, now - 90_000]);
+
+    await page.goto('/index.php');
+    const legacyRegions = await page.locator('main section[id], #main-content section[id]')
+      .evaluateAll(nodes => nodes.map(node => node.id).filter(Boolean));
+    const legacyResults = await page.locator(
+      'main a[href*="section=export-results"], #main-content a[href*="section=export-results"]',
+    ).evaluateAll(nodes => nodes.map(node => (node as HTMLAnchorElement).href).sort());
+
+    await page.goto('/');
+    const modernRegions = await page.locator('main section[id], #main-content section[id]')
+      .evaluateAll(nodes => nodes.map(node => node.id).filter(Boolean));
+    const modernResults = await page.locator(
+      'main a[href*="section=export-results"], #main-content a[href*="section=export-results"]',
+    ).evaluateAll(nodes => nodes.map(node => (node as HTMLAnchorElement).href).sort());
+
+    expect(legacyRegions).toEqual(['at-a-glance', 'contact']);
+    expect(modernRegions).toEqual(['winners', 'contact']);
+    expect(modernResults).toEqual(legacyResults);
+    expect(modernResults).toHaveLength(2);
   });
 
   test('login modal focuses the username and restores trigger focus on Escape', async ({ page }) => {
     await page.goto('/');
-    const loginTrigger = page.getByRole('link', { name: 'Log In', exact: true });
+    const loginTrigger = page.getByRole('navigation').first()
+      .getByRole('link', { name: 'Log In', exact: true });
 
     await loginTrigger.focus();
     await page.keyboard.press('Enter');
@@ -291,7 +357,10 @@ test.describe.serial('landing page dual-path parity', () => {
     await expect(page.getByRole('link', { name: 'Log Out', exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'Log Out', exact: true }).click();
 
-    await expect(page.getByRole('link', { name: 'Log In', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('navigation').first()
+        .getByRole('link', { name: 'Log In', exact: true }),
+    ).toBeVisible();
   });
 });
 
@@ -310,8 +379,8 @@ test.describe.serial('landing page state matrix', () => {
     );
     await page.goto('/');
 
-    await expect(page.locator('#entry-info')).toContainText(/registration (?:opens|will open)/i);
-    await expect(page.locator('#entry-info').getByRole('link', { name: 'Register', exact: true })).toHaveCount(0);
+    await expect(page.locator('#registration')).toContainText(/registration (?:opens|will open)/i);
+    await expect(page.locator('#registration').getByRole('link', { name: 'Register', exact: true })).toHaveCount(0);
   });
 
   test('renders open registration and entry actions', async ({ page }) => {
@@ -322,8 +391,8 @@ test.describe.serial('landing page state matrix', () => {
     );
     await page.goto('/');
 
-    await expect(page.locator('#entry-info')).toContainText(/registration is open/i);
-    await expect(page.locator('#entry-info').getByRole('link', { name: 'Register', exact: true })).toBeVisible();
+    await expect(page.locator('#registration')).toContainText(/registration is open/i);
+    await expect(page.locator('#registration').getByRole('link', { name: 'Register', exact: true })).toBeVisible();
     await expect(landingDefinition(page, 'Entry status')).toHaveText('Open');
   });
 
@@ -335,8 +404,8 @@ test.describe.serial('landing page state matrix', () => {
     );
     await page.goto('/');
 
-    await expect(page.locator('#entry-info')).toContainText(/registration is closed/i);
-    await expect(page.locator('#entry-info')).toContainText(/judge (?:or steward )?registration is open/i);
+    await expect(page.locator('#registration')).toContainText(/registration is closed/i);
+    await expect(page.locator('#volunteers')).toContainText(/judge (?:or steward )?registration is open/i);
     const loginAlert = page.getByRole('alert')
       .filter({ hasText: /registration is closed/i })
       .getByRole('link', { name: 'Log In', exact: true });
@@ -354,7 +423,7 @@ test.describe.serial('landing page state matrix', () => {
     await setLandingWinnerDisplay(false, now - 3_600, [now - 172_800, now - 90_000]);
     await page.goto('/');
 
-    await expect(page.locator('#entry-info')).toContainText(/registration is closed/i);
+    await expect(page.locator('#winners')).toBeVisible();
     await expect(page.locator('#winners').getByRole('link', { name: /^(pdf|html)$/i })).toHaveCount(0);
   });
 
@@ -394,7 +463,7 @@ test.describe.serial('landing page state matrix', () => {
 
     await expect(landingDefinition(page, 'Drop-off status')).toHaveText('Open');
     await expect(landingDefinition(page, 'Shipping status')).toHaveText('Open');
-    await expect(page.locator('#rules')).not.toContainText(/undefined|invalid date/i);
+    await expect(page.locator('#at-a-glance')).not.toContainText(/undefined|invalid date/i);
   });
 
   test('hides configured sponsor data while the sponsor feature is off', async ({ page }) => {

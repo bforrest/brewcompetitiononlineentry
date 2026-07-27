@@ -20,6 +20,10 @@ use Bcoem\Domain\Judging\Service\JudgingValidationService;
 use Bcoem\Domain\LandingPage\Repository\LandingPageRepository;
 use Bcoem\Domain\LandingPage\Service\LandingPageCopyAdapter;
 use Bcoem\Domain\LandingPage\Service\LandingPageService;
+use Bcoem\Domain\LandingPage\Service\ContactLinkEncoder;
+use Bcoem\Domain\LandingPage\Service\HeroImageSelector;
+use Bcoem\Domain\LandingPage\Service\LegacyContactLinkEncoder;
+use Bcoem\Domain\LandingPage\Service\RandomHeroImageSelector;
 use Bcoem\Domain\Export\Repository\BrewingExportRepository;
 use Bcoem\Domain\Export\Repository\ParticipantExportRepository;
 use Bcoem\Domain\Export\Repository\JudgingExportRepository;
@@ -173,6 +177,18 @@ $containerBuilder->addDefinitions([
         }
 
         return $GLOBALS['prefix'];
+    },
+
+    'database.password' => static function (ContainerInterface $container): string {
+        $container->get(Connection::class);
+
+        return is_string($GLOBALS['password'] ?? null) ? $GLOBALS['password'] : '';
+    },
+
+    'server.root' => static function (ContainerInterface $container): string {
+        $container->get(Connection::class);
+
+        return is_string($GLOBALS['server_root'] ?? null) ? $GLOBALS['server_root'] : '';
     },
 
     /**
@@ -329,10 +345,21 @@ $containerBuilder->addDefinitions([
     LandingPageCopyAdapter::class => static fn (): LandingPageCopyAdapter =>
         new LandingPageCopyAdapter(),
 
+    HeroImageSelector::class => static fn (): HeroImageSelector =>
+        new RandomHeroImageSelector(),
+
+    ContactLinkEncoder::class => static fn (ContainerInterface $container): ContactLinkEncoder =>
+        new LegacyContactLinkEncoder(
+            $container->get('database.password'),
+            $container->get('server.root'),
+        ),
+
     LandingPageService::class => static fn (ContainerInterface $container): LandingPageService =>
         new LandingPageService(
             $container->get(LandingPageRepository::class),
             $container->get(LandingPageCopyAdapter::class),
+            $container->get(HeroImageSelector::class),
+            $container->get(ContactLinkEncoder::class),
         ),
 
     LandingPageController::class => static fn (ContainerInterface $container): LandingPageController =>

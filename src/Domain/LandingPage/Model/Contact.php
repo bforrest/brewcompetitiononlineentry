@@ -7,10 +7,11 @@ namespace Bcoem\Domain\LandingPage\Model;
 final readonly class Contact
 {
     public function __construct(
+        public int $id,
         public string $firstName,
         public string $lastName,
         public string $position,
-        public string $email,
+        public ?string $destination = null,
     ) {
     }
 }

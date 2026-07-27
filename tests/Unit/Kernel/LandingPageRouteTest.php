@@ -6,8 +6,11 @@ namespace BCOEM\Tests\Unit\Kernel;
 
 use Bcoem\Domain\LandingPage\Model\CompetitionLimits;
 use Bcoem\Domain\LandingPage\Model\CompetitionLocations;
+use Bcoem\Domain\LandingPage\Model\CompetitionRules;
 use Bcoem\Domain\LandingPage\Model\CompetitionWindows;
+use Bcoem\Domain\LandingPage\Model\ContactMode;
 use Bcoem\Domain\LandingPage\Model\ContestOverview;
+use Bcoem\Domain\LandingPage\Model\BestOfShowSummary;
 use Bcoem\Domain\LandingPage\Model\JudgingProgress;
 use Bcoem\Domain\LandingPage\Model\WinnerMethod;
 use Bcoem\Domain\LandingPage\Model\WinnerSummary;
@@ -183,11 +186,14 @@ final class LandingPageRouteTest extends TestCase
             new CompetitionLocations(null, null, null, null, null, null),
         );
         $repository->method('contacts')->willReturn([]);
+        $repository->method('competitionRules')->willReturn(new CompetitionRules('', null));
+        $repository->method('contactMode')->willReturn(ContactMode::Directory);
         $repository->method('sponsors')->willReturn([]);
         $repository->method('visibleArchives')->willReturn([]);
         $repository->method('winnerSummary')->willReturn(
             new WinnerSummary(WinnerMethod::Overall, '', []),
         );
+        $repository->method('bestOfShow')->willReturn(new BestOfShowSummary([]));
 
         return new LandingPageController(
             new LandingPageService($repository, new LandingPageCopyAdapter()),

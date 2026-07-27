@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Bcoem\Domain\LandingPage\Presentation;
 
 use Bcoem\Domain\LandingPage\Model\Archive;
+use Bcoem\Domain\LandingPage\Model\BestOfShowSummary;
 use Bcoem\Domain\LandingPage\Model\CompetitionLimits;
 use Bcoem\Domain\LandingPage\Model\CompetitionLocations;
+use Bcoem\Domain\LandingPage\Model\CompetitionRules;
 use Bcoem\Domain\LandingPage\Model\Contact;
+use Bcoem\Domain\LandingPage\Model\ContactMode;
 use Bcoem\Domain\LandingPage\Model\ContestOverview;
 use Bcoem\Domain\LandingPage\Model\JudgingProgress;
 use Bcoem\Domain\LandingPage\Model\Sponsor;
@@ -43,6 +46,13 @@ final readonly class LandingPageViewModel
         public HeroPresentation $hero,
         public LandingPageLinks $links,
         public LandingPageCopy $copy,
+        public ?CompetitionRules $rules = null,
+        public ?LandingPageDates $dates = null,
+        public ?LandingPageActions $actions = null,
+        public ?LandingPageSections $sections = null,
+        public ContactMode $contactMode = ContactMode::Directory,
+        public ?BestOfShowSummary $bestOfShow = null,
+        public string $locale = 'en-US',
     ) {
         self::assertListOf($alerts, Alert::class, 'alerts');
         self::assertListOf($contacts, Contact::class, 'contacts');

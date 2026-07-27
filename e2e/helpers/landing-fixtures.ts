@@ -1,5 +1,9 @@
 import mysql, { Connection, RowDataPacket } from 'mysql2/promise';
 
+export const DESTRUCTIVE_FIXTURE_OPT_IN =
+  'I_UNDERSTAND_THIS_WILL_RESET_A_DISPOSABLE_DATABASE';
+const DISPOSABLE_DATABASE_MARKER = 'BCOEM_E2E_DISPOSABLE_V1';
+
 export const LANDING_FIXTURE = {
   opensAt: 1_685_664_000,
   closesAt: 1_893_456_000,
@@ -26,7 +30,54 @@ const db = () => mysql.createConnection({
   database: process.env.E2E_DB_NAME ?? 'bcoem',
 });
 
+export async function assertDestructiveLandingFixturesAllowed(
+  environment: NodeJS.ProcessEnv,
+  verifyDisposableMarker: () => Promise<boolean>,
+): Promise<void> {
+  if (environment.E2E_ALLOW_DESTRUCTIVE_FIXTURES !== DESTRUCTIVE_FIXTURE_OPT_IN) {
+    throw new Error(
+      `Refusing destructive landing fixtures. Set E2E_ALLOW_DESTRUCTIVE_FIXTURES=${DESTRUCTIVE_FIXTURE_OPT_IN} only for a proven disposable database.`,
+    );
+  }
+
+  if (!await verifyDisposableMarker()) {
+    throw new Error(
+      'Refusing destructive landing fixtures: the target lacks the disposable database marker.',
+    );
+  }
+}
+
+let destructiveFixtureGuard: Promise<void> | undefined;
+
+async function verifyDisposableDatabaseMarker(): Promise<boolean> {
+  const connection = await db();
+  try {
+    const [rows] = await connection.execute<RowDataPacket[]>(
+      `SELECT marker
+       FROM bcoem_e2e_disposable_database
+       WHERE id = ? AND marker = ?`,
+      [1, DISPOSABLE_DATABASE_MARKER],
+    );
+
+    return rows.length === 1;
+  } catch {
+    return false;
+  } finally {
+    await connection.end();
+  }
+}
+
+async function requireDisposableDatabase(): Promise<void> {
+  destructiveFixtureGuard ??= assertDestructiveLandingFixturesAllowed(
+    process.env,
+    verifyDisposableDatabaseMarker,
+  );
+
+  return destructiveFixtureGuard;
+}
+
 async function withDb(operation: (connection: Connection) => Promise<void>): Promise<void> {
+  await requireDisposableDatabase();
   const connection = await db();
   try {
     await operation(connection);
@@ -154,7 +205,7 @@ export async function setLandingSponsors(enabled: boolean, present: boolean): Pr
           [
             'E2E Accessible Sponsor',
             'https://example.test/sponsor',
-            '/images/misc-cropped-bottles_3000x500.jpg',
+            'sample_logo.png',
             'Supports the competition.',
             'Chicago, IL',
             1,
