@@ -36,6 +36,9 @@ final class LandingPageController
             locale: $this->supportedLocale($session['prefsLanguage'] ?? null),
             viewerName: $this->viewerName($session['brewerFirstName'] ?? null),
             beverageStyleTypes: $this->styleTypesFromPreference($stylePreference),
+            timezone: $this->timezone($session['prefsTimeZone'] ?? null),
+            dateFormat: $this->dateFormat($session['prefsDateFormat'] ?? null),
+            timeFormat: $this->timeFormat($session['prefsTimeFormat'] ?? null),
         );
         $view = $this->service->viewFor($identity, $context, $now);
         $html = $this->layout->landing(
@@ -62,6 +65,75 @@ final class LandingPageController
         $name = trim((string) $preference);
 
         return $name === '' ? null : $name;
+    }
+
+    private function timezone(mixed $preference): string
+    {
+        if (is_string($preference) && in_array($preference, \DateTimeZone::listIdentifiers(), true)) {
+            return $preference;
+        }
+        if (!is_scalar($preference)) {
+            return 'UTC';
+        }
+
+        $offsets = [
+            '-12.000' => 'Pacific/Kwajalein',
+            '-11.000' => 'Pacific/Midway',
+            '-10.000' => 'Pacific/Honolulu',
+            '-9.500' => 'Pacific/Marquesas',
+            '-9.000' => 'America/Anchorage',
+            '-8.000' => 'America/Los_Angeles',
+            '-7.000' => 'America/Denver',
+            '-7.001' => 'America/Phoenix',
+            '-6.000' => 'America/Chicago',
+            '-6.001' => 'America/Hermosillo',
+            '-6.002' => 'America/Regina',
+            '-5.000' => 'America/New_York',
+            '-4.000' => 'America/Virgin',
+            '-4.001' => 'America/Asuncion',
+            '-3.500' => 'America/St_Johns',
+            '-3.000' => 'America/Argentina/Buenos_Aires',
+            '-3.001' => 'America/Sao_Paulo',
+            '-2.000' => 'Atlantic/South_Georgia',
+            '-1.000' => 'Atlantic/Azores',
+            '0.000' => 'Europe/London',
+            '1.000' => 'Europe/Paris',
+            '2.000' => 'Europe/Helsinki',
+            '3.000' => 'Europe/Moscow',
+            '3.500' => 'Asia/Tehran',
+            '4.000' => 'Asia/Baku',
+            '4.500' => 'Asia/Kabul',
+            '5.000' => 'Asia/Karachi',
+            '5.500' => 'Asia/Calcutta',
+            '5.750' => 'Asia/Kathmandu',
+            '6.000' => 'Asia/Colombo',
+            '7.000' => 'Asia/Bangkok',
+            '8.000' => 'Asia/Singapore',
+            '8.001' => 'Australia/Perth',
+            '9.000' => 'Asia/Tokyo',
+            '9.500' => 'Australia/Darwin',
+            '10.000' => 'Pacific/Guam',
+            '10.001' => 'Australia/Brisbane',
+            '10.002' => 'Australia/Melbourne',
+            '11.000' => 'Asia/Magadan',
+            '12.000' => 'Asia/Kamchatka',
+            '13.000' => 'Pacific/Tongatapu',
+        ];
+        $normalized = number_format((float) $preference, 3, '.', '');
+
+        return $offsets[$normalized] ?? 'UTC';
+    }
+
+    private function dateFormat(mixed $preference): int
+    {
+        $format = is_scalar($preference) ? (int) $preference : 1;
+
+        return in_array($format, [1, 2], true) ? $format : 3;
+    }
+
+    private function timeFormat(mixed $preference): int
+    {
+        return is_scalar($preference) && (int) $preference === 1 ? 1 : 0;
     }
 
     /**

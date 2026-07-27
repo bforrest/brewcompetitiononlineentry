@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Bcoem\Domain\LandingPage\Repository;
 
 use Bcoem\Domain\LandingPage\Model\Archive;
+use Bcoem\Domain\LandingPage\Model\BestOfShowSummary;
 use Bcoem\Domain\LandingPage\Model\CompetitionLimits;
 use Bcoem\Domain\LandingPage\Model\CompetitionLocations;
+use Bcoem\Domain\LandingPage\Model\CompetitionRules;
 use Bcoem\Domain\LandingPage\Model\CompetitionWindows;
 use Bcoem\Domain\LandingPage\Model\Contact;
+use Bcoem\Domain\LandingPage\Model\ContactMode;
 use Bcoem\Domain\LandingPage\Model\ContestOverview;
 use Bcoem\Domain\LandingPage\Model\JudgingProgress;
 use Bcoem\Domain\LandingPage\Model\Sponsor;
@@ -26,6 +29,10 @@ interface LandingPageReadRepository
 
     public function locations(): CompetitionLocations;
 
+    public function competitionRules(): CompetitionRules;
+
+    public function contactMode(): ContactMode;
+
     /** @return list<Contact> */
     public function contacts(): array;
 
@@ -36,4 +43,6 @@ interface LandingPageReadRepository
     public function visibleArchives(): array;
 
     public function winnerSummary(): WinnerSummary;
+
+    public function bestOfShow(): BestOfShowSummary;
 }

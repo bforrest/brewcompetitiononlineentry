@@ -85,22 +85,24 @@ final class LayoutRenderer
         $hostLogo = $view->contest->logoPath === null
             ? ''
             : '<img class="img-fluid mb-3" src="' . e($view->contest->logoPath) . '" alt="' . $hostName . ' logo">';
+        $locale = e($view->locale);
+        $hostedBy = e($view->copy->hostedBy);
 
         return <<<HTML
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{$locale}">
 {$head}
 <body>
 <header id="home" class="site-header">
 {$nav}
 <div id="sticky-home" class="contains-link d-print-none"><a href="#home" aria-label="Return to top"><i class="fas fa-arrow-circle-up fa-2x" aria-hidden="true"></i></a></div>
-<section class="landing-hero text-light bg-dark pt-5 pb-4" aria-labelledby="landing-title">
+<section id="hero" class="landing-hero text-light bg-dark pt-5 pb-4" aria-labelledby="landing-title" style="background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.75)), url('{$heroImageUrl}')">
     <div class="container-xxl pt-4">
         {$hostLogo}
-        <img class="img-fluid mb-3" src="{$heroImageUrl}" alt="" role="presentation">
+        <img class="visually-hidden" src="{$heroImageUrl}" alt="" role="presentation">
         <h1 id="landing-title" class="fw-bold animate__animated animate__fadeInDown">{$heroHeading}</h1>
         <p class="lead mb-0">{$heroSubheading}</p>
-        <p class="mb-0">Hosted by {$hostPresentation}{$hostLocation}</p>
+        <p class="mb-0">{$hostedBy} {$hostPresentation}{$hostLocation}</p>
     </div>
 </section>
 </header>

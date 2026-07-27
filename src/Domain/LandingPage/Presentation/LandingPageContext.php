@@ -11,6 +11,9 @@ final readonly class LandingPageContext
         public string $locale,
         public ?string $viewerName,
         public array $beverageStyleTypes,
+        public string $timezone = 'UTC',
+        public int $dateFormat = 1,
+        public int $timeFormat = 0,
     ) {
         if (!in_array($locale, ['en-US', 'en-GB', 'es-419'], true)) {
             throw new \InvalidArgumentException('Unsupported landing-page locale.');
@@ -22,6 +25,17 @@ final readonly class LandingPageContext
             if (!is_int($type) || $type < 0 || $type > 3) {
                 throw new \InvalidArgumentException('Invalid beverage style type.');
             }
+        }
+        try {
+            new \DateTimeZone($timezone);
+        } catch (\Exception) {
+            throw new \InvalidArgumentException('Unsupported landing-page timezone.');
+        }
+        if (!in_array($dateFormat, [1, 2, 3], true)) {
+            throw new \InvalidArgumentException('Unsupported landing-page date format.');
+        }
+        if (!in_array($timeFormat, [0, 1], true)) {
+            throw new \InvalidArgumentException('Unsupported landing-page time format.');
         }
     }
 }

@@ -208,7 +208,7 @@ final class LandingPageModelTest extends TestCase
             winnerResultsVisible: false,
             locations: new CompetitionLocations('Ship To', '123 Shipping St', 'Awards', 'Awards Hall', '456 Awards Ave', 2000),
             alerts: [new Alert(AlertLevel::Info, 'Message')],
-            contacts: [new Contact('Ada', 'Brewer', 'Organizer', 'ada@example.test')],
+            contacts: [new Contact(7, 'Ada', 'Brewer', 'Organizer', '/contact/token')],
             sponsors: [new Sponsor('Sponsor', null, null, null, null, 1)],
             archives: [new Archive('2025', 0, 'BJCP2021')],
             winners: new WinnerSummary(

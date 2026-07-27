@@ -6,20 +6,27 @@ namespace Bcoem\Domain\LandingPage\Repository;
 
 use Bcoem\Database\Connection;
 use Bcoem\Domain\LandingPage\Model\Archive;
+use Bcoem\Domain\LandingPage\Model\BestOfShowSummary;
+use Bcoem\Domain\LandingPage\Model\BestOfShowWinner;
 use Bcoem\Domain\LandingPage\Model\CompetitionLimits;
 use Bcoem\Domain\LandingPage\Model\CompetitionLocations;
+use Bcoem\Domain\LandingPage\Model\CompetitionRules;
 use Bcoem\Domain\LandingPage\Model\CompetitionWindows;
 use Bcoem\Domain\LandingPage\Model\Contact;
+use Bcoem\Domain\LandingPage\Model\ContactMode;
 use Bcoem\Domain\LandingPage\Model\ContestOverview;
+use Bcoem\Domain\LandingPage\Model\DropoffLocation;
 use Bcoem\Domain\LandingPage\Model\JudgingProgress;
 use Bcoem\Domain\LandingPage\Model\Sponsor;
 use Bcoem\Domain\LandingPage\Model\WinnerMethod;
 use Bcoem\Domain\LandingPage\Model\WinnerRow;
 use Bcoem\Domain\LandingPage\Model\WinnerSummary;
+use Bcoem\Domain\LandingPage\Validation\SafeUrl;
 
 final class LandingPageRepository implements LandingPageReadRepository
 {
     private string $tablePrefix;
+    private ?WinnerSummary $winnerSummaryCache = null;
 
     public function __construct(
         private Connection $connection,
@@ -45,9 +52,9 @@ final class LandingPageRepository implements LandingPageReadRepository
         return new ContestOverview(
             trim((string) $row['contestName']),
             trim((string) $row['contestHost']),
-            $this->nullableString($row['contestHostWebsite']),
+            $this->optionalUrl($row['contestHostWebsite']),
             $this->nullableString($row['contestHostLocation']),
-            $this->nullableString($row['contestLogo']),
+            $this->uploadedImageUrl($row['contestLogo']),
         );
     }
 
@@ -118,11 +125,15 @@ final class LandingPageRepository implements LandingPageReadRepository
         );
 
         $timestamps = [];
+        $futureJudgingStarts = 0;
         foreach ($rows as $row) {
             $startsAt = $this->nullableInt($row['judgingDate']);
             $endsAt = $this->nullableInt($row['judgingDateEnd']);
             if ($startsAt !== null) {
                 $timestamps[] = $startsAt;
+                if ($startsAt >= $now) {
+                    ++$futureJudgingStarts;
+                }
             }
             if ($endsAt !== null) {
                 $timestamps[] = $endsAt;
@@ -130,13 +141,14 @@ final class LandingPageRepository implements LandingPageReadRepository
         }
 
         $started = $timestamps !== [] && $now > min($timestamps);
-        $ended = $timestamps !== [] && $now > max($timestamps) + 86400;
+        $ended = $timestamps !== [] && $now > max($timestamps);
 
         return new JudgingProgress(
             $started,
             $ended,
             ($preferences['prefsDisplayWinners'] ?? null) === 'Y',
             (int) ($preferences['prefsWinnerDelay'] ?? 0),
+            $rows !== [] && $futureJudgingStarts === 0,
         );
     }
 
@@ -144,9 +156,30 @@ final class LandingPageRepository implements LandingPageReadRepository
     {
         $row = $this->connection->selectOne(
             'SELECT contestShippingName, contestShippingAddress, contestAwards, '
-            . 'contestAwardsLocName, contestAwardsLocation, contestAwardsLocTime '
-            . 'FROM ' . $this->tablePrefix . 'contest_info WHERE id = ?',
-            [1],
+            . 'contestAwardsLocName, contestAwardsLocation, contestAwardsLocTime, '
+            . 'preferences.prefsShipping '
+            . 'FROM ' . $this->tablePrefix . 'contest_info contest '
+            . 'INNER JOIN ' . $this->tablePrefix . 'preferences preferences ON preferences.id = ? '
+            . 'WHERE contest.id = ?',
+            [1, 1],
+        );
+        $dropoffRows = $this->connection->select(
+            'SELECT dropLocationName, dropLocation, dropLocationPhone, '
+            . 'dropLocationWebsite, dropLocationNotes '
+            . 'FROM ' . $this->tablePrefix . 'drop_off '
+            . 'WHERE dropLocationName IS NOT NULL AND dropLocationName <> ? '
+            . 'ORDER BY dropLocationName, id',
+            [''],
+        );
+        $dropoffs = array_map(
+            fn (array $dropoff): DropoffLocation => new DropoffLocation(
+                trim((string) $dropoff['dropLocationName']),
+                trim((string) $dropoff['dropLocation']),
+                $this->nullableString($dropoff['dropLocationPhone']),
+                $this->optionalUrl($dropoff['dropLocationWebsite']),
+                $this->nullableString($dropoff['dropLocationNotes']),
+            ),
+            $dropoffRows,
         );
 
         return new CompetitionLocations(
@@ -156,23 +189,79 @@ final class LandingPageRepository implements LandingPageReadRepository
             $this->nullableString($row['contestAwardsLocName'] ?? null),
             $this->nullableString($row['contestAwardsLocation'] ?? null),
             $this->nullableInt($row['contestAwardsLocTime'] ?? null),
+            ($row['prefsShipping'] ?? null) === 'Y',
+            $dropoffs,
         );
+    }
+
+    public function competitionRules(): CompetitionRules
+    {
+        $row = $this->connection->selectOne(
+            'SELECT contestRules, contestBottles FROM '
+            . $this->tablePrefix . 'contest_info WHERE id = ?',
+            [1],
+        );
+        $encodedRules = $this->nullableString($row['contestRules'] ?? null);
+        $rules = '';
+        if ($encodedRules !== null) {
+            $decoded = json_decode($encodedRules, true);
+            if (is_array($decoded) && is_string($decoded['competition_rules'] ?? null)) {
+                $rules = $this->plainText((string) $decoded['competition_rules']);
+            } elseif (!is_array($decoded)) {
+                $rules = $this->plainText($encodedRules);
+            }
+        }
+
+        return new CompetitionRules(
+            $rules,
+            $this->plainTextOrNull($row['contestBottles'] ?? null),
+        );
+    }
+
+    public function contactMode(): ContactMode
+    {
+        $row = $this->connection->selectOne(
+            'SELECT prefsContact, prefsEmailSMTP, prefsEmailUsername, prefsEmailPassword, '
+            . 'prefsEmailHost, prefsEmailPort FROM '
+            . $this->tablePrefix . 'preferences WHERE id = ?',
+            [1],
+        );
+        $preference = strtoupper(trim((string) ($row['prefsContact'] ?? 'N')));
+        if ($preference === 'X') {
+            return ContactMode::Hidden;
+        }
+        if ($preference !== 'Y') {
+            return ContactMode::Directory;
+        }
+
+        $smtpEnabled = in_array(
+            strtoupper(trim((string) ($row['prefsEmailSMTP'] ?? ''))),
+            ['1', 'Y', 'TRUE'],
+            true,
+        );
+        $smtpConfigured = $smtpEnabled
+            && $this->nullableString($row['prefsEmailUsername'] ?? null) !== null
+            && $this->nullableString($row['prefsEmailPassword'] ?? null) !== null
+            && $this->nullableString($row['prefsEmailHost'] ?? null) !== null
+            && ($this->nullableInt($row['prefsEmailPort'] ?? null) ?? 0) > 0;
+
+        return $smtpConfigured ? ContactMode::Form : ContactMode::Directory;
     }
 
     /** @return list<Contact> */
     public function contacts(): array
     {
         $rows = $this->connection->select(
-            'SELECT contactFirstName, contactLastName, contactPosition, contactEmail '
+            'SELECT id, contactFirstName, contactLastName, contactPosition '
             . 'FROM ' . $this->tablePrefix . 'contacts ORDER BY id',
         );
 
         return array_map(
             static fn (array $row): Contact => new Contact(
+                (int) $row['id'],
                 trim((string) $row['contactFirstName']),
                 trim((string) $row['contactLastName']),
                 trim((string) $row['contactPosition']),
-                trim((string) $row['contactEmail']),
             ),
             $rows,
         );
@@ -182,7 +271,8 @@ final class LandingPageRepository implements LandingPageReadRepository
     public function sponsors(): array
     {
         $preferences = $this->connection->selectOne(
-            'SELECT prefsSponsors FROM ' . $this->tablePrefix . 'preferences WHERE id = ?',
+            'SELECT prefsSponsors, prefsSponsorLogos FROM '
+            . $this->tablePrefix . 'preferences WHERE id = ?',
             [1],
         );
         if (($preferences['prefsSponsors'] ?? null) !== 'Y') {
@@ -199,8 +289,10 @@ final class LandingPageRepository implements LandingPageReadRepository
         return array_map(
             fn (array $row): Sponsor => new Sponsor(
                 trim((string) $row['sponsorName']),
-                $this->nullableString($row['sponsorURL']),
-                $this->nullableString($row['sponsorImage']),
+                $this->optionalUrl($row['sponsorURL']),
+                ($preferences['prefsSponsorLogos'] ?? null) === 'Y'
+                    ? $this->uploadedImageUrl($row['sponsorImage'])
+                    : null,
                 $this->nullableString($row['sponsorText']),
                 $this->nullableString($row['sponsorLocation']),
                 (int) $row['sponsorLevel'],
@@ -219,31 +311,60 @@ final class LandingPageRepository implements LandingPageReadRepository
             ['Y'],
         );
 
-        return array_map(
-            static fn (array $row): Archive => new Archive(
-                trim((string) $row['archiveSuffix']),
+        $archives = [];
+        foreach ($rows as $row) {
+            $suffix = trim((string) $row['archiveSuffix']);
+            $styleSet = trim((string) $row['archiveStyleSet']);
+            if ($styleSet === '' || preg_match('/^[A-Za-z0-9_-]+$/D', $suffix) !== 1) {
+                continue;
+            }
+
+            $scoreTable = $this->tablePrefix . 'judging_scores_' . $suffix;
+            $exists = $this->connection->selectOne(
+                'SELECT COUNT(*) AS tableCount FROM information_schema.tables '
+                . 'WHERE table_schema = DATABASE() AND table_name = ?',
+                [$scoreTable],
+            );
+            if ((int) ($exists['tableCount'] ?? 0) < 1) {
+                continue;
+            }
+            $scoreCount = $this->connection->selectOne(
+                'SELECT COUNT(*) AS winnerCount FROM ' . $scoreTable
+                . ' WHERE scorePlace IN (?, ?, ?, ?, ?)',
+                ['1', '2', '3', '4', '5'],
+            );
+            if ((int) ($scoreCount['winnerCount'] ?? 0) < 1) {
+                continue;
+            }
+
+            $archives[] = new Archive(
+                $suffix,
                 (int) $row['archiveWinnerMethod'],
-                trim((string) $row['archiveStyleSet']),
-            ),
-            $rows,
-        );
+                $styleSet,
+            );
+        }
+
+        return $archives;
     }
 
     public function winnerSummary(): WinnerSummary
     {
+        if ($this->winnerSummaryCache !== null) {
+            return $this->winnerSummaryCache;
+        }
         $preferences = $this->connection->selectOne(
             'SELECT prefsWinnerMethod, prefsStyleSet '
             . 'FROM ' . $this->tablePrefix . 'preferences WHERE id = ?',
             [1],
         );
         if ($preferences === null) {
-            return new WinnerSummary(WinnerMethod::Overall, '', []);
+            return $this->winnerSummaryCache = new WinnerSummary(WinnerMethod::Overall, '', []);
         }
 
         $styleSet = trim((string) $preferences['prefsStyleSet']);
         $method = WinnerMethod::tryFrom((int) $preferences['prefsWinnerMethod']);
         if ($method === null) {
-            return new WinnerSummary(WinnerMethod::Overall, $styleSet, []);
+            return $this->winnerSummaryCache = new WinnerSummary(WinnerMethod::Overall, $styleSet, []);
         }
 
         if ($method === WinnerMethod::Overall) {
@@ -254,7 +375,61 @@ final class LandingPageRepository implements LandingPageReadRepository
             $rows = $this->subcategoryWinnerRows($styleSet);
         }
 
-        return new WinnerSummary($method, $styleSet, $this->mapWinnerRows($rows, $styleSet, $method));
+        return $this->winnerSummaryCache = new WinnerSummary(
+            $method,
+            $styleSet,
+            $this->mapWinnerRows($rows, $styleSet, $method),
+        );
+    }
+
+    public function bestOfShow(): BestOfShowSummary
+    {
+        $styleTypes = $this->connection->select(
+            'SELECT id, styleTypeName FROM ' . $this->tablePrefix . 'style_types '
+            . 'WHERE styleTypeBOS = ? ORDER BY id',
+            ['Y'],
+        );
+        $scoreRows = $this->connection->select(
+            'SELECT score.scoreType, score.scorePlace, '
+            . 'brewer.brewerFirstName, brewer.brewerLastName, brewer.brewerClubs, '
+            . 'entry.brewCoBrewer, entry.brewName, entry.brewStyle, '
+            . 'entry.brewCategory, entry.brewSubCategory '
+            . 'FROM ' . $this->tablePrefix . 'judging_scores_bos score '
+            . 'INNER JOIN ' . $this->tablePrefix . 'brewing entry ON entry.id = score.eid '
+            . 'INNER JOIN ' . $this->tablePrefix . 'brewer brewer ON brewer.uid = entry.brewBrewerID '
+            . 'WHERE score.scorePlace IS NOT NULL ORDER BY score.scoreType, score.scorePlace',
+        );
+        $preferences = $this->connection->selectOne(
+            'SELECT prefsStyleSet FROM ' . $this->tablePrefix . 'preferences WHERE id = ?',
+            [1],
+        );
+        $styleSet = trim((string) ($preferences['prefsStyleSet'] ?? ''));
+        $winners = [];
+        foreach ($styleTypes as $styleType) {
+            $typeId = (int) $styleType['id'];
+            foreach ($scoreRows as $row) {
+                $scoreType = (int) $row['scoreType'];
+                if ($scoreType !== $typeId
+                    && !($typeId === 4 && in_array($scoreType, [2, 3, 4], true))) {
+                    continue;
+                }
+                $place = (int) $row['scorePlace'];
+                if ($place < 1) {
+                    continue;
+                }
+                $winners[] = new BestOfShowWinner(
+                    trim((string) $styleType['styleTypeName']),
+                    $place,
+                    trim((string) $row['brewerFirstName'] . ' ' . (string) $row['brewerLastName']),
+                    $this->nullableString($row['brewCoBrewer']),
+                    trim((string) $row['brewName']),
+                    $this->winnerStyle($row, $styleSet, WinnerMethod::Overall),
+                    $this->nullableString($row['brewerClubs']),
+                );
+            }
+        }
+
+        return new BestOfShowSummary($winners);
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -294,26 +469,29 @@ final class LandingPageRepository implements LandingPageReadRepository
             }
         }
 
+        $entryCounts = [];
+        foreach ($this->winnerEntryCountRows() as $entry) {
+            if ((int) $entry['brewReceived'] !== 1) {
+                continue;
+            }
+            $group = $styleSet === 'BA'
+                ? trim((string) $entry['brewCategory'])
+                : trim((string) $entry['brewCategorySort']);
+            $entryCounts[$group] = ($entryCounts[$group] ?? 0) + 1;
+        }
+
         $rows = [];
-        foreach ($groups as $group => $groupName) {
-            $groupRows = $this->connection->select(
-                'SELECT ? AS groupName, NULL AS styleCategory, '
-                . '(SELECT COUNT(*) FROM '
-                . $this->tablePrefix . 'brewing countedEntry '
-                . 'WHERE (CASE WHEN ? = ? THEN countedEntry.brewCategory '
-                . 'ELSE countedEntry.brewCategorySort END) = ? '
-                . 'AND countedEntry.brewReceived = ?) AS entryCount, '
-                . $this->winnerColumns()
-                . ' FROM ' . $this->tablePrefix . 'judging_scores score '
-                . 'INNER JOIN ' . $this->tablePrefix . 'brewing entry ON entry.id = score.eid '
-                . 'INNER JOIN ' . $this->tablePrefix . 'brewer brewer '
-                . 'ON brewer.uid = entry.brewBrewerID '
-                . 'WHERE (CASE WHEN ? = ? THEN entry.brewCategory '
-                . 'ELSE entry.brewCategorySort END) = ? '
-                . 'AND score.scorePlace > ? ORDER BY score.scorePlace',
-                [$groupName, $styleSet, 'BA', $group, 1, $styleSet, 'BA', $group, 0],
-            );
-            array_push($rows, ...$groupRows);
+        foreach ($this->groupedWinnerSourceRows() as $row) {
+            $group = $styleSet === 'BA'
+                ? trim((string) $row['brewCategory'])
+                : trim((string) $row['brewCategorySort']);
+            if (!isset($groups[$group])) {
+                continue;
+            }
+            $row['groupName'] = $groups[$group];
+            $row['styleCategory'] = null;
+            $row['entryCount'] = $entryCounts[$group] ?? 0;
+            $rows[] = $row;
         }
 
         return $rows;
@@ -328,46 +506,67 @@ final class LandingPageRepository implements LandingPageReadRepository
             $activeStyles[$key] ??= $style;
         }
 
-        $rows = [];
-        foreach ($activeStyles as $style) {
-            $group = trim((string) $style['brewStyleGroup']);
-            $subcategory = trim((string) $style['brewStyleNum']);
-            $styleName = trim((string) $style['brewStyle']);
-            $groupName = $this->subcategoryGroupName($group, $subcategory, $styleName, $styleSet);
-            $styleCategory = $this->nullableString($style['brewStyleCategory']);
+        $entryCounts = [];
+        foreach ($this->winnerEntryCountRows() as $entry) {
+            if ($styleSet === 'BA' && (int) $entry['brewReceived'] !== 1) {
+                continue;
+            }
+            $group = $styleSet === 'BA'
+                ? trim((string) $entry['brewCategory'])
+                : trim((string) $entry['brewCategorySort']);
+            $key = $group . '^' . trim((string) $entry['brewSubCategory']);
+            $entryCounts[$key] = ($entryCounts[$key] ?? 0) + 1;
+        }
 
-            $styleRows = $this->connection->select(
-                'SELECT ? AS groupName, ? AS styleCategory, '
-                . '(SELECT COUNT(*) FROM '
-                . $this->tablePrefix . 'brewing countedEntry '
-                . 'WHERE (CASE WHEN ? = ? THEN countedEntry.brewCategory '
-                . 'ELSE countedEntry.brewCategorySort END) = ? '
-                . 'AND countedEntry.brewSubCategory = ? '
-                . 'AND (? <> ? OR countedEntry.brewReceived = ?)) AS entryCount, '
-                . $this->winnerColumns()
-                . ' FROM ' . $this->tablePrefix . 'judging_scores score '
-                . 'INNER JOIN ' . $this->tablePrefix . 'brewing entry ON entry.id = score.eid '
-                . 'INNER JOIN ' . $this->tablePrefix . 'brewer brewer '
-                . 'ON brewer.uid = entry.brewBrewerID '
-                . 'WHERE (CASE WHEN ? = ? THEN entry.brewCategory '
-                . 'ELSE entry.brewCategorySort END) = ? '
-                . 'AND entry.brewSubCategory = ? AND score.scorePlace > ? '
-                . 'ORDER BY score.scorePlace',
-                [
-                    $groupName,
-                    $styleCategory,
-                    $styleSet, 'BA', $group,
-                    $subcategory,
-                    $styleSet, 'BA', 1,
-                    $styleSet, 'BA', $group,
-                    $subcategory,
-                    0,
-                ],
+        $rows = [];
+        foreach ($this->groupedWinnerSourceRows() as $row) {
+            $group = $styleSet === 'BA'
+                ? trim((string) $row['brewCategory'])
+                : trim((string) $row['brewCategorySort']);
+            $subcategory = trim((string) $row['brewSubCategory']);
+            $key = $group . '^' . $subcategory;
+            if (!isset($activeStyles[$key])) {
+                continue;
+            }
+            $style = $activeStyles[$key];
+            $styleName = trim((string) $style['brewStyle']);
+            $row['groupName'] = $this->subcategoryGroupName(
+                $group,
+                $subcategory,
+                $styleName,
+                $styleSet,
             );
-            array_push($rows, ...$styleRows);
+            $row['styleCategory'] = $this->nullableString($style['brewStyleCategory']);
+            $row['entryCount'] = $entryCounts[$key] ?? 0;
+            $rows[] = $row;
         }
 
         return $rows;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function groupedWinnerSourceRows(): array
+    {
+        return $this->connection->select(
+            'SELECT entry.brewCategorySort, ' . $this->winnerColumns()
+            . ' FROM ' . $this->tablePrefix . 'judging_scores score '
+            . 'INNER JOIN ' . $this->tablePrefix . 'brewing entry ON entry.id = score.eid '
+            . 'INNER JOIN ' . $this->tablePrefix . 'brewer brewer '
+            . 'ON brewer.uid = entry.brewBrewerID '
+            . 'WHERE score.scorePlace > ? '
+            . 'ORDER BY entry.brewCategorySort, entry.brewCategory, '
+            . 'entry.brewSubCategory, score.scorePlace',
+            [0],
+        );
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function winnerEntryCountRows(): array
+    {
+        return $this->connection->select(
+            'SELECT brewCategory, brewCategorySort, brewSubCategory, brewReceived '
+            . 'FROM ' . $this->tablePrefix . 'brewing',
+        );
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -468,6 +667,53 @@ final class LandingPageRepository implements LandingPageReadRepository
         }
 
         return $group . $subcategory . ': ' . $styleName;
+    }
+
+    private function uploadedImageUrl(mixed $value): ?string
+    {
+        $filename = $this->nullableString($value);
+        if ($filename === null
+            || $filename !== basename($filename)
+            || $filename === '.'
+            || $filename === '..'
+            || str_starts_with($filename, '.')
+            || str_contains($filename, '\\')
+            || preg_match('/[\x00-\x1F\x7F]/', $filename) === 1) {
+            return null;
+        }
+
+        return '/user_images/' . rawurlencode($filename);
+    }
+
+    private function optionalUrl(mixed $value): ?string
+    {
+        $url = $this->nullableString($value);
+        try {
+            SafeUrl::assert($url);
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
+
+        return $url;
+    }
+
+    private function plainTextOrNull(mixed $value): ?string
+    {
+        $text = $this->nullableString($value);
+
+        return $text === null ? null : $this->plainText($text);
+    }
+
+    private function plainText(string $value): string
+    {
+        $withBreaks = preg_replace(
+            '/<(?:br\s*\/?|\/p|\/li|\/div|\/h[1-6])>/i',
+            "\n",
+            $value,
+        ) ?? $value;
+        $plain = html_entity_decode(strip_tags($withBreaks), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim((string) preg_replace('/[ \t]*\n[ \t]*/', "\n", $plain));
     }
 
     private function nullableString(mixed $value): ?string

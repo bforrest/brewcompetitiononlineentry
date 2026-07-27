@@ -88,7 +88,9 @@ test.describe.serial('modern landing page WCAG 2.1 AA', () => {
     await expect(navigation).toHaveAccessibleName(await page.locator('#landing-title').innerText());
     await expect(page.getByRole('main')).toHaveCount(1);
     await expect(page.getByRole('contentinfo')).toHaveCount(1);
-    await page.getByRole('link', { name: 'Log In', exact: true }).click();
+    await page.getByRole('navigation').first()
+      .getByRole('link', { name: 'Log In', exact: true })
+      .click();
     await expect(page.getByLabel('Email Address', { exact: true })).toHaveAttribute('required', '');
     await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('required', '');
     await expect(page.getByRole('button', { name: 'Log In', exact: true })).toHaveCount(1);
@@ -123,7 +125,8 @@ test.describe.serial('modern landing page WCAG 2.1 AA', () => {
     await setLandingArchives(true);
     await page.goto('/');
 
-    const loginTrigger = page.getByRole('link', { name: 'Log In', exact: true });
+    const loginTrigger = page.getByRole('navigation').first()
+      .getByRole('link', { name: 'Log In', exact: true });
     await loginTrigger.focus();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('dialog', { name: 'Log In' })).toBeVisible();

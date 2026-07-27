@@ -6,13 +6,17 @@ namespace BCOEM\Tests\Unit\Kernel\Controller;
 
 use Bcoem\Domain\LandingPage\Model\CompetitionLimits;
 use Bcoem\Domain\LandingPage\Model\CompetitionLocations;
+use Bcoem\Domain\LandingPage\Model\CompetitionRules;
 use Bcoem\Domain\LandingPage\Model\CompetitionWindows;
+use Bcoem\Domain\LandingPage\Model\ContactMode;
 use Bcoem\Domain\LandingPage\Model\ContestOverview;
+use Bcoem\Domain\LandingPage\Model\BestOfShowSummary;
 use Bcoem\Domain\LandingPage\Model\JudgingProgress;
 use Bcoem\Domain\LandingPage\Model\WinnerMethod;
 use Bcoem\Domain\LandingPage\Model\WinnerSummary;
 use Bcoem\Domain\LandingPage\Repository\LandingPageReadRepository;
 use Bcoem\Domain\LandingPage\Service\LandingPageCopyAdapter;
+use Bcoem\Domain\LandingPage\Service\HeroImageSelector;
 use Bcoem\Domain\LandingPage\Service\LandingPageService;
 use Bcoem\Kernel\Controller\LandingPageController;
 use Bcoem\Kernel\View\LayoutRenderer;
@@ -127,6 +131,29 @@ final class LandingPageControllerTest extends TestCase
             'src="/images/beer-barley-malt_3000x500.jpg"',
             (string) $response->getBody(),
         );
+    }
+
+    public function test_locale_timezone_and_date_preferences_flow_into_the_typed_view(): void
+    {
+        $_SESSION = [
+            'prefsLanguage' => 'es-419',
+            'prefsTimeZone' => 'America/Chicago',
+            'prefsDateFormat' => '2',
+            'prefsTimeFormat' => '1',
+        ];
+        $request = (new ServerRequestFactory())
+            ->createServerRequest('GET', '/')
+            ->withAttribute('identity', Identity::fromSession([]));
+
+        $response = $this->controller()->show(
+            $request,
+            (new ResponseFactory())->createResponse(),
+        );
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('<html lang="es-419">', $html);
+        self::assertStringContainsString('De un vistazo', $html);
+        self::assertMatchesRegularExpression('/\\d{2}\\/\\d{2}\\/\\d{4} \\d{2}:\\d{2}, C(?:ST|DT)/', $html);
     }
 
     public function test_fallback_style_type_is_ignored_when_valid_style_is_selected(): void
@@ -258,14 +285,24 @@ final class LandingPageControllerTest extends TestCase
             new CompetitionLocations(null, null, null, null, null, null),
         );
         $repository->method('contacts')->willReturn([]);
+        $repository->method('competitionRules')->willReturn(new CompetitionRules('', null));
+        $repository->method('contactMode')->willReturn(ContactMode::Directory);
         $repository->method('sponsors')->willReturn([]);
         $repository->method('visibleArchives')->willReturn([]);
         $repository->method('winnerSummary')->willReturn(
             new WinnerSummary(WinnerMethod::Overall, '', []),
         );
+        $repository->method('bestOfShow')->willReturn(new BestOfShowSummary([]));
+
+        $selector = new class implements HeroImageSelector {
+            public function select(array $candidates): string
+            {
+                return $candidates[4] ?? $candidates[0];
+            }
+        };
 
         return new LandingPageController(
-            new LandingPageService($repository, new LandingPageCopyAdapter()),
+            new LandingPageService($repository, new LandingPageCopyAdapter(), $selector),
             new LayoutRenderer(),
         );
     }

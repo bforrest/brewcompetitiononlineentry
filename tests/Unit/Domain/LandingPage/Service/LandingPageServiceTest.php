@@ -7,9 +7,12 @@ namespace BCOEM\Tests\Unit\Domain\LandingPage\Service;
 use Bcoem\Domain\LandingPage\Model\Archive;
 use Bcoem\Domain\LandingPage\Model\CompetitionLimits;
 use Bcoem\Domain\LandingPage\Model\CompetitionLocations;
+use Bcoem\Domain\LandingPage\Model\CompetitionRules;
 use Bcoem\Domain\LandingPage\Model\CompetitionWindows;
 use Bcoem\Domain\LandingPage\Model\Contact;
+use Bcoem\Domain\LandingPage\Model\ContactMode;
 use Bcoem\Domain\LandingPage\Model\ContestOverview;
+use Bcoem\Domain\LandingPage\Model\BestOfShowSummary;
 use Bcoem\Domain\LandingPage\Model\JudgingProgress;
 use Bcoem\Domain\LandingPage\Model\Sponsor;
 use Bcoem\Domain\LandingPage\Model\WinnerMethod;
@@ -19,6 +22,7 @@ use Bcoem\Domain\LandingPage\Presentation\AlertLevel;
 use Bcoem\Domain\LandingPage\Presentation\LandingPageContext;
 use Bcoem\Domain\LandingPage\Repository\LandingPageReadRepository;
 use Bcoem\Domain\LandingPage\Service\LandingPageCopyAdapter;
+use Bcoem\Domain\LandingPage\Service\HeroImageSelector;
 use Bcoem\Domain\LandingPage\Service\LandingPageService;
 use Bcoem\Domain\Shared\ValueObject\WindowStatus;
 use Bcoem\Security\Identity;
@@ -46,13 +50,13 @@ final class LandingPageServiceTest extends TestCase
     public function test_upcoming_registration_builds_upcoming_alert(): void
     {
         $view = $this->service(
-            windows: $this->windows(registrationOpensAt: 2000),
+            windows: $this->windows(registrationOpensAt: 2000, registrationClosesAt: 3000),
         )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 1500);
 
         self::assertSame(WindowStatus::Upcoming, $view->registrationStatus);
         self::assertTrue($this->hasAlert(
             $view->alerts,
-            'Account registration will open January 1, 1970 12:33 AM UTC. '
+            'Account registration will open 01/01/1970 12:33 AM, UTC. '
             . 'Please return then to register your account.',
         ));
     }
@@ -153,7 +157,7 @@ final class LandingPageServiceTest extends TestCase
         ));
     }
 
-    public function test_near_limit_threshold_builds_capacity_warning_only_at_threshold(): void
+    public function test_near_limit_threshold_builds_capacity_warning_only_above_ninety_percent(): void
     {
         $below = $this->service(
             limits: new CompetitionLimits(89, 20, 100, null, 90),
@@ -161,12 +165,13 @@ final class LandingPageServiceTest extends TestCase
         $at = $this->service(
             limits: new CompetitionLimits(90, 20, 100, null, 90),
         )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 1500);
+        $above = $this->service(
+            limits: new CompetitionLimits(91, 20, 100, null, 91),
+        )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 1500);
 
         self::assertFalse($this->hasAlert($below->alerts, '89 of 100'));
-        self::assertTrue($this->hasAlert(
-            $at->alerts,
-            'The entry limit nearly reached! 90 of 100 maximum entries have been added into the system.',
-        ));
+        self::assertFalse($this->hasAlert($at->alerts, '90 of 100'));
+        self::assertTrue($this->hasAlert($above->alerts, '91 of 100'));
     }
 
     public function test_near_limit_alert_is_hidden_when_entry_date_window_is_closed(): void
@@ -231,7 +236,8 @@ final class LandingPageServiceTest extends TestCase
     public function test_winner_delay_does_not_require_judging_to_have_ended(): void
     {
         $view = $this->service(
-            judging: new JudgingProgress(false, false, true, 2000),
+            judging: new JudgingProgress(false, false, true, 2000, true),
+            windows: $this->windows(registrationClosesAt: 1400, entryClosesAt: 1400),
         )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 1500);
 
         self::assertTrue($this->hasAlert(
@@ -266,14 +272,14 @@ final class LandingPageServiceTest extends TestCase
         ));
     }
 
-    public function test_winners_are_visible_at_exact_release_boundary(): void
+    public function test_winners_remain_hidden_at_exact_release_boundary(): void
     {
         $view = $this->service(
             judging: new JudgingProgress(true, true, true, 2000),
         )->viewFor(Identity::fromSession([]), new LandingPageContext('en-US', null, [1]), 2000);
 
-        self::assertCount(1, $view->winners->rows);
-        self::assertFalse($this->hasAlert(
+        self::assertSame([], $view->winners->rows);
+        self::assertTrue($this->hasAlert(
             $view->alerts,
             'Winning entries have not been posted yet. Please check back later.',
         ));
@@ -334,7 +340,7 @@ final class LandingPageServiceTest extends TestCase
             1500,
         );
 
-        self::assertSame('/images/misc-cropped-bottles_3000x500.jpg', $view->hero->imageUrl);
+        self::assertSame('/images/misc-bottles_3000x500.jpg', $view->hero->imageUrl);
         self::assertSame('Fixture Competition', $view->hero->heading);
         self::assertSame('Fixture Host', $view->hero->subheading);
     }
@@ -382,8 +388,10 @@ final class LandingPageServiceTest extends TestCase
             new CompetitionLocations(null, null, null, null, null, null),
         );
         $repository->method('contacts')->willReturn(
-            $contacts ?? [new Contact('Ada', 'Brewer', 'Organizer', 'ada@example.test')],
+            $contacts ?? [new Contact(1, 'Ada', 'Brewer', 'Organizer')],
         );
+        $repository->method('competitionRules')->willReturn(new CompetitionRules('', null));
+        $repository->method('contactMode')->willReturn(ContactMode::Directory);
         $repository->method('sponsors')->willReturn(
             $sponsors ?? [new Sponsor('Fixture Sponsor', null, null, null, null, 1)],
         );
@@ -391,8 +399,16 @@ final class LandingPageServiceTest extends TestCase
             [new Archive('2025', 0, 'BJCP2021')],
         );
         $repository->method('winnerSummary')->willReturn($winners ?? $this->winners());
+        $repository->method('bestOfShow')->willReturn(new BestOfShowSummary([]));
 
-        return new LandingPageService($repository, new LandingPageCopyAdapter());
+        $selector = new class implements HeroImageSelector {
+            public function select(array $candidates): string
+            {
+                return $candidates[array_key_last($candidates)];
+            }
+        };
+
+        return new LandingPageService($repository, new LandingPageCopyAdapter(), $selector);
     }
 
     private function windows(
