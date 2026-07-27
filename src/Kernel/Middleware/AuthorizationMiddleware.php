@@ -63,7 +63,13 @@ final class AuthorizationMiddleware implements MiddlewareInterface
             'output' => $this->policy->requiredRoleForOutputSection(
                 (string)($request->getQueryParams()['section'] ?? '')
             ),
-            'landing.page' => $this->policy->requiredRoleForNamedRoute($routeName),
+            'landing.page' => $request->getQueryParams() === []
+                ? $this->policy->requiredRoleForNamedRoute($routeName)
+                : $this->policy->requiredRoleFor(
+                    (string)($request->getQueryParams()['section'] ?? 'default'),
+                    $request->getQueryParams()['go'] ?? null,
+                    $request->getQueryParams()['action'] ?? null,
+                ),
             default => $this->policy->requiredRoleFor(
                 (string)($request->getQueryParams()['section'] ?? 'default'),
                 $request->getQueryParams()['go'] ?? null,

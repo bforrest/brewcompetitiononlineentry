@@ -22,6 +22,22 @@ test('anonymous user cannot reach the admin section', async ({ page }) => {
   await expect(page.locator('a[href*="go=judging_tables"]')).toHaveCount(0);
 });
 
+test('anonymous root legacy queries retain their section policy', async ({ page }) => {
+  const publicResponse = await page.goto('/?section=login');
+  expect(publicResponse?.status()).toBe(200);
+
+  const protectedResponse = await page.goto('/?section=admin&go=preferences');
+  expect(protectedResponse?.status()).toBe(403);
+});
+
+test('super admin may reach a super-admin root legacy query', async ({ page }) => {
+  await loginAsAdmin(page);
+
+  const response = await page.goto('/?section=admin&go=preferences');
+
+  expect(response?.status()).toBe(200);
+});
+
 test('anonymous user cannot reach account pages', async ({ page }) => {
   // Stale expectation corrected (Task 10) - see the admin-section test
   // above for the full explanation. Was ?msg=99; is now a direct 403.

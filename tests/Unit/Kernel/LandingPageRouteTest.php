@@ -31,6 +31,16 @@ require_once ROOT . 'src/Kernel/app.php';
 
 final class LandingPageRouteTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        $_SESSION = [];
+    }
+
+    protected function tearDown(): void
+    {
+        $_SESSION = [];
+    }
+
     public function test_root_uses_the_modern_landing_route(): void
     {
         $app = buildApp($this->containerWithLandingController());
@@ -64,6 +74,36 @@ final class LandingPageRouteTest extends TestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('legacy root query', (string) $response->getBody());
         self::assertStringNotContainsString('data-modern-landing-page="true"', (string) $response->getBody());
+    }
+
+    public function test_admin_is_denied_a_super_admin_legacy_query_on_root(): void
+    {
+        $_SESSION = ['loginUsername' => 'admin@example.test', 'userLevel' => '1'];
+        $app = buildApp($this->containerWithLandingController());
+        $response = $app->handle(
+            (new ServerRequestFactory())->createServerRequest(
+                'GET',
+                '/?section=admin&go=preferences',
+            ),
+        );
+
+        self::assertSame(403, $response->getStatusCode());
+        self::assertSame('Forbidden', (string) $response->getBody());
+    }
+
+    public function test_super_admin_may_reach_a_super_admin_legacy_query_on_root(): void
+    {
+        $_SESSION = ['loginUsername' => 'super@example.test', 'userLevel' => '0'];
+        $app = buildApp($this->containerWithLandingController());
+        $response = $app->handle(
+            (new ServerRequestFactory())->createServerRequest(
+                'GET',
+                '/?section=admin&go=preferences',
+            ),
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('legacy root query', (string) $response->getBody());
     }
 
     public function test_index_php_uses_the_legacy_dispatch_for_bare_and_query_string_requests(): void

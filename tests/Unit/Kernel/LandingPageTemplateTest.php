@@ -8,6 +8,26 @@ use PHPUnit\Framework\TestCase;
 
 final class LandingPageTemplateTest extends TestCase
 {
+    public function test_landing_domain_has_no_ambient_global_reads(): void
+    {
+        $domainDirectory = dirname(__DIR__, 3) . '/src/Domain/LandingPage';
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($domainDirectory));
+
+        foreach ($files as $file) {
+            if (!$file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $contents = file_get_contents($file->getPathname());
+            self::assertNotFalse($contents);
+            self::assertDoesNotMatchRegularExpression(
+                '/\$_SESSION|\$GLOBALS/',
+                $contents,
+                $file->getPathname(),
+            );
+        }
+    }
+
     public function test_landing_templates_have_no_ambient_state_or_dynamic_includes(): void
     {
         $templateDirectory = dirname(__DIR__, 3) . '/templates/LandingPage';

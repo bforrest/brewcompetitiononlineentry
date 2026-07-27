@@ -23,9 +23,9 @@ final class LandingPageRepository implements LandingPageReadRepository
 
     public function __construct(
         private Connection $connection,
-        ?string $tablePrefix = null,
+        string $tablePrefix,
     ) {
-        $this->tablePrefix = $tablePrefix ?? (string) ($GLOBALS['prefix'] ?? 'baseline_');
+        $this->tablePrefix = $tablePrefix;
         if (!preg_match('/^[A-Za-z0-9_]*$/', $this->tablePrefix)) {
             throw new \InvalidArgumentException('Unsafe table prefix.');
         }

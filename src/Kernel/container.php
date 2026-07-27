@@ -159,6 +159,23 @@ $containerBuilder->addDefinitions([
     },
 
     /**
+     * Configuration boundary for the table prefix used by modern repositories.
+     *
+     * Resolving Connection bootstraps paths.php/site/config.php, the existing
+     * deployment configuration source for both shared hosting and Docker.
+     * Domain code receives the resulting prefix explicitly and never reads
+     * legacy globals itself.
+     */
+    'database.table_prefix' => static function (ContainerInterface $container): string {
+        $container->get(Connection::class);
+        if (!isset($GLOBALS['prefix']) || !is_string($GLOBALS['prefix'])) {
+            throw new \RuntimeException('Database table prefix was not initialized by site configuration.');
+        }
+
+        return $GLOBALS['prefix'];
+    },
+
+    /**
      * Phase 3: Entry domain services and repositories.
      */
     AuditLogger::class => static fn (ContainerInterface $container): AuditLogger =>
@@ -304,7 +321,10 @@ $containerBuilder->addDefinitions([
         new LayoutRenderer(),
 
     LandingPageRepository::class => static fn (ContainerInterface $container): LandingPageRepository =>
-        new LandingPageRepository($container->get(Connection::class)),
+        new LandingPageRepository(
+            $container->get(Connection::class),
+            $container->get('database.table_prefix'),
+        ),
 
     LandingPageCopyAdapter::class => static fn (): LandingPageCopyAdapter =>
         new LandingPageCopyAdapter(),
