@@ -23,6 +23,9 @@ use Bcoem\Security\Identity;
 
 final class LandingPageService
 {
+    private const REGISTER_URL = '/index.php?section=register&go=entrant';
+    private const LOGIN_TARGET = '#login-modal';
+
     public function __construct(
         private LandingPageReadRepository $repository,
         private LandingPageCopyAdapter $copy,
@@ -80,6 +83,7 @@ final class LandingPageService
             shippingStatus: $shipping,
             capacity: $capacity,
             judging: $judging,
+            winnerResultsVisible: $this->winnerResultsVisible($judging, $now),
             locations: $this->repository->locations(),
             alerts: $this->buildAlerts(
                 $registration,
@@ -151,9 +155,19 @@ final class LandingPageService
             if ($registration === WindowStatus::Upcoming) {
                 $alerts[] = new Alert(AlertLevel::Info, $copy->upcomingMessage);
             } elseif ($registration === WindowStatus::Open) {
-                $alerts[] = new Alert(AlertLevel::Success, $copy->openMessage, $copy->register, '/register');
+                $alerts[] = new Alert(
+                    AlertLevel::Success,
+                    $copy->openMessage,
+                    $copy->register,
+                    self::REGISTER_URL,
+                );
             } else {
-                $alerts[] = new Alert(AlertLevel::Warning, $copy->closedMessage, $copy->login, '/index.php?section=login');
+                $alerts[] = new Alert(
+                    AlertLevel::Warning,
+                    $copy->closedMessage,
+                    $copy->login,
+                    self::LOGIN_TARGET,
+                );
             }
 
             if ($registration !== WindowStatus::Open && $judge === WindowStatus::Open) {
@@ -161,7 +175,7 @@ final class LandingPageService
                     AlertLevel::Info,
                     $copy->judgeOpenMessage,
                     $copy->register,
-                    '/register',
+                    self::REGISTER_URL,
                 );
             }
         }
@@ -247,15 +261,18 @@ final class LandingPageService
 
     private function visibleWinners(JudgingProgress $judging, int $now): WinnerSummary
     {
-        if (
-            !$judging->ended
-            || !$judging->displayWinners
-            || $now < $judging->winnerReleaseAt
-        ) {
+        if (!$this->winnerResultsVisible($judging, $now)) {
             return new WinnerSummary(WinnerMethod::Overall, '', []);
         }
 
         return $this->repository->winnerSummary();
+    }
+
+    private function winnerResultsVisible(JudgingProgress $judging, int $now): bool
+    {
+        return $judging->ended
+            && $judging->displayWinners
+            && $now >= $judging->winnerReleaseAt;
     }
 
     /** @param list<int> $beverageStyleTypes */
@@ -288,8 +305,8 @@ final class LandingPageService
             . '&go=judging_scores&action=default&filter=default&view=';
 
         return new LandingPageLinks(
-            register: '/register',
-            login: '/index.php?section=login',
+            register: self::REGISTER_URL,
+            login: self::LOGIN_TARGET,
             logout: '/includes/process.inc.php?section=logout&action=logout',
             account: '/index.php?section=list',
             contact: '/#contact',

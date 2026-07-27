@@ -6,7 +6,7 @@ declare(strict_types=1);
     <h2 id="contacts-heading"><?= e($view->copy->officials) ?></h2>
     <ul class="list-group list-group-flush">
         <?php foreach ($view->contacts as $contact): ?>
-        <li class="list-group-item px-0"><strong><?= e($contact->firstName . ' ' . $contact->lastName) ?></strong> &mdash; <?= e($contact->position) ?> (<?= e($contact->email) ?>)</li>
+        <li class="list-group-item px-0 text-break"><strong><?= e($contact->firstName . ' ' . $contact->lastName) ?></strong> &mdash; <?= e($contact->position) ?> (<?= e($contact->email) ?>)</li>
         <?php endforeach; ?>
     </ul>
 </section>

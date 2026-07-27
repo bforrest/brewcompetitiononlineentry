@@ -48,3 +48,41 @@
 USE bcoem;
 
 UPDATE baseline_preferences SET prefsCAPTCHA = 0, prefsDisplayWinners = 'N';
+
+-- Landing-page state-matrix baseline
+-- ----------------------------------
+-- Task 9 mutates only baseline_* rows through bound mysql2 statements, then
+-- restores these exact values after every serial Playwright scenario.
+UPDATE baseline_contest_info SET
+  contestRegistrationOpen     = 1685664000,
+  contestRegistrationDeadline = 1893456000,
+  contestEntryOpen            = 1685664000,
+  contestEntryDeadline        = 1893456000,
+  contestJudgeOpen            = 1685664000,
+  contestJudgeDeadline        = 1893456000,
+  contestDropoffOpen          = 1685664000,
+  contestDropoffDeadline      = 1893456000,
+  contestShippingOpen         = 1685664000,
+  contestShippingDeadline     = 1893456000,
+  contestAwardsLocTime        = 1698890400
+WHERE id = 1;
+
+UPDATE baseline_preferences SET
+  prefsSponsors       = 'N',
+  prefsSponsorLogos   = 'N',
+  prefsContact        = 'N',
+  prefsEntryLimit     = NULL,
+  prefsEntryLimitPaid = NULL,
+  prefsDisplayWinners = 'N',
+  prefsWinnerDelay    = 1698899400
+WHERE id = 1;
+
+DELETE FROM baseline_brewing;
+DELETE FROM baseline_judging_locations;
+DELETE FROM baseline_sponsors;
+DELETE FROM baseline_archive;
+DELETE FROM baseline_contacts;
+INSERT INTO baseline_contacts
+  (contactFirstName, contactLastName, contactPosition, contactEmail)
+VALUES
+  ('Default', 'Admin', 'Competition Coordinator', 'user.baseline@brewingcompetitions.com');

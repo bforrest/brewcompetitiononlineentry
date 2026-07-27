@@ -18,6 +18,10 @@ final class SafeUrl
             throw new \InvalidArgumentException('Only relative, HTTP, and HTTPS URLs are allowed.');
         }
 
+        if (preg_match('/^#[A-Za-z][A-Za-z0-9_.:-]*$/D', $url) === 1) {
+            return;
+        }
+
         if (str_starts_with($url, '/')) {
             if (str_starts_with($url, '//') || parse_url($url) === false) {
                 throw new \InvalidArgumentException('Only relative, HTTP, and HTTPS URLs are allowed.');

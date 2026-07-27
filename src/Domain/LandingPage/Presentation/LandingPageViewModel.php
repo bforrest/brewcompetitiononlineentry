@@ -33,6 +33,7 @@ final readonly class LandingPageViewModel
         public WindowStatus $shippingStatus,
         public CompetitionLimits $capacity,
         public JudgingProgress $judging,
+        public bool $winnerResultsVisible,
         public CompetitionLocations $locations,
         public array $alerts,
         public array $contacts,

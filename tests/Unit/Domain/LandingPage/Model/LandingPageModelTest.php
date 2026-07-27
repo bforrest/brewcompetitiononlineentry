@@ -80,6 +80,13 @@ final class LandingPageModelTest extends TestCase
         self::assertSame('/images/hero.jpg', $hero->imageUrl);
     }
 
+    public function test_url_bearing_models_accept_safe_same_document_fragments(): void
+    {
+        $alert = new Alert(AlertLevel::Info, 'Message', 'Log In', '#login-modal');
+
+        self::assertSame('#login-modal', $alert->linkUrl);
+    }
+
     /**
      * @dataProvider unsafeUrlCases
      * @param callable(string): object $construct
@@ -198,6 +205,7 @@ final class LandingPageModelTest extends TestCase
             shippingStatus: WindowStatus::Open,
             capacity: new CompetitionLimits(2, 1, 100, 100, 90),
             judging: new JudgingProgress(false, false, false, 0),
+            winnerResultsVisible: false,
             locations: new CompetitionLocations('Ship To', '123 Shipping St', 'Awards', 'Awards Hall', '456 Awards Ave', 2000),
             alerts: [new Alert(AlertLevel::Info, 'Message')],
             contacts: [new Contact('Ada', 'Brewer', 'Organizer', 'ada@example.test')],
@@ -237,6 +245,7 @@ final class LandingPageModelTest extends TestCase
             shippingStatus: WindowStatus::Open,
             capacity: new CompetitionLimits(2, 1, 100, 100, 90),
             judging: new JudgingProgress(false, false, false, 0),
+            winnerResultsVisible: false,
             locations: new CompetitionLocations(null, null, null, null, null, null),
             alerts: ['not an alert'],
             contacts: [],

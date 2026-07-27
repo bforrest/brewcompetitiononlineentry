@@ -4,7 +4,7 @@ declare(strict_types=1);
 <?php if ($view->archives !== []): ?>
 <div class="offcanvas offcanvas-end" data-bs-scroll="true" data-bs-theme="dark" tabindex="-1" id="archive-list" aria-labelledby="archive-list-label">
     <div class="offcanvas-header">
-        <h2 class="offcanvas-title h5" id="archive-list-label"><?= e($view->copy->results) ?></h2>
+        <h2 class="offcanvas-title h5" id="archive-list-label">Past Winners</h2>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
     <div class="offcanvas-body">

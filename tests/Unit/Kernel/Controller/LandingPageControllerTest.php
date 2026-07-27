@@ -78,7 +78,10 @@ final class LandingPageControllerTest extends TestCase
 
         self::assertStringContainsString('Hello, Ada', $html);
         self::assertStringContainsString('href="/index.php?section=list">Account</a>', $html);
-        self::assertStringNotContainsString('href="/register">Register</a>', $html);
+        self::assertStringNotContainsString(
+            'href="/index.php?section=register&amp;go=entrant">Register</a>',
+            $html,
+        );
     }
 
     public function test_malformed_session_context_falls_back_to_supported_defaults(): void
@@ -160,7 +163,10 @@ final class LandingPageControllerTest extends TestCase
         );
         $html = (string) $response->getBody();
 
-        self::assertStringContainsString('href="/register">Register</a>', $html);
+        self::assertStringContainsString(
+            'href="/index.php?section=register&amp;go=entrant">Register</a>',
+            $html,
+        );
         self::assertStringNotContainsString('Hello,', $html);
     }
 

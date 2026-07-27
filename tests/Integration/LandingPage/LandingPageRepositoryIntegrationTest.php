@@ -121,6 +121,7 @@ final class LandingPageRepositoryIntegrationTest extends IntegrationTestCase
 
     public function test_maps_contacts_enabled_sponsors_and_visible_archives(): void
     {
+        $this->updateSingleton('preferences', ['prefsSponsors' => 'Y']);
         self::$conn->query('DELETE FROM `' . self::$pfx . 'contacts`');
         self::$conn->query('DELETE FROM `' . self::$pfx . 'sponsors`');
         self::$conn->query('DELETE FROM `' . self::$pfx . 'archive`');
@@ -177,6 +178,18 @@ final class LandingPageRepositoryIntegrationTest extends IntegrationTestCase
         self::assertCount(1, $archives);
         self::assertSame('2025', $archives[0]->suffix);
         self::assertSame(1, $archives[0]->winnerMethod);
+    }
+
+    public function test_sponsors_are_hidden_when_the_feature_preference_is_disabled(): void
+    {
+        $this->updateSingleton('preferences', ['prefsSponsors' => 'N']);
+        $this->insert('sponsors', [
+            'sponsorName' => 'Configured but hidden sponsor',
+            'sponsorLevel' => 1,
+            'sponsorEnable' => 1,
+        ]);
+
+        self::assertSame([], $this->repository->sponsors());
     }
 
     public function test_optional_collections_are_empty_when_rows_are_absent(): void

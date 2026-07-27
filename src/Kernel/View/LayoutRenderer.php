@@ -81,7 +81,7 @@ final class LayoutRenderer
             : '<a class="link-light" href="' . e($view->contest->hostWebsite) . '" target="_blank" rel="noopener noreferrer">' . $hostName . '</a>';
         $hostLocation = $view->contest->hostLocation === null
             ? ''
-            : ' <span class="text-light-emphasis">&mdash; ' . e($view->contest->hostLocation) . '</span>';
+            : ' <span class="text-light">&mdash; ' . e($view->contest->hostLocation) . '</span>';
         $hostLogo = $view->contest->logoPath === null
             ? ''
             : '<img class="img-fluid mb-3" src="' . e($view->contest->logoPath) . '" alt="' . $hostName . ' logo">';
@@ -106,6 +106,23 @@ final class LayoutRenderer
 </header>
 {$content}
 {$footer}
+<script>
+(() => {
+    const stickyHome = document.getElementById('sticky-home');
+    const updateStickyHome = () => {
+        if (stickyHome) {
+            stickyHome.style.display = window.scrollY >= 300 ? 'block' : 'none';
+        }
+    };
+    window.addEventListener('scroll', updateStickyHome, { passive: true });
+    updateStickyHome();
+
+    const loginModal = document.getElementById('login-modal');
+    loginModal?.addEventListener('shown.bs.modal', () => {
+        document.getElementById('login-user-name')?.focus();
+    });
+})();
+</script>
 </body>
 </html>
 HTML;

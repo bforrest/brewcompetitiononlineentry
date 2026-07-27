@@ -71,8 +71,13 @@ class LayoutRendererPublicTest extends TestCase
         $html = $renderer->landing($this->landingView(), $template);
 
         self::assertStringContainsString('<main id="main-content"', $html);
+        self::assertStringContainsString('aria-label="Primary navigation"', $html);
         self::assertStringContainsString('data-bs-toggle="collapse"', $html);
         self::assertStringContainsString('data-bs-toggle="offcanvas"', $html);
+        self::assertStringContainsString('>Past Winners</button>', $html);
+        self::assertStringContainsString('data-bs-toggle="modal" data-bs-target="#login-modal"', $html);
+        self::assertStringContainsString('id="login-modal"', $html);
+        self::assertStringContainsString('aria-labelledby="login-modal-label"', $html);
         self::assertStringContainsString('name="loginUsername"', $html);
         self::assertStringContainsString('name="loginPassword"', $html);
         self::assertStringContainsString('action="/includes/process.inc.php?section=login&amp;action=login"', $html);
@@ -85,6 +90,8 @@ class LayoutRendererPublicTest extends TestCase
         self::assertStringContainsString('href="https://fixture.example.test"', $html);
         self::assertStringContainsString('src="/user_images/fixture-logo.svg"', $html);
         self::assertStringContainsString('Chicago, IL', $html);
+        self::assertStringNotContainsString('class="text-light-emphasis"', $html);
+        self::assertStringContainsString('class="link-light" href="http://www.brewingcompetitions.com"', $html);
         self::assertStringContainsString('<section id="volunteers"', $html);
         self::assertStringContainsString('Entry status</dt><dd class="col-sm-8">Open</dd>', $html);
         self::assertStringContainsString('Drop-off status</dt><dd class="col-sm-8">Upcoming</dd>', $html);
@@ -119,6 +126,7 @@ class LayoutRendererPublicTest extends TestCase
             WindowStatus::Open,
             new CompetitionLimits(20, 18, 30, 25, 3),
             new JudgingProgress(false, false, false, 0),
+            false,
             new CompetitionLocations('Fixture Shipping', '123 Brew Street', 'Awards after judging.', 'Fixture Hall', '456 Malt Ave', 1_733_200_000),
             [new Alert(AlertLevel::Info, '<script>alert(1)</script>', 'Learn more', '/#rules')],
             [],

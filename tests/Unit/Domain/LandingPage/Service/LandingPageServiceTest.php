@@ -35,7 +35,8 @@ final class LandingPageServiceTest extends TestCase
         );
 
         self::assertSame(WindowStatus::Open, $view->registrationStatus);
-        self::assertSame('/register', $view->links->register);
+        self::assertSame('/index.php?section=register&go=entrant', $view->links->register);
+        self::assertSame('#login-modal', $view->links->login);
         self::assertFalse($view->loggedIn);
         self::assertNotEmpty($view->hero->imageUrl);
         self::assertTrue($this->hasAlert($view->alerts, 'Entry registration is open!'));
@@ -91,7 +92,10 @@ final class LandingPageServiceTest extends TestCase
         self::assertSame(WindowStatus::Closed, $view->registrationStatus);
         self::assertSame(WindowStatus::Open, $view->judgeStatus);
         self::assertTrue($this->hasAlert($view->alerts, 'Judge or steward registration is open.'));
-        self::assertSame('/register', $this->alertWithMessage($view->alerts, 'Judge or steward registration is open.')->linkUrl);
+        self::assertSame(
+            '/index.php?section=register&go=entrant',
+            $this->alertWithMessage($view->alerts, 'Judge or steward registration is open.')->linkUrl,
+        );
     }
 
     public function test_started_judging_forces_registration_and_entry_closed(): void
@@ -303,8 +307,8 @@ final class LandingPageServiceTest extends TestCase
         )->viewFor($identity, $context, 1500);
 
         foreach ([...$open->alerts, ...$closed->alerts] as $alert) {
-            self::assertNotSame('/register', $alert->linkUrl);
-            self::assertNotSame('/index.php?section=login', $alert->linkUrl);
+            self::assertNotSame('/index.php?section=register&go=entrant', $alert->linkUrl);
+            self::assertNotSame('#login-modal', $alert->linkUrl);
         }
         self::assertFalse($this->hasAlert($open->alerts, 'Entry registration is open!'));
         self::assertFalse($this->hasAlert($closed->alerts, 'Account registration is closed.'));

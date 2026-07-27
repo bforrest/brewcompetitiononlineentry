@@ -181,6 +181,14 @@ final class LandingPageRepository implements LandingPageReadRepository
     /** @return list<Sponsor> */
     public function sponsors(): array
     {
+        $preferences = $this->connection->selectOne(
+            'SELECT prefsSponsors FROM ' . $this->tablePrefix . 'preferences WHERE id = ?',
+            [1],
+        );
+        if (($preferences['prefsSponsors'] ?? null) !== 'Y') {
+            return [];
+        }
+
         $rows = $this->connection->select(
             'SELECT sponsorName, sponsorURL, sponsorImage, sponsorText, sponsorLocation, sponsorLevel '
             . 'FROM ' . $this->tablePrefix . 'sponsors WHERE sponsorEnable = ? '
