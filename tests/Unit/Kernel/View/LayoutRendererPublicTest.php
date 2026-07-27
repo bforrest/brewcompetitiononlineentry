@@ -71,11 +71,18 @@ class LayoutRendererPublicTest extends TestCase
         $html = $renderer->landing($this->landingView(), $template);
 
         self::assertStringContainsString('<main id="main-content"', $html);
-        self::assertStringContainsString('aria-label="Primary navigation"', $html);
+        self::assertStringContainsString('<nav id="site-nav"', $html);
+        self::assertStringContainsString('aria-labelledby="landing-title"', $html);
+        self::assertStringNotContainsString('aria-label="Primary navigation"', $html);
         self::assertStringContainsString('data-bs-toggle="collapse"', $html);
         self::assertStringContainsString('data-bs-toggle="offcanvas"', $html);
-        self::assertStringContainsString('>Past Winners</button>', $html);
+        self::assertStringContainsString('>Archived Champions</button>', $html);
+        self::assertStringContainsString('>Archived Champions</h2>', $html);
         self::assertStringContainsString('data-bs-toggle="modal" data-bs-target="#login-modal"', $html);
+        self::assertStringContainsString(
+            'class="alert-link" href="#login-modal" data-bs-toggle="modal" data-bs-target="#login-modal"',
+            $html,
+        );
         self::assertStringContainsString('id="login-modal"', $html);
         self::assertStringContainsString('aria-labelledby="login-modal-label"', $html);
         self::assertStringContainsString('name="loginUsername"', $html);
@@ -91,7 +98,10 @@ class LayoutRendererPublicTest extends TestCase
         self::assertStringContainsString('src="/user_images/fixture-logo.svg"', $html);
         self::assertStringContainsString('Chicago, IL', $html);
         self::assertStringNotContainsString('class="text-light-emphasis"', $html);
-        self::assertStringContainsString('class="link-light" href="http://www.brewingcompetitions.com"', $html);
+        self::assertStringContainsString(
+            'class="link-light d-inline-block py-1" href="http://www.brewingcompetitions.com"',
+            $html,
+        );
         self::assertStringContainsString('<section id="volunteers"', $html);
         self::assertStringContainsString('Entry status</dt><dd class="col-sm-8">Open</dd>', $html);
         self::assertStringContainsString('Drop-off status</dt><dd class="col-sm-8">Upcoming</dd>', $html);
@@ -128,7 +138,10 @@ class LayoutRendererPublicTest extends TestCase
             new JudgingProgress(false, false, false, 0),
             false,
             new CompetitionLocations('Fixture Shipping', '123 Brew Street', 'Awards after judging.', 'Fixture Hall', '456 Malt Ave', 1_733_200_000),
-            [new Alert(AlertLevel::Info, '<script>alert(1)</script>', 'Learn more', '/#rules')],
+            [
+                new Alert(AlertLevel::Info, '<script>alert(1)</script>', 'Learn more', '/#rules'),
+                new Alert(AlertLevel::Warning, 'Registration closed.', 'Log In', '#login-modal'),
+            ],
             [],
             [],
             [new Archive('2025', 0, '2021')],
@@ -137,7 +150,27 @@ class LayoutRendererPublicTest extends TestCase
             ]),
             new HeroPresentation('/user_images/hero.jpg', 'Fixture Invitational', 'Great beer, good company.'),
             new LandingPageLinks('/register', '/index.php?section=login', '/includes/process.inc.php?section=logout&action=logout', '/index.php?section=list', '/#contact', '/#sponsors', 'https://fixture.example.test', '/results.pdf', '/results.html'),
-            new LandingPageCopy('Register', 'Log In', 'Log Out', 'Rules', 'Volunteers', 'Entry Info', 'Contact', 'Sponsors', 'Officials', 'Results', 'Registration opens soon.', 'Registration is open.', 'Registration is closed.', 'Judge registration is open.', 'Entry capacity is full.', 'Entry capacity is nearly full.', 'Paid entry capacity is full.', 'Winners will be posted soon.'),
+            new LandingPageCopy(
+                register: 'Register',
+                login: 'Log In',
+                logout: 'Log Out',
+                rules: 'Rules',
+                volunteers: 'Volunteers',
+                entryInfo: 'Entry Info',
+                contact: 'Contact',
+                sponsors: 'Sponsors',
+                officials: 'Officials',
+                results: 'Results',
+                pastWinners: 'Archived Champions',
+                upcomingMessage: 'Registration opens soon.',
+                openMessage: 'Registration is open.',
+                closedMessage: 'Registration is closed.',
+                judgeOpenMessage: 'Judge registration is open.',
+                entryLimitMessage: 'Entry capacity is full.',
+                nearLimitMessage: 'Entry capacity is nearly full.',
+                paidEntryLimitMessage: 'Paid entry capacity is full.',
+                winnerDelayMessage: 'Winners will be posted soon.',
+            ),
         );
     }
 }

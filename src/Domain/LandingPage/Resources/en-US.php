@@ -13,6 +13,7 @@ return [
     'sponsors' => 'Sponsors',
     'officials' => 'Competition Officials',
     'results' => 'Results',
+    'past_winners' => 'Past Winners',
     'upcoming_message' => 'Account registration will open %s. Please return then to register your account.',
     'open_message' => 'Entry registration is open!',
     'closed_message' => 'Account registration is closed.',

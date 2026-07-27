@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Locator, Page, test } from '@playwright/test';
 import { loginAsAdmin } from '../helpers/auth';
 import {
   resetLandingFixtures,
@@ -15,27 +15,75 @@ type LandingContract = {
   title: string;
   regions: string[];
   loginAction: string;
-  loginFields: string[];
+  loginFields: Array<{
+    name: string;
+    accessibleName: string;
+    enabled: boolean;
+  }>;
+  controls: Record<string, {
+    copy: string;
+    accessibleName: string;
+    enabled: boolean;
+  }>;
   links: Record<string, string>;
 };
+
+async function accessibleName(locator: Locator): Promise<string> {
+  const snapshot = await locator.ariaSnapshot();
+  return snapshot.match(/^-\s+\w+\s+"([^"]*)"/m)?.[1] ?? '';
+}
+
+async function formFieldAccessibleName(locator: Locator): Promise<string> {
+  return locator.evaluate(element => {
+    const field = element as HTMLInputElement;
+    const explicit = field.getAttribute('aria-label')?.trim();
+    if (explicit) {
+      return explicit;
+    }
+    const labelled = [...(field.labels ?? [])]
+      .map(label => label.textContent?.trim() ?? '')
+      .filter(Boolean)
+      .join(' ');
+    return labelled || field.placeholder;
+  });
+}
+
+async function controlContract(locator: Locator) {
+  return {
+    copy: (await locator.innerText()).trim().replace(/\s+/g, ' '),
+    accessibleName: await accessibleName(locator),
+    enabled: await locator.isEnabled(),
+  };
+}
 
 async function captureLandingContract(page: Page): Promise<LandingContract> {
   const regions = await page.locator('main section[id], #main-content section[id]')
     .evaluateAll(nodes => nodes.map(node => node.id).filter(Boolean));
   const loginTrigger = page.getByRole('link', { name: 'Log In', exact: true });
+  const registerTrigger = page.getByRole('link', { name: /register/i }).first();
+  const contactTrigger = page.getByRole('link', { name: /contact/i }).first();
   const loginTarget = await loginTrigger.getAttribute('data-bs-target')
     ?? await loginTrigger.getAttribute('href')
     ?? '';
   const loginForm = page.locator('form:has(input[name="loginUsername"])').first();
+  const loginFields = await loginForm.locator('input[name]').all();
   return {
     title: await page.title(),
     regions,
     loginAction: await loginForm.getAttribute('action') ?? '',
-    loginFields: await loginForm.locator('input[name]')
-      .evaluateAll(nodes => nodes.map(node => (node as HTMLInputElement).name)),
+    loginFields: await Promise.all(loginFields.map(async field => ({
+      name: await field.getAttribute('name') ?? '',
+      accessibleName: await formFieldAccessibleName(field),
+      enabled: await field.isEnabled(),
+    }))),
+    controls: {
+      register: await controlContract(registerTrigger),
+      contact: await controlContract(contactTrigger),
+      login: await controlContract(loginTrigger),
+    },
     links: {
-      register: await page.getByRole('link', { name: /register/i }).first().getAttribute('href') ?? '',
-      contact: await page.getByRole('link', { name: /contact/i }).first().getAttribute('href') ?? '',
+      register: await registerTrigger.getAttribute('href') ?? '',
+      contact: await contactTrigger.getAttribute('href') ?? '',
       login: loginTarget,
     },
   };
@@ -59,8 +107,13 @@ function canonicalDestination(page: Page, value: string): string {
 }
 
 function canonicalContract(page: Page, contract: LandingContract): LandingContract {
+  const regions = contract.regions
+    .map(region => ['entry-info', 'rules', 'winners'].includes(region) ? 'at-a-glance' : region)
+    .filter((region, index, all) => all.indexOf(region) === index);
+
   return {
     ...contract,
+    regions,
     loginAction: canonicalDestination(page, contract.loginAction),
     links: Object.fromEntries(
       Object.entries(contract.links).map(([name, destination]) => [
@@ -111,7 +164,10 @@ test.describe.serial('landing page dual-path parity', () => {
     expect(legacy.title).toContain('Brew Competition Online Entry & Management');
     expect(legacy.regions).toEqual(['at-a-glance', 'volunteers', 'contact']);
     expect(legacy.loginAction).toContain('includes/process.inc.php');
-    expect(legacy.loginFields).toEqual(expect.arrayContaining(['loginUsername', 'loginPassword']));
+    expect(legacy.loginFields).toEqual([
+      { name: 'loginUsername', accessibleName: 'Email Address', enabled: true },
+      { name: 'loginPassword', accessibleName: 'Password', enabled: true },
+    ]);
     expect(legacy.links.register).toContain('index.php?section=register&go=entrant');
     expect(legacy.links.contact).toBe('#contact');
     expect(legacy.links.login).toBe('#login-modal');
@@ -153,8 +209,11 @@ test.describe.serial('landing page dual-path parity', () => {
     const modern = canonicalContract(page, await captureLandingContract(page));
 
     expect(modern.title).toBe(legacy.title);
+    expect(modern.regions).toEqual(legacy.regions);
     expect(modern.loginAction).toBe(legacy.loginAction);
-    expect(modern.loginFields.sort()).toEqual(legacy.loginFields.sort());
+    expect(modern.loginFields.sort((a, b) => a.name.localeCompare(b.name)))
+      .toEqual(legacy.loginFields.sort((a, b) => a.name.localeCompare(b.name)));
+    expect(modern.controls).toEqual(legacy.controls);
     expect(modern.links).toEqual(legacy.links);
   });
 
@@ -167,6 +226,13 @@ test.describe.serial('landing page dual-path parity', () => {
 
     await expect(page.locator('#login-modal')).toHaveClass(/show/);
     await expect(page.locator('input[name="loginUsername"]')).toBeFocused();
+    const firstModalControl = page.locator('#login-modal .modal-header .btn-close');
+    const lastModalControl = page.locator('#login-modal button[type="submit"]');
+    await lastModalControl.focus();
+    await page.keyboard.press('Tab');
+    await expect(firstModalControl).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(lastModalControl).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.locator('#login-modal')).not.toHaveClass(/show/);
     await expect(loginTrigger).toBeFocused();
@@ -182,6 +248,13 @@ test.describe.serial('landing page dual-path parity', () => {
 
     await expect(page.locator('#archive-list')).toHaveClass(/show/);
     await expect(page.locator('#archive-list')).toBeFocused();
+    const firstArchiveControl = page.locator('#archive-list .btn-close');
+    const lastArchiveControl = page.locator('#archive-list a').last();
+    await lastArchiveControl.focus();
+    await page.keyboard.press('Tab');
+    await expect(firstArchiveControl).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(lastArchiveControl).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.locator('#archive-list')).not.toHaveClass(/show/);
     await expect(archiveTrigger).toBeFocused();
@@ -264,6 +337,12 @@ test.describe.serial('landing page state matrix', () => {
 
     await expect(page.locator('#entry-info')).toContainText(/registration is closed/i);
     await expect(page.locator('#entry-info')).toContainText(/judge (?:or steward )?registration is open/i);
+    const loginAlert = page.getByRole('alert')
+      .filter({ hasText: /registration is closed/i })
+      .getByRole('link', { name: 'Log In', exact: true });
+    await loginAlert.click();
+    await expect(page.getByRole('dialog', { name: 'Log In' })).toBeVisible();
+    await expect(page.locator('#login-modal input[name="loginUsername"]')).toBeFocused();
   });
 
   test('renders closed pre-results state without result downloads', async ({ page }) => {
@@ -344,17 +423,42 @@ test.describe.serial('landing page state matrix', () => {
     await expect(page.locator('#contact')).toContainText('E2E Coordinator');
   });
 
-  test('omits and restores encoded archive destinations', async ({ page }) => {
+  test('omits archives and restores equivalent navigable legacy destinations', async ({ page }) => {
     await setLandingArchives(false);
     await page.goto('/');
     await expect(page.locator('#archive-list')).toHaveCount(0);
 
-    await setLandingArchives(true);
-    await page.reload();
-    await expect(page.locator('#archive-list')).toBeAttached();
-    await expect(page.locator('#archive-list a')).toHaveAttribute(
-      'href',
-      '/index.php?section=past_winners&go=2025%20%26%20finals',
+    await setLandingWinnerDisplay(
+      false,
+      now - 86_400,
+      [now - 172_800, now - 90_000],
     );
+    await setLandingArchives(true);
+
+    await page.goto('/index.php');
+    const legacyTrigger = page.getByRole('button', { name: /past winners/i });
+    await expect(legacyTrigger).toBeVisible();
+    await legacyTrigger.click();
+    const legacyArchiveLink = page.locator('#archive-list a').filter({ hasText: /^2025$/ });
+    await expect(legacyArchiveLink).toHaveAttribute(
+      'href',
+      /index\.php\?section=past-winners(?:&|&amp;)go=2025/,
+    );
+    await legacyArchiveLink.click();
+    await expect(page).toHaveURL(/index\.php\?section=past-winners&go=2025$/);
+    await expect(page.locator('#past-winners')).toContainText('Archive Fixture Ale');
+
+    await page.goto('/');
+    const modernTrigger = page.getByRole('button', { name: 'Past Winners', exact: true });
+    await expect(modernTrigger).toBeVisible();
+    await modernTrigger.click();
+    const modernArchiveLink = page.locator('#archive-list a').filter({ hasText: /^2025$/ });
+    await expect(modernArchiveLink).toHaveAttribute(
+      'href',
+      '/index.php?section=past-winners&go=2025',
+    );
+    await modernArchiveLink.click();
+    await expect(page).toHaveURL(/index\.php\?section=past-winners&go=2025$/);
+    await expect(page.locator('#past-winners')).toContainText('Archive Fixture Ale');
   });
 });

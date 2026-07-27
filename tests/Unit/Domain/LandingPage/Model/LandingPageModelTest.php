@@ -274,7 +274,7 @@ final class LandingPageModelTest extends TestCase
     {
         return new LandingPageCopy(
             'Register', 'Login', 'Logout', 'Rules', 'Volunteers', 'Entry info', 'Contact', 'Sponsors',
-            'Officials', 'Results', 'Upcoming', 'Open', 'Closed', 'Judge open', 'Entry limit',
+            'Officials', 'Results', 'Past winners', 'Upcoming', 'Open', 'Closed', 'Judge open', 'Entry limit',
             'Near capacity', 'Paid capacity', 'Winner delay',
         );
     }

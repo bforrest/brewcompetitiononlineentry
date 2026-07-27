@@ -29,6 +29,7 @@ final class LandingPageCopyAdapter
             sponsors: $catalog['sponsors'],
             officials: $catalog['officials'],
             results: $catalog['results'],
+            pastWinners: $catalog['past_winners'],
             upcomingMessage: $catalog['upcoming_message'],
             openMessage: $catalog['open_message'],
             closedMessage: $catalog['closed_message'],

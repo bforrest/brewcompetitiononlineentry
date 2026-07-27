@@ -164,7 +164,7 @@
 
         if ($totalRows_archive > 0) {
 
-            foreach ($row_archive as $row_archive) {
+            do {
 
                 if (($row_archive['archiveDisplayWinners'] == "Y") && ($row_archive['archiveStyleSet'] != "")) {
                     $table_archive = $prefix."judging_scores_".$row_archive['archiveSuffix'];
@@ -178,7 +178,7 @@
                     }
                 }   
 
-            }
+            } while ($row_archive = mysqli_fetch_assoc($archive));
 
         }
 
@@ -216,7 +216,7 @@
     $sign_in_card_body .= sprintf("<div class=\"invalid-feedback mb-4\">%s %s</div>",$login_text_018,$login_text_021);
     $sign_in_card_body .= "<div class=\"form-floating mb-3\">";
     $sign_in_card_body .= "<input class=\"form-control form-control-lg mb-3\" id=\"login-password\" type=\"password\" name=\"loginPassword\" placeholder=\"".$label_password."\" required>";
-    $sign_in_card_body .= "<label for=\"login-user-name\">".$label_password."</label>";
+    $sign_in_card_body .= "<label for=\"login-password\">".$label_password."</label>";
     $sign_in_card_body .= "</div>";
     $sign_in_card_body .= "<div class=\"invalid-feedback mb-3\">".$login_text_019."</div>";
     $sign_in_post_action = $base_url."includes/process.inc.php?section=login&action=login";
@@ -225,7 +225,7 @@
     $forgot_password_card_body .= "<p class=\"lead\">".$login_text_006."</p>";
     $forgot_password_card_body .= "<div class=\"form-floating mb-3\">";
     $forgot_password_card_body .= "<input class=\"form-control form-control-lg mb-3\" name=\"forgot-user-name\" id=\"forgot-user-name\" type=\"text\" onkeyup=\"check_valid_email('".$ajax_url."','forgot-user-name','forgot-user-name-email-status')\" placeholder=\"".$label_email."\">";
-    $forgot_password_card_body .= "<label for=\"login-user-name\">".$label_email."</label>";
+    $forgot_password_card_body .= "<label for=\"forgot-user-name\">".$label_email."</label>";
     $forgot_password_card_body .= "<div class=\"invalid-feedback mb-4\">".$login_text_018."</div>";
     $forgot_password_card_body .= "</div>";
     $forgot_password_card_body .= "<div id=\"forgot-user-name-email-status\" class=\"mb-3\"></div>";

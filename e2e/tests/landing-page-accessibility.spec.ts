@@ -83,11 +83,13 @@ test.describe.serial('modern landing page WCAG 2.1 AA', () => {
     await page.goto('/');
 
     await expect(page.getByRole('banner')).toHaveCount(1);
-    await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toHaveCount(1);
+    const navigation = page.getByRole('navigation');
+    await expect(navigation).toHaveCount(1);
+    await expect(navigation).toHaveAccessibleName(await page.locator('#landing-title').innerText());
     await expect(page.getByRole('main')).toHaveCount(1);
     await expect(page.getByRole('contentinfo')).toHaveCount(1);
     await page.getByRole('link', { name: 'Log In', exact: true }).click();
-    await expect(page.getByLabel('Email', { exact: true })).toHaveAttribute('required', '');
+    await expect(page.getByLabel('Email Address', { exact: true })).toHaveAttribute('required', '');
     await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('required', '');
     await expect(page.getByRole('button', { name: 'Log In', exact: true })).toHaveCount(1);
   });
@@ -126,6 +128,13 @@ test.describe.serial('modern landing page WCAG 2.1 AA', () => {
     await page.keyboard.press('Enter');
     await expect(page.getByRole('dialog', { name: 'Log In' })).toBeVisible();
     await expect(page.locator('#login-modal input[name="loginUsername"]')).toBeFocused();
+    const firstModalControl = page.locator('#login-modal .modal-header .btn-close');
+    const lastModalControl = page.locator('#login-modal button[type="submit"]');
+    await lastModalControl.focus();
+    await page.keyboard.press('Tab');
+    await expect(firstModalControl).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(lastModalControl).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Log In' })).toBeHidden();
     await expect(loginTrigger).toBeFocused();
@@ -135,6 +144,13 @@ test.describe.serial('modern landing page WCAG 2.1 AA', () => {
     await page.keyboard.press('Enter');
     await expect(page.getByRole('dialog', { name: 'Past Winners' })).toBeVisible();
     await expect(page.locator('#archive-list')).toBeFocused();
+    const firstArchiveControl = page.locator('#archive-list .btn-close');
+    const lastArchiveControl = page.locator('#archive-list a').last();
+    await lastArchiveControl.focus();
+    await page.keyboard.press('Tab');
+    await expect(firstArchiveControl).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(lastArchiveControl).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Past Winners' })).toBeHidden();
     await expect(archiveTrigger).toBeFocused();
@@ -153,9 +169,10 @@ test.describe.serial('modern landing page WCAG 2.1 AA', () => {
   test('visible mobile controls meet the 24 CSS-pixel touch target minimum', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
+    await page.getByRole('button', { name: /toggle navigation/i }).click();
 
     const controls = page.locator(
-      'button:visible, a.btn:visible, #site-nav a:visible, #sticky-home a:visible',
+      'a[href]:visible, button:visible, input:visible, select:visible, textarea:visible',
     );
     const boxes = await controls.evaluateAll(elements => elements.map(element => {
       const rect = element.getBoundingClientRect();

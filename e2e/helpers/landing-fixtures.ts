@@ -1,4 +1,4 @@
-import mysql, { Connection } from 'mysql2/promise';
+import mysql, { Connection, RowDataPacket } from 'mysql2/promise';
 
 export const LANDING_FIXTURE = {
   opensAt: 1_685_664_000,
@@ -6,6 +6,17 @@ export const LANDING_FIXTURE = {
   awardsAt: 1_698_890_400,
   winnerReleaseAt: 1_698_899_400,
 } as const;
+
+const ARCHIVE_SUFFIX = '2025';
+const ARCHIVE_TABLES = [
+  `baseline_special_best_info_${ARCHIVE_SUFFIX}`,
+  `baseline_judging_scores_bos_${ARCHIVE_SUFFIX}`,
+  `baseline_style_types_${ARCHIVE_SUFFIX}`,
+  `baseline_judging_scores_${ARCHIVE_SUFFIX}`,
+  `baseline_judging_tables_${ARCHIVE_SUFFIX}`,
+  `baseline_brewing_${ARCHIVE_SUFFIX}`,
+  `baseline_brewer_${ARCHIVE_SUFFIX}`,
+] as const;
 
 const db = () => mysql.createConnection({
   host: process.env.E2E_DB_HOST ?? '127.0.0.1',
@@ -182,27 +193,101 @@ export async function setLandingContacts(present: boolean): Promise<void> {
 
 export async function setLandingArchives(present: boolean): Promise<void> {
   await withDb(async connection => {
-    await connection.beginTransaction();
-    try {
-      await connection.execute('DELETE FROM baseline_archive');
-      if (present) {
-        await connection.execute(
-          `INSERT INTO baseline_archive
-             (archiveStyleSet, archiveSuffix, archiveWinnerMethod, archiveDisplayWinners)
-           VALUES (?, ?, ?, ?)`,
-          ['BJCP2021', '2025 & finals', 0, 'Y'],
-        );
-      }
-      await connection.commit();
-    } catch (error) {
-      await connection.rollback();
-      throw error;
+    await connection.execute('DELETE FROM baseline_archive');
+    for (const table of ARCHIVE_TABLES) {
+      await connection.query(`DROP TABLE IF EXISTS \`${table}\``);
     }
+    if (!present) {
+      return;
+    }
+
+    const [styles] = await connection.execute<RowDataPacket[]>(
+      `SELECT id, brewStyleGroup, brewStyleNum, brewStyle
+       FROM baseline_styles
+       WHERE brewStyleActive = ?
+       ORDER BY id
+       LIMIT 1`,
+      ['Y'],
+    );
+    const style = styles[0];
+    if (style === undefined) {
+      throw new Error('The landing archive fixture requires one active baseline style.');
+    }
+
+    await connection.query(
+      `CREATE TABLE baseline_brewer_${ARCHIVE_SUFFIX} LIKE baseline_brewer`,
+    );
+    await connection.query(
+      `CREATE TABLE baseline_brewing_${ARCHIVE_SUFFIX} LIKE baseline_brewing`,
+    );
+    await connection.query(
+      `CREATE TABLE baseline_judging_tables_${ARCHIVE_SUFFIX} LIKE baseline_judging_tables`,
+    );
+    await connection.query(
+      `CREATE TABLE baseline_judging_scores_${ARCHIVE_SUFFIX} LIKE baseline_judging_scores`,
+    );
+    await connection.query(
+      `CREATE TABLE baseline_style_types_${ARCHIVE_SUFFIX} LIKE baseline_style_types`,
+    );
+    await connection.query(
+      `CREATE TABLE baseline_judging_scores_bos_${ARCHIVE_SUFFIX} LIKE baseline_judging_scores_bos`,
+    );
+    await connection.query(
+      `CREATE TABLE baseline_special_best_info_${ARCHIVE_SUFFIX} LIKE baseline_special_best_info`,
+    );
+    await connection.query(
+      `INSERT INTO baseline_style_types_${ARCHIVE_SUFFIX}
+       SELECT * FROM baseline_style_types`,
+    );
+
+    await connection.execute(
+      `INSERT INTO baseline_brewer_${ARCHIVE_SUFFIX}
+         (id, uid, brewerFirstName, brewerLastName, brewerClubs)
+       VALUES (?, ?, ?, ?, ?)`,
+      [1, 7_001, 'Archive', 'Winner', 'E2E Brewers'],
+    );
+    await connection.execute(
+      `INSERT INTO baseline_brewing_${ARCHIVE_SUFFIX}
+         (id, brewName, brewStyle, brewCategory, brewCategorySort, brewSubCategory,
+          brewBrewerID, brewReceived)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        1,
+        'Archive Fixture Ale',
+        style.brewStyle,
+        style.brewStyleGroup,
+        style.brewStyleGroup,
+        style.brewStyleNum,
+        7_001,
+        1,
+      ],
+    );
+    await connection.execute(
+      `INSERT INTO baseline_judging_tables_${ARCHIVE_SUFFIX}
+         (id, tableName, tableStyles, tableNumber)
+       VALUES (?, ?, ?, ?)`,
+      [1, 'Archive Fixture Table', String(style.id), 1],
+    );
+    await connection.execute(
+      `INSERT INTO baseline_judging_scores_${ARCHIVE_SUFFIX}
+         (eid, bid, scoreTable, scoreEntry, scorePlace, scoreType)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [1, 7_001, 1, 42, 1, 1],
+    );
+    await connection.execute(
+      `INSERT INTO baseline_archive
+         (archiveStyleSet, archiveSuffix, archiveWinnerMethod, archiveDisplayWinners)
+       VALUES (?, ?, ?, ?)`,
+      ['BJCP2021', ARCHIVE_SUFFIX, 0, 'Y'],
+    );
   });
 }
 
 export async function resetLandingFixtures(): Promise<void> {
   await withDb(async connection => {
+    for (const table of ARCHIVE_TABLES) {
+      await connection.query(`DROP TABLE IF EXISTS \`${table}\``);
+    }
     await connection.beginTransaction();
     try {
       await connection.execute(

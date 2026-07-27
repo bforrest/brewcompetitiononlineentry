@@ -13,7 +13,7 @@ declare(strict_types=1);
                 <div class="modal-body">
                     <div class="form-floating mb-3">
                         <input class="form-control" id="login-user-name" name="loginUsername" type="email" aria-describedby="login-user-name-feedback" required>
-                        <label for="login-user-name">Email</label>
+                        <label for="login-user-name">Email Address</label>
                         <div class="invalid-feedback" id="login-user-name-feedback">A valid email is required.</div>
                     </div>
                     <div class="form-floating mb-3">

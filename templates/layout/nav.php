@@ -8,7 +8,7 @@
  */
 ?>
 <?php if ($isPublic && ($isLanding ?? false)): ?>
-<nav id="site-nav" class="site-nav family-sans navbar navbar-expand-md navbar-dark fixed-top bg-dark" aria-label="Primary navigation">
+<nav id="site-nav" class="site-nav family-sans navbar navbar-expand-md navbar-dark fixed-top bg-dark" aria-labelledby="landing-title">
     <div class="container-fluid">
         <a class="navbar-brand" href="#home"><i class="fas fa-home me-2" aria-hidden="true"></i><span class="visually-hidden">Home</span></a>
         <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#public-nav-toggler" aria-controls="public-nav-toggler" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
@@ -22,7 +22,7 @@
                 <a class="nav-item nav-link" href="<?= e($view->links->sponsors) ?>"><?= e($view->copy->sponsors) ?></a>
                 <?php endif; ?>
                 <?php if ($view->archives !== []): ?>
-                <button class="btn btn-outline-light ms-md-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#archive-list" aria-controls="archive-list">Past Winners</button>
+                <button class="btn btn-outline-light ms-md-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#archive-list" aria-controls="archive-list"><?= e($view->copy->pastWinners) ?></button>
                 <?php endif; ?>
                 <?php if ($view->loggedIn): ?>
                 <?php if ($view->viewerName !== null): ?><span class="navbar-text px-2">Hello, <?= e($view->viewerName) ?></span><?php endif; ?>

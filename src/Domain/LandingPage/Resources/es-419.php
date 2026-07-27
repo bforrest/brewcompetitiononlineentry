@@ -13,6 +13,7 @@ return [
     'sponsors' => 'Patrocinadores',
     'officials' => 'Funcionarios de la Competencia',
     'results' => 'Resultados',
+    'past_winners' => 'Ganadores Anteriores',
     'upcoming_message' => 'La inscripción de cuentas se abrirá el %s. Por favor, regresa entonces para registrar tu cuenta.',
     'open_message' => '¡La inscripción de entradas está abierta!',
     'closed_message' => 'La inscripción está cerrada.',

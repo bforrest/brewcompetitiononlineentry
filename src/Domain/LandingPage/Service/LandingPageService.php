@@ -330,6 +330,7 @@ final class LandingPageService
             sponsors: $copy->sponsors,
             officials: $copy->officials,
             results: $copy->results,
+            pastWinners: $copy->pastWinners,
             upcomingMessage: sprintf(
                 $copy->upcomingMessage,
                 gmdate('F j, Y g:i A \U\T\C', $registrationOpensAt),

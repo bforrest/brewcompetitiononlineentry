@@ -17,6 +17,7 @@ final readonly class LandingPageCopy
         public string $sponsors,
         public string $officials,
         public string $results,
+        public string $pastWinners,
         public string $upcomingMessage,
         public string $openMessage,
         public string $closedMessage,

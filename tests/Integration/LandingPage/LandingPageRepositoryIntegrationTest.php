@@ -25,6 +25,7 @@ final class LandingPageRepositoryIntegrationTest extends IntegrationTestCase
     public function test_reads_contest_windows_limits_progress_and_locations(): void
     {
         $now = time();
+        self::$conn->query('DELETE FROM `' . self::$pfx . 'brewing`');
         $this->updateSingleton('contest_info', [
             'contestName' => 'Fixture Invitational',
             'contestHost' => 'Fixture Club',
