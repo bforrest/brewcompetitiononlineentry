@@ -67,6 +67,11 @@ final class AccessPolicy
         return $this->map["file:{$filename}"] ?? null;
     }
 
+    public function requiredRoleForNamedRoute(string $routeName): ?Role
+    {
+        return $this->map[$routeName] ?? null;
+    }
+
     public function requiredRoleForOutputSection(string $section): ?Role
     {
         return $this->map["output:section:{$section}"] ?? null;

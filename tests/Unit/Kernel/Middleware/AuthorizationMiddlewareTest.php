@@ -27,11 +27,15 @@ class AuthorizationMiddlewareTest extends TestCase
      * Authentication-stand-in -> handler), so these tests exercise the real
      * pipeline ordering, not a hand-constructed request/attribute pair.
      */
-    private function buildTestApp(Identity $identity, string $routeName): App
+    private function buildTestApp(
+        Identity $identity,
+        string $routeName,
+        ?AccessPolicy $policy = null,
+    ): App
     {
         $app = Bridge::create(new \DI\Container());
 
-        $app->add(new AuthorizationMiddleware($this->policy()));
+        $app->add(new AuthorizationMiddleware($policy ?? $this->policy()));
         $app->addRoutingMiddleware();
         $app->add(function (ServerRequestInterface $request, RequestHandlerInterface $handler) use ($identity): ResponseInterface {
             return $handler->handle($request->withAttribute('identity', $identity));
@@ -110,6 +114,32 @@ class AuthorizationMiddlewareTest extends TestCase
         $response = $this->get($app, '/test-route?action=login');
 
         $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function test_landing_page_route_uses_its_named_policy_entry(): void
+    {
+        $policyFile = tempnam(sys_get_temp_dir(), 'bcoem-policy-');
+        self::assertNotFalse($policyFile);
+        file_put_contents(
+            $policyFile,
+            "<?php return [\n"
+            . "    'section:default' => \\Bcoem\\Security\\Role::Anonymous,\n"
+            . "    'landing.page' => \\Bcoem\\Security\\Role::Admin,\n"
+            . "];\n",
+        );
+
+        try {
+            $app = $this->buildTestApp(
+                Identity::fromSession([]),
+                'landing.page',
+                AccessPolicy::fromFile($policyFile),
+            );
+            $response = $this->get($app, '/test-route');
+        } finally {
+            unlink($policyFile);
+        }
+
+        $this->assertSame(403, $response->getStatusCode());
     }
 
     public function test_file_route_allows_when_the_files_declared_role_is_satisfied(): void

@@ -24,6 +24,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\NullLogger;
 use Slim\App;
+use Slim\Interfaces\RouteInterface;
 use Slim\Psr7\Factory\ServerRequestFactory;
 
 require_once ROOT . 'src/Kernel/app.php';
@@ -60,7 +61,30 @@ final class LandingPageRouteTest extends TestCase
             (new ServerRequestFactory())->createServerRequest('GET', '/?section=login'),
         );
 
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('legacy root query', (string) $response->getBody());
         self::assertStringNotContainsString('data-modern-landing-page="true"', (string) $response->getBody());
+    }
+
+    public function test_index_php_uses_the_legacy_dispatch_for_bare_and_query_string_requests(): void
+    {
+        $app = buildApp($this->containerWithLandingController());
+        $this->route($app, 'GET /index.php')->setCallable(function ($request, $response) {
+            $section = $request->getQueryParams()['section'] ?? 'default';
+            $response->getBody()->write("legacy index {$section}");
+            return $response;
+        });
+
+        $factory = new ServerRequestFactory();
+        $bareResponse = $app->handle($factory->createServerRequest('GET', '/index.php'));
+        $queryResponse = $app->handle(
+            $factory->createServerRequest('GET', '/index.php?section=login'),
+        );
+
+        self::assertSame(200, $bareResponse->getStatusCode());
+        self::assertSame('legacy index default', (string) $bareResponse->getBody());
+        self::assertSame(200, $queryResponse->getStatusCode());
+        self::assertSame('legacy index login', (string) $queryResponse->getBody());
     }
 
     public function test_landing_page_route_is_anonymous(): void
@@ -77,9 +101,12 @@ final class LandingPageRouteTest extends TestCase
         $container->set('logger.app', new NullLogger());
         $container->set('tracer', Globals::tracerProvider()->getTracer('test'));
         $container->set(LandingPageController::class, $this->landingPageController());
-        $container->set(LegacyPageHandler::class, static function ($request, $response) {
-            $response->getBody()->write('legacy root query');
-            return $response;
+        $container->set(LegacyPageHandler::class, new class {
+            public function __invoke($request, $response)
+            {
+                $response->getBody()->write('legacy root query');
+                return $response;
+            }
         });
 
         return $container;
@@ -152,5 +179,18 @@ final class LandingPageRouteTest extends TestCase
         }
 
         return $callables;
+    }
+
+    private function route(App $app, string $signature): RouteInterface
+    {
+        foreach ($app->getRouteCollector()->getRoutes() as $route) {
+            foreach ($route->getMethods() as $method) {
+                if ("{$method} {$route->getPattern()}" === $signature) {
+                    return $route;
+                }
+            }
+        }
+
+        throw new \LogicException("Route {$signature} was not registered.");
     }
 }
