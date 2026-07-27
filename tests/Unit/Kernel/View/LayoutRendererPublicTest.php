@@ -123,7 +123,20 @@ class LayoutRendererPublicTest extends TestCase
         self::assertStringNotContainsString('name="loginUsername"', $html);
     }
 
-    private function landingView(bool $loggedIn = false): LandingPageViewModel
+    public function test_landing_url_encodes_special_characters_in_archive_suffixes(): void
+    {
+        $renderer = new LayoutRenderer();
+        $template = dirname(__DIR__, 4) . '/templates/LandingPage/home.php';
+
+        $html = $renderer->landing($this->landingView(archiveSuffix: '2025 & finals'), $template);
+
+        self::assertStringContainsString(
+            'href="/index.php?section=past-winners&amp;go=2025%20%26%20finals"',
+            $html,
+        );
+    }
+
+    private function landingView(bool $loggedIn = false, string $archiveSuffix = '2025'): LandingPageViewModel
     {
         return new LandingPageViewModel(
             new ContestOverview('Fixture Invitational', 'Fixture Brewers', 'https://fixture.example.test', 'Chicago, IL', '/user_images/fixture-logo.svg'),
@@ -144,7 +157,7 @@ class LayoutRendererPublicTest extends TestCase
             ],
             [],
             [],
-            [new Archive('2025', 0, '2021')],
+            [new Archive($archiveSuffix, 0, '2021')],
             new WinnerSummary(WinnerMethod::Overall, '2021', [
                 new WinnerRow('Best of Show', 1, 1, 'Alex Brewer', null, 'Fixture Stout', 'Stout', null, null, 42.5),
             ]),
