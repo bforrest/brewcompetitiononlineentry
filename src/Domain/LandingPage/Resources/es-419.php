@@ -71,4 +71,5 @@ return [
     'steward_registration_card_title' => 'Registro de auxiliares',
     'card_status_label' => 'Estado',
     'card_info_label' => 'Información',
+    'hero_welcome_message' => 'Gracias por su interés en %s, organizado por %s%s.',
 ];

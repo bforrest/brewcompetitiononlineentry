@@ -71,4 +71,5 @@ return [
     'steward_registration_card_title' => 'Steward Registration',
     'card_status_label' => 'Status',
     'card_info_label' => 'Info',
+    'hero_welcome_message' => 'Thank you for your interest in %s organized by %s%s.',
 ];

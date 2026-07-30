@@ -90,6 +90,15 @@ final class LayoutRenderer
         $locale = e($view->locale);
         $hostedBy = e($view->copy->hostedBy);
         $returnToTop = e($view->copy->returnToTop);
+        $welcomeLocationSuffix = $view->contest->hostLocation === null
+            ? ''
+            : ', ' . e($view->contest->hostLocation);
+        $welcomeMessage = sprintf(
+            e($view->copy->heroWelcomeMessage),
+            $contestTitleHtml,
+            $hostName,
+            $welcomeLocationSuffix,
+        );
 
         return <<<HTML
 <!DOCTYPE html>
@@ -99,15 +108,20 @@ final class LayoutRenderer
 <header id="home" class="site-header">
 {$nav}
 <div id="sticky-home" class="contains-link d-print-none"><a href="#home" aria-label="{$returnToTop}"><i class="fas fa-arrow-circle-up fa-2x" aria-hidden="true"></i></a></div>
-<section id="hero" class="landing-hero text-light bg-dark pt-5 pb-4" aria-labelledby="landing-title" style="background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.75)), url('{$heroImageUrl}')">
-    <div class="container-xxl pt-4">
+<section id="hero" class="landing-hero text-light bg-dark d-flex align-items-center text-center" style="min-height: 22rem; background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.75)), url('{$heroImageUrl}')" aria-labelledby="landing-title">
+    <div class="container-xxl">
         {$hostLogo}
         <img class="visually-hidden" src="{$heroImageUrl}" alt="" role="presentation">
-        <h1 id="landing-title" class="fw-bold animate__animated animate__fadeInDown">{$heroHeading}</h1>
+        <h1 id="landing-title" class="display-4 fw-bold animate__animated animate__fadeInDown">{$heroHeading}</h1>
         <p class="lead mb-0">{$heroSubheading}</p>
         <p class="mb-0">{$hostedBy} {$hostPresentation}{$hostLocation}</p>
     </div>
 </section>
+<div class="bg-black text-light py-4 d-print-none">
+    <div class="container-xxl">
+        <p class="fs-5 mb-0">{$welcomeMessage}</p>
+    </div>
+</div>
 </header>
 {$content}
 {$footer}

@@ -75,6 +75,7 @@ final readonly class LandingPageCopy
         public string $stewardRegistrationCardTitle = 'Steward Registration',
         public string $cardStatusLabel = 'Status',
         public string $cardInfoLabel = 'Info',
+        public string $heroWelcomeMessage = 'Thank you for your interest in %s organized by %s%s.',
     ) {
     }
 }

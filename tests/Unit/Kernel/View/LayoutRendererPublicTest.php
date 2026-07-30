@@ -175,6 +175,21 @@ class LayoutRendererPublicTest extends TestCase
         self::assertStringContainsString('Winning Mead', $html);
     }
 
+    public function test_landing_hero_includes_a_welcome_bar_with_contest_and_host_names(): void
+    {
+        $renderer = new LayoutRenderer();
+        $template = dirname(__DIR__, 4) . '/templates/LandingPage/home.php';
+
+        $html = $renderer->landing($this->landingView(), $template);
+
+        self::assertStringContainsString(
+            'Thank you for your interest in Fixture Invitational organized by',
+            $html,
+        );
+        self::assertStringContainsString('Fixture Brewers', $html);
+        self::assertMatchesRegularExpression('/landing-hero[^"]*"[^>]*style="min-height: 22rem/', $html);
+    }
+
     private function landingView(bool $loggedIn = false, string $archiveSuffix = '2025'): LandingPageViewModel
     {
         return new LandingPageViewModel(

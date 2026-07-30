@@ -87,6 +87,7 @@ final class LandingPageCopyAdapter
             stewardRegistrationCardTitle: $catalog['steward_registration_card_title'],
             cardStatusLabel: $catalog['card_status_label'],
             cardInfoLabel: $catalog['card_info_label'],
+            heroWelcomeMessage: $catalog['hero_welcome_message'],
         );
     }
 }

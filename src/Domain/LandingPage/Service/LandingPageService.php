@@ -482,6 +482,7 @@ final class LandingPageService
             stewardRegistrationCardTitle: $copy->stewardRegistrationCardTitle,
             cardStatusLabel: $copy->cardStatusLabel,
             cardInfoLabel: $copy->cardInfoLabel,
+            heroWelcomeMessage: $copy->heroWelcomeMessage,
         );
     }
 
