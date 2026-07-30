@@ -310,25 +310,26 @@ In `src/Domain/LandingPage/Service/LandingPageService.php`'s `copyForView()`, ad
 
 - [ ] **Step 2: Write the failing test for the welcome bar and hero sizing**
 
-Add to `tests/Unit/Kernel/View/LayoutRendererPublicTest.php` as a new test method (check the existing tests in that file for the exact `LandingPageViewModel`/fixture construction pattern already used there and follow it — the file already builds a full `LandingPageViewModel` fixture for its other landing tests; reuse that same fixture-building approach with `contest->name = 'Fixture Competition'`, `hostName = 'Fixture Host'`, `hostLocation = 'Austin, Texas'`):
+Add to `tests/Unit/Kernel/View/LayoutRendererPublicTest.php` as a new test method. This file already has exactly the fixture-building pieces needed: a private `landingView(bool $loggedIn = false, string $archiveSuffix = '2025'): LandingPageViewModel` helper (bottom of the file), whose fixture sets `ContestOverview('Fixture Invitational', 'Fixture Brewers', 'https://fixture.example.test', 'Chicago, IL', ...)`, and every existing landing test in this file builds the template path inline as `$template = dirname(__DIR__, 4) . '/templates/LandingPage/home.php';` (see e.g. `test_landing_renders_typed_model_in_bootstrap_five_chrome`) — reuse both exactly as-is, don't invent new helpers:
 
 ```php
     public function test_landing_hero_includes_a_welcome_bar_with_contest_and_host_names(): void
     {
-        $view = $this->landingViewModel(); // reuse this file's existing fixture-building helper
-        $html = (new LayoutRenderer())->landing($view, self::landingTemplatePath());
+        $renderer = new LayoutRenderer();
+        $template = dirname(__DIR__, 4) . '/templates/LandingPage/home.php';
+
+        $html = $renderer->landing($this->landingView(), $template);
 
         self::assertStringContainsString(
-            'Thank you for your interest in Fixture Competition organized by Fixture Host',
+            'Thank you for your interest in Fixture Invitational organized by',
             $html,
         );
-        self::assertMatchesRegularExpression('/landing-hero[^"]*"[^>]*style="[^"]*pt-[6-9]/', $html);
+        self::assertStringContainsString('Fixture Brewers', $html);
+        self::assertMatchesRegularExpression('/landing-hero[^"]*"[^>]*style="min-height: 22rem/', $html);
     }
 ```
 
-If `LayoutRendererPublicTest.php` doesn't already have a `landingViewModel()`/`landingTemplatePath()` helper (check first — `LandingPageControllerTest.php`'s `controller()` fixture builder is the closest existing template if this file doesn't have its own), adapt the test to build a minimal `LandingPageViewModel` inline instead, matching the constructor this file's other landing tests already use — do not invent a new fixture-construction style not already present in the file.
-
-The second assertion is intentionally loose (checks the hero section's inline style grew from `pt-5` toward a taller padding value) rather than asserting an exact pixel height, since the height comes from the same Bootstrap spacing-utility approach already used (`pt-5 pb-4` today) — Step 3 below defines the exact replacement classes to assert against once written; tighten this regex to match those exact classes after Step 3.
+(`landingView()`'s fixture wraps the host name in a link when `hostWebsite` is set, same as it already does elsewhere in this file — the welcome-message assertion above checks the text up to "organized by" only, avoiding a brittle match against the `<a>` tag's exact markup; the follow-up `assertStringContainsString('Fixture Brewers', ...)` confirms the host name itself is present in the welcome bar.)
 
 - [ ] **Step 3: Run test to verify it fails**
 
@@ -391,7 +392,7 @@ to:
     <div class="container-xxl">
         {$hostLogo}
         <img class="visually-hidden" src="{$heroImageUrl}" alt="" role="presentation">
-        <h1 id="landing-title" class="display-4 fw-bold animate__animated animate__fadeInDown" style="text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.85);">{$heroHeading}</h1>
+        <h1 id="landing-title" class="display-4 fw-bold animate__animated animate__fadeInDown">{$heroHeading}</h1>
         <p class="lead mb-0">{$heroSubheading}</p>
         <p class="mb-0">{$hostedBy} {$hostPresentation}{$hostLocation}</p>
     </div>
@@ -405,13 +406,13 @@ to:
 
 Notes on this change:
 - `min-height: 22rem` (~352px) approximates legacy's measured ~370px hero height; `d-flex align-items-center` vertically centers the title block within it, matching legacy's visually-centered look.
-- `text-center` on the section + `display-4` + the inline `text-shadow` on the `<h1>` reproduces legacy's large, centered, drop-shadowed title (legacy achieves the drop shadow via its own theme CSS on a class this app's `common-3.css` doesn't define the same way for `.landing-hero h1` — the inline `text-shadow` here is the minimal, self-contained way to match the visual without inventing a new shared CSS rule; if a future pass wants this in the stylesheet instead, that's a mechanical follow-up, not required for this task).
+- `text-center` on the section + `display-4` reproduces legacy's large, centered title. Legacy also has a drop shadow on this text, achieved via its own theme CSS; matching that exactly would require a new CSS rule, which the "no new CSS" constraint rules out for this task — deliberately left out per an explicit user decision (asked and answered before this task started: skip the drop shadow, keep the constraint airtight, accept this one minor remaining difference from legacy's exact hero look).
 - The new `<div class="bg-black text-light py-4 d-print-none">` block is the welcome bar, styled to match legacy's full-width black intro bar (`d-print-none` matches the same print-hiding convention already used elsewhere in this codebase's landing partials, e.g. `templates/LandingPage/partials/registration.php`'s date-range block does not use it but `pub/at-a-glance.pub.php`'s row wrapper does — apply it here since this is decorative welcome copy, not something print output needs).
 
 - [ ] **Step 5: Run test to verify it passes**
 
 Run: `php vendor/bin/phpunit --filter test_landing_hero_includes_a_welcome_bar tests/Unit/Kernel/View/LayoutRendererPublicTest.php`
-Expected: PASS. If the loose regex in Step 2 doesn't match your exact final classes, tighten it now to check for the literal string `min-height: 22rem` in the hero section's style attribute instead, then re-run.
+Expected: PASS.
 
 - [ ] **Step 6: Run the full Unit suite**
 
