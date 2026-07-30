@@ -51,6 +51,14 @@ final class RegistrationController
 
             unset($_SESSION['user_info']);
             $_SESSION['loginUsername'] = $cmd->userName;
+            // csrf_token_generate() lives in lib/common.lib.php, which nothing
+            // else in the modern registration request path loads (unlike
+            // paths.php/process.lib.php, which RegistrationService's own
+            // bootstrapLegacyHelpers() pulls in on demand for sterilize()/
+            // blank_to_null()) - load it the same way, only if needed.
+            if (!function_exists('csrf_token_generate')) {
+                require_once LIB . 'common.lib.php';
+            }
             csrf_token_generate(true);
 
             return $response->withStatus(302)->withHeader('Location', '/entries/my');

@@ -75,6 +75,14 @@ jobs:
           node-version: "20"
       - name: Playwright e2e (host → stack)
         working-directory: e2e
+        # E2E_ALLOW_DESTRUCTIVE_FIXTURES: the landing-page fixture helpers
+        # (e2e/helpers/landing-fixtures.ts) refuse to reset/mutate landing
+        # data unless this exact opt-in is set AND the target DB carries the
+        # disposable-database marker - both true here, since this job's
+        # `docker compose up -d --build` step above always seeds a brand new,
+        # single-purpose DB volume on an ephemeral runner.
+        env:
+          E2E_ALLOW_DESTRUCTIVE_FIXTURES: I_UNDERSTAND_THIS_WILL_RESET_A_DISPOSABLE_DATABASE
         run: |
           npm ci
           npx playwright install --with-deps chromium
