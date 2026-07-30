@@ -189,7 +189,7 @@ final class LandingPageRepository implements LandingPageReadRepository
             $this->nullableString($row['contestAwardsLocName'] ?? null),
             $this->nullableString($row['contestAwardsLocation'] ?? null),
             $this->nullableInt($row['contestAwardsLocTime'] ?? null),
-            ($row['prefsShipping'] ?? null) === 'Y',
+            (int) ($row['prefsShipping'] ?? 0) === 1,
             $dropoffs,
         );
     }

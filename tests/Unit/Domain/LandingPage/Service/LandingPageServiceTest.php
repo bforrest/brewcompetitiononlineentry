@@ -329,7 +329,7 @@ final class LandingPageServiceTest extends TestCase
         self::assertSame('/includes/process.inc.php?section=logout&action=logout', $view->links->logout);
     }
 
-    public function test_authenticated_viewer_does_not_get_anonymous_register_or_login_alerts(): void
+    public function test_authenticated_viewer_does_not_get_anonymous_register_or_login_link_but_still_sees_judge_alert_gated(): void
     {
         $identity = Identity::fromSession([
             'loginUsername' => 'entrant@example.test',
@@ -346,9 +346,62 @@ final class LandingPageServiceTest extends TestCase
             self::assertNotSame('/index.php?section=register&go=entrant', $alert->linkUrl);
             self::assertNotSame('#login-modal', $alert->linkUrl);
         }
-        self::assertFalse($this->hasAlert($open->alerts, 'Entry registration is open!'));
-        self::assertFalse($this->hasAlert($closed->alerts, 'Account registration is closed.'));
+        // The registration-status prose itself is login-independent (see
+        // test_registration_status_prose_shows_for_logged_in_visitor_in_every_window_status
+        // below); only the anonymous-only "Register"/"Log in" CTA and the separate
+        // judge-registration alert stay gated on !$loggedIn.
         self::assertFalse($this->hasAlert($closed->alerts, 'Judge or steward registration is open.'));
+    }
+
+    public function test_registration_status_prose_shows_for_logged_in_visitor_in_every_window_status(): void
+    {
+        $identity = Identity::fromSession([
+            'loginUsername' => 'entrant@example.test',
+            'userLevel' => '2',
+        ]);
+        $context = new LandingPageContext('en-US', 'Ada', [1]);
+
+        $open = $this->service()->viewFor($identity, $context, 1500);
+        $upcoming = $this->service(
+            windows: $this->windows(registrationOpensAt: 2000, registrationClosesAt: 3000),
+        )->viewFor($identity, $context, 1500);
+        $closed = $this->service(
+            windows: $this->windows(registrationClosesAt: 1400),
+        )->viewFor($identity, $context, 1500);
+
+        self::assertSame(WindowStatus::Open, $open->registrationStatus);
+        self::assertTrue($this->hasAlert($open->alerts, 'Entry registration is open!'));
+        self::assertNull($this->alertWithMessage($open->alerts, $open->copy->openMessage)->linkUrl);
+
+        self::assertSame(WindowStatus::Upcoming, $upcoming->registrationStatus);
+        self::assertTrue($this->hasAlert(
+            $upcoming->alerts,
+            'Account registration will open 01/01/1970 12:33 AM, UTC. '
+            . 'Please return then to register your account.',
+        ));
+
+        self::assertSame(WindowStatus::Closed, $closed->registrationStatus);
+        self::assertTrue($this->hasAlert($closed->alerts, 'Account registration is closed.'));
+        self::assertNull($this->alertWithMessage($closed->alerts, $closed->copy->closedMessage)->linkUrl);
+    }
+
+    public function test_anonymous_visitor_still_gets_register_and_login_cta_on_registration_status_alert(): void
+    {
+        $context = new LandingPageContext('en-US', null, [1]);
+
+        $open = $this->service()->viewFor(Identity::fromSession([]), $context, 1500);
+        $closed = $this->service(
+            windows: $this->windows(registrationClosesAt: 1400),
+        )->viewFor(Identity::fromSession([]), $context, 1500);
+
+        self::assertSame(
+            '/index.php?section=register&go=entrant',
+            $this->alertWithMessage($open->alerts, $open->copy->openMessage)->linkUrl,
+        );
+        self::assertSame(
+            '#login-modal',
+            $this->alertWithMessage($closed->alerts, $closed->copy->closedMessage)->linkUrl,
+        );
     }
 
     public function test_blank_viewer_name_falls_back_to_identity_username(): void

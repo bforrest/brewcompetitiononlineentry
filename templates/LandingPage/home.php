@@ -6,7 +6,8 @@ declare(strict_types=1);
     <?php if ($view->sections?->atAGlance ?? true): ?>
     <?php require __DIR__ . '/partials/at-a-glance.php'; ?>
     <?php endif; ?>
-    <?php if ($view->sections?->volunteers ?? true): ?>
+    <?php /* Volunteers gating restored to its pre-Task-5 coupling (atAGlance && volunteers) per human decision on 2026-07-30 — verify this coupling against Geoff's documentation before relying on it long-term. */ ?>
+    <?php if (($view->sections?->atAGlance ?? true) && ($view->sections?->volunteers ?? true)): ?>
     <?php require __DIR__ . '/partials/volunteers.php'; ?>
     <?php endif; ?>
     <?php if ($view->sections?->rules ?? true): ?>

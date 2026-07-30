@@ -206,6 +206,68 @@ final class LandingPageControllerTest extends TestCase
         self::assertStringNotContainsString('&lt;p&gt;', $html);
     }
 
+    public function test_volunteers_section_stays_coupled_to_at_a_glance_gate(): void
+    {
+        // Restores pre-Task-5 behavior: volunteers.php was nested inside registration.php's
+        // atAGlance gate, so the effective condition was (atAGlance && volunteers), not
+        // volunteers alone. Here $judging->started is false (volunteers pref would allow
+        // rendering) but resultsStage is true with registration/entry closed, which forces
+        // atAGlance false — the volunteers section must NOT render in that combination.
+        $now = time();
+        $repository = $this->createMock(LandingPageReadRepository::class);
+        $repository->method('contestOverview')->willReturn(
+            new ContestOverview('Fixture Competition', 'Fixture Host', null, null, null),
+        );
+        $repository->method('competitionWindows')->willReturn(
+            new CompetitionWindows(
+                $now - 7200,
+                $now - 3600,
+                $now - 7200,
+                $now - 3600,
+                $now - 7200,
+                $now - 3600,
+                null,
+                null,
+                null,
+                null,
+            ),
+        );
+        $repository->method('competitionLimits')->willReturn(new CompetitionLimits(5, 3, 100, 80, 90));
+        // started=false, ended=false, displayWinners=true, winnerReleaseAt=0, resultsStage=true.
+        $repository->method('judgingProgress')->willReturn(new JudgingProgress(false, false, true, 0, true));
+        $repository->method('locations')->willReturn(
+            new CompetitionLocations(null, null, null, null, null, null),
+        );
+        $repository->method('contacts')->willReturn([]);
+        $repository->method('competitionRules')->willReturn(new CompetitionRules('', null));
+        $repository->method('contactMode')->willReturn(ContactMode::Directory);
+        $repository->method('sponsors')->willReturn([]);
+        $repository->method('visibleArchives')->willReturn([]);
+        $repository->method('winnerSummary')->willReturn(new WinnerSummary(WinnerMethod::Overall, '', []));
+        $repository->method('bestOfShow')->willReturn(new BestOfShowSummary([]));
+
+        $selector = new class implements HeroImageSelector {
+            public function select(array $candidates): string
+            {
+                return $candidates[0];
+            }
+        };
+
+        $controller = new LandingPageController(
+            new LandingPageService($repository, new LandingPageCopyAdapter(), $selector),
+            new LayoutRenderer(),
+        );
+
+        $request = (new ServerRequestFactory())
+            ->createServerRequest('GET', '/')
+            ->withAttribute('identity', Identity::fromSession([]));
+
+        $response = $controller->show($request, (new ResponseFactory())->createResponse());
+        $html = (string) $response->getBody();
+
+        self::assertStringNotContainsString('id="volunteers"', $html);
+    }
+
     public function test_fallback_style_type_is_ignored_when_valid_style_is_selected(): void
     {
         $_SESSION['prefsSelectedStyles'] = '[{"brewStyleType":0},{"brewStyleType":1}]';

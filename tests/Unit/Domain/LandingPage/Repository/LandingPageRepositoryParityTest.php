@@ -75,7 +75,10 @@ final class LandingPageRepositoryParityTest extends TestCase
                         'contestAwardsLocName' => null,
                         'contestAwardsLocation' => null,
                         'contestAwardsLocTime' => null,
-                        'prefsShipping' => 'Y',
+                        // prefsShipping is a real tinyint(1) column (sql/bcoem_baseline_3.0.X.sql:591),
+                        // so a live row yields an int, not the string 'Y' — unlike the char(1) 'Y'/'N'
+                        // preference columns elsewhere in this table.
+                        'prefsShipping' => 1,
                     ];
                 }
                 if (str_contains($sql, 'FROM baseline_drop_off')) {
@@ -125,6 +128,38 @@ final class LandingPageRepositoryParityTest extends TestCase
         $contacts = $repository->contacts();
         self::assertSame(7, $contacts[0]->id);
         self::assertObjectNotHasProperty('email', $contacts[0]);
+    }
+
+    /** @dataProvider disabledPrefsShippingValues */
+    public function test_prefs_shipping_tinyint_zero_or_null_disables_shipping(mixed $rawValue): void
+    {
+        $connection = new LandingPageScriptedConnection(
+            static function (string $sql) use ($rawValue): array {
+                if (str_contains($sql, 'contestShippingName')) {
+                    return [
+                        'contestShippingName' => 'Shipping',
+                        'contestShippingAddress' => '123 Main',
+                        'contestAwards' => null,
+                        'contestAwardsLocName' => null,
+                        'contestAwardsLocation' => null,
+                        'contestAwardsLocTime' => null,
+                        'prefsShipping' => $rawValue,
+                    ];
+                }
+
+                return [];
+            },
+        );
+        $repository = new LandingPageRepository($connection, 'baseline_');
+
+        self::assertFalse($repository->locations()->shippingEnabled);
+    }
+
+    /** @return iterable<string, array{0: mixed}> */
+    public static function disabledPrefsShippingValues(): iterable
+    {
+        yield 'zero' => [0];
+        yield 'null' => [null];
     }
 
     public function test_results_stage_begins_only_after_all_judging_starts_are_past(): void

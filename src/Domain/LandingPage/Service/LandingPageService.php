@@ -201,25 +201,30 @@ final class LandingPageService
     ): array {
         $alerts = [];
 
-        if (!$loggedIn) {
-            if ($registration === WindowStatus::Upcoming) {
-                $alerts[] = new Alert(AlertLevel::Info, $copy->upcomingMessage);
-            } elseif ($registration === WindowStatus::Open) {
-                $alerts[] = new Alert(
-                    AlertLevel::Success,
-                    $copy->openMessage,
-                    $copy->register,
-                    self::REGISTER_URL,
-                );
-            } else {
-                $alerts[] = new Alert(
-                    AlertLevel::Warning,
-                    $copy->closedMessage,
-                    $copy->login,
-                    self::LOGIN_TARGET,
-                );
-            }
+        // Registration-status prose renders for every visitor regardless of login state
+        // (matches pre-Task-5 templates/LandingPage/partials/registration.php, which rendered
+        // this <p class="lead"> unconditionally). Only the CTA link is login-gated, since a
+        // logged-in visitor already has an equivalent action surfaced via the card grid
+        // ($view->actions in at-a-glance.php) and "Register"/"Log in" don't apply to them.
+        if ($registration === WindowStatus::Upcoming) {
+            $alerts[] = new Alert(AlertLevel::Info, $copy->upcomingMessage);
+        } elseif ($registration === WindowStatus::Open) {
+            $alerts[] = new Alert(
+                AlertLevel::Success,
+                $copy->openMessage,
+                $loggedIn ? null : $copy->register,
+                $loggedIn ? null : self::REGISTER_URL,
+            );
+        } else {
+            $alerts[] = new Alert(
+                AlertLevel::Warning,
+                $copy->closedMessage,
+                $loggedIn ? null : $copy->login,
+                $loggedIn ? null : self::LOGIN_TARGET,
+            );
+        }
 
+        if (!$loggedIn) {
             if ($registration !== WindowStatus::Open && $judge === WindowStatus::Open) {
                 $alerts[] = new Alert(
                     AlertLevel::Info,
