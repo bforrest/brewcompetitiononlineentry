@@ -3,7 +3,7 @@ declare(strict_types=1);
 ?>
 <?php if ($view->contacts !== []): ?>
 <section id="contact" class="container-xxl py-4" aria-labelledby="contacts-heading">
-    <h2 id="contacts-heading"><?= e($view->copy->officials) ?></h2>
+    <header class="landing-page-section-header"><h2 id="contacts-heading" class="fs-1 fw-bold"><?= e($view->copy->officials) ?></h2></header>
     <ul class="list-group list-group-flush">
         <?php foreach ($view->contacts as $contact): ?>
         <li class="list-group-item px-0 text-break">

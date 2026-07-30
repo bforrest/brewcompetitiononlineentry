@@ -3,7 +3,7 @@ declare(strict_types=1);
 ?>
 <?php if ($view->sponsors !== []): ?>
 <section id="sponsors" class="container-xxl py-4" aria-labelledby="sponsors-heading">
-    <h2 id="sponsors-heading"><?= e($view->copy->sponsors) ?></h2>
+    <header class="landing-page-section-header"><h2 id="sponsors-heading" class="fs-1 fw-bold"><?= e($view->copy->sponsors) ?></h2></header>
     <div class="row row-cols-1 row-cols-md-2 g-3">
         <?php foreach ($view->sponsors as $sponsor): ?>
         <article class="col">

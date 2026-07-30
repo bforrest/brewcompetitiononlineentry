@@ -2,7 +2,7 @@
 declare(strict_types=1);
 ?>
 <section id="entry-info" class="container-xxl py-4" aria-labelledby="entry-info-heading">
-    <h2 id="entry-info-heading"><?= e($view->copy->entryInfo) ?></h2>
+    <header class="landing-page-section-header"><h2 id="entry-info-heading" class="fs-1 fw-bold"><?= e($view->copy->entryInfo) ?></h2></header>
     <?php if ($view->rules?->entryAcceptanceRules !== null): ?>
     <h3 class="h5"><?= e($view->copy->entryAcceptance) ?></h3>
     <p><?= nl2br(e($view->rules->entryAcceptanceRules)) ?></p>

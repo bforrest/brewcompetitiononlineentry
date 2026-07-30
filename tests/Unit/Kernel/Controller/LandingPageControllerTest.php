@@ -298,6 +298,24 @@ final class LandingPageControllerTest extends TestCase
         yield 'out of range' => [4];
     }
 
+    public function test_rules_and_contact_section_headers_carry_the_bordered_header_treatment(): void
+    {
+        $response = $this->controllerWithNonEmptyRulesAndContacts()->show(
+            (new ServerRequestFactory())->createServerRequest('GET', '/')->withAttribute('identity', Identity::fromSession([])),
+            (new ResponseFactory())->createResponse(),
+        );
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString(
+            '<header class="landing-page-section-header"><h2 id="rules-heading" class="fs-1 fw-bold">',
+            $html,
+        );
+        self::assertStringContainsString(
+            '<header class="landing-page-section-header"><h2 id="contacts-heading" class="fs-1 fw-bold">',
+            $html,
+        );
+    }
+
     private function controller(): LandingPageController
     {
         $now = time();
@@ -336,6 +354,73 @@ final class LandingPageControllerTest extends TestCase
         );
         $repository->method('contacts')->willReturn([]);
         $repository->method('competitionRules')->willReturn(new CompetitionRules('', null));
+        $repository->method('contactMode')->willReturn(ContactMode::Directory);
+        $repository->method('sponsors')->willReturn([]);
+        $repository->method('visibleArchives')->willReturn([]);
+        $repository->method('winnerSummary')->willReturn(
+            new WinnerSummary(WinnerMethod::Overall, '', []),
+        );
+        $repository->method('bestOfShow')->willReturn(new BestOfShowSummary([]));
+
+        $selector = new class implements HeroImageSelector {
+            public function select(array $candidates): string
+            {
+                return $candidates[4] ?? $candidates[0];
+            }
+        };
+
+        return new LandingPageController(
+            new LandingPageService($repository, new LandingPageCopyAdapter(), $selector),
+            new LayoutRenderer(),
+        );
+    }
+
+    private function controllerWithNonEmptyRulesAndContacts(): LandingPageController
+    {
+        $now = time();
+        $repository = $this->createMock(LandingPageReadRepository::class);
+        $repository->method('contestOverview')->willReturn(
+            new ContestOverview(
+                'Fixture Competition',
+                'Fixture Host',
+                'https://host.example.test',
+                'Austin, Texas',
+                '/user_images/fixture-logo.svg',
+            ),
+        );
+        $repository->method('competitionWindows')->willReturn(
+            new CompetitionWindows(
+                $now - 3600,
+                $now + 3600,
+                $now - 3600,
+                $now + 3600,
+                $now - 3600,
+                $now + 3600,
+                null,
+                null,
+                null,
+                null,
+            ),
+        );
+        $repository->method('competitionLimits')->willReturn(
+            new CompetitionLimits(5, 3, 100, 80, 90),
+        );
+        $repository->method('judgingProgress')->willReturn(
+            new JudgingProgress(false, false, false, 0),
+        );
+        $repository->method('locations')->willReturn(
+            new CompetitionLocations(null, null, null, null, null, null),
+        );
+        $repository->method('contacts')->willReturn([
+            new \Bcoem\Domain\LandingPage\Model\Contact(
+                1,
+                'John',
+                'Doe',
+                'Head Judge',
+                null,
+            ),
+        ]);
+        $repository->method('competitionRules')->willReturn(new CompetitionRules('Test competition rules', null));
         $repository->method('contactMode')->willReturn(ContactMode::Directory);
         $repository->method('sponsors')->willReturn([]);
         $repository->method('visibleArchives')->willReturn([]);

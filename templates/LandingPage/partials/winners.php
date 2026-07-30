@@ -2,15 +2,15 @@
 declare(strict_types=1);
 ?>
 <section id="winners" class="container-xxl py-4" aria-labelledby="winners-heading">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <h2 id="winners-heading" class="mb-0"><?= e($view->copy->results) ?></h2>
+    <header class="landing-page-section-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <h2 id="winners-heading" class="fs-1 fw-bold mb-0"><?= e($view->copy->results) ?></h2>
         <?php if ($view->winnerResultsVisible): ?>
         <span>
             <a class="btn btn-outline-secondary btn-sm" href="<?= e($view->links->resultsPdf) ?>" target="_blank" rel="noopener noreferrer">PDF</a>
             <a class="btn btn-outline-secondary btn-sm" href="<?= e($view->links->resultsHtml) ?>" target="_blank" rel="noopener noreferrer">HTML</a>
         </span>
         <?php endif; ?>
-    </div>
+    </header>
     <?php if ($view->bestOfShow !== null && $view->bestOfShow->rows !== []): ?>
     <h3 class="h4 mt-4"><?= e($view->copy->bestOfShow) ?></h3>
     <div class="table-responsive">
