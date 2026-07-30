@@ -1,102 +1,64 @@
 <?php
 declare(strict_types=1);
 
-namespace Tests\Integration\Domain\Judging;
+namespace BCOEM\Tests\Integration;
 
 use Bcoem\Database\Connection;
 use Bcoem\Domain\Judging\Command\RecordScoreCommand;
-use Bcoem\Domain\Judging\JudgingTable;
 use Bcoem\Domain\Judging\Repository\JudgingScoreRepository;
 use Bcoem\Domain\Judging\Repository\JudgingTableRepository;
 use Bcoem\Domain\Judging\Service\JudgingScoreService;
 use Bcoem\Domain\Judging\Service\JudgingValidationService;
-use Bcoem\Domain\Judging\ValueObject\FlightQueue;
-use Bcoem\Domain\Judging\ValueObject\LocationId;
 use Bcoem\Domain\Judging\ValueObject\TableId;
 use Bcoem\Domain\Judging\ValueObject\TableState;
 use Bcoem\Domain\Entry\ValueObject\EntryId;
-use Bcoem\Kernel\Identity;
-use Bcoem\Kernel\Security\User;
-use Bcoem\Kernel\Security\Role;
+use Bcoem\Security\Identity;
 use DateTime;
-use PHPUnit\Framework\TestCase;
 
-class JudgingScoreServiceIntegrationTest extends TestCase
+class JudgingScoreServiceIntegrationTest extends IntegrationTestCase
 {
-    private Connection $connection;
     private JudgingScoreService $service;
     private JudgingScoreRepository $scoreRepository;
-    private JudgingTableRepository $tableRepository;
-    private string $tablePrefix = 'test_';
     private Identity $testJudge;
+    private TableId $tableId;
 
     protected function setUp(): void
     {
-        if (!getenv('DB_TEST_HOST')) {
-            $this->markTestSkipped('No test database configured');
-        }
+        parent::setUp();
 
-        $mysqli = new \mysqli(
-            getenv('DB_TEST_HOST') ?: 'localhost',
-            getenv('DB_TEST_USER') ?: 'root',
-            getenv('DB_TEST_PASSWORD') ?: '',
-            getenv('DB_TEST_NAME') ?: 'bcoem_test'
-        );
-
-        if ($mysqli->connect_error) {
-            $this->markTestSkipped('Could not connect to test database');
-        }
-
-        $this->connection = new Connection($mysqli);
-        $this->scoreRepository = new JudgingScoreRepository($this->connection, $this->tablePrefix);
-        $this->tableRepository = new JudgingTableRepository($this->connection, $this->tablePrefix);
+        $connection = new Connection(self::$conn);
+        $this->scoreRepository = new JudgingScoreRepository($connection, self::$pfx);
+        $tableRepository = new JudgingTableRepository($connection, self::$pfx);
         $validationService = new JudgingValidationService();
-        $this->service = new JudgingScoreService($this->scoreRepository, $this->tableRepository, $validationService);
+        $this->service = new JudgingScoreService($this->scoreRepository, $tableRepository, $validationService);
 
-        $user = new User(id: 100, email: 'judge@test.local', name: 'Test Judge');
-        $this->testJudge = new Identity($user, [Role::Judge]);
+        $this->testJudge = Identity::fromSession([
+            'loginUsername' => 'judge@test.local',
+            'userLevel' => '2',
+        ]);
 
-        $this->cleanupTestTables();
-        $this->setupTestTable();
+        $this->tableId = $this->setupTestTable();
     }
 
-    protected function tearDown(): void
-    {
-        $this->cleanupTestTables();
-    }
-
-    private function cleanupTestTables(): void
-    {
-        try {
-            $this->connection->execute("DELETE FROM {$this->tablePrefix}judging_scores", []);
-            $this->connection->execute("DELETE FROM {$this->tablePrefix}judging_tables", []);
-        } catch (\Throwable) {
-            // Tables may not exist
-        }
-    }
-
-    private function setupTestTable(): void
+    private function setupTestTable(): TableId
     {
         // Create a test table that's ready for judging
-        $sql = sprintf(
-            'INSERT INTO %s (name, tableState, location, entryLimit, tableStateChanged) VALUES (?, ?, ?, ?, ?)',
-            $this->tablePrefix . 'judging_tables'
-        );
-
-        $this->connection->execute($sql, [
-            'Test Judging Table',
-            TableState::Active->value,
-            1,
-            10,
-            (new DateTime())->format('Y-m-d H:i:s'),
+        $id = $this->insert('judging_tables', [
+            'tableName' => 'Test Judging Table',
+            'tableState' => TableState::Active->value,
+            'tableLocation' => 1,
+            'tableEntryLimit' => 10,
+            'tableStateChanged' => (new DateTime())->format('Y-m-d H:i:s'),
         ]);
+
+        return new TableId($id);
     }
 
     public function testRecordNewScore(): void
     {
         $command = new RecordScoreCommand(
             entryId: 1001,
-            tableId: 1,
+            tableId: $this->tableId->value(),
             score: 35.5,
             version: 0,
             place: '2',
@@ -107,7 +69,7 @@ class JudgingScoreServiceIntegrationTest extends TestCase
         $this->service->recordScore($command, $this->testJudge);
 
         $score = $this->scoreRepository->getByTableAndEntry(
-            new TableId(1),
+            $this->tableId,
             new EntryId(1001)
         );
 
@@ -122,7 +84,7 @@ class JudgingScoreServiceIntegrationTest extends TestCase
         // Record initial score
         $command1 = new RecordScoreCommand(
             entryId: 1002,
-            tableId: 1,
+            tableId: $this->tableId->value(),
             score: 30.0,
             version: 0,
             place: '3',
@@ -133,14 +95,14 @@ class JudgingScoreServiceIntegrationTest extends TestCase
         $this->service->recordScore($command1, $this->testJudge);
 
         $score = $this->scoreRepository->getByTableAndEntry(
-            new TableId(1),
+            $this->tableId,
             new EntryId(1002)
         );
 
         // Update the score
         $command2 = new RecordScoreCommand(
             entryId: 1002,
-            tableId: 1,
+            tableId: $this->tableId->value(),
             score: 38.0,
             version: $score->version(),
             place: '1',
@@ -151,7 +113,7 @@ class JudgingScoreServiceIntegrationTest extends TestCase
         $this->service->recordScore($command2, $this->testJudge);
 
         $updated = $this->scoreRepository->getByTableAndEntry(
-            new TableId(1),
+            $this->tableId,
             new EntryId(1002)
         );
 
@@ -164,7 +126,7 @@ class JudgingScoreServiceIntegrationTest extends TestCase
     {
         $command = new RecordScoreCommand(
             entryId: 1003,
-            tableId: 1,
+            tableId: $this->tableId->value(),
             score: 42.0,
             version: 0,
             place: '1',
@@ -175,7 +137,7 @@ class JudgingScoreServiceIntegrationTest extends TestCase
         $this->service->recordScore($command, $this->testJudge);
 
         $score = $this->service->getScore(
-            new TableId(1),
+            $this->tableId,
             new EntryId(1003)
         );
 
@@ -186,21 +148,21 @@ class JudgingScoreServiceIntegrationTest extends TestCase
     public function testListScoresForTable(): void
     {
         $this->service->recordScore(
-            new RecordScoreCommand(1004, 1, 30.0, 0, null, 'regular', 0),
+            new RecordScoreCommand(1004, $this->tableId->value(), 30.0, 0, null, 'regular', 0),
             $this->testJudge
         );
 
         $this->service->recordScore(
-            new RecordScoreCommand(1005, 1, 35.0, 0, null, 'regular', 0),
+            new RecordScoreCommand(1005, $this->tableId->value(), 35.0, 0, null, 'regular', 0),
             $this->testJudge
         );
 
         $this->service->recordScore(
-            new RecordScoreCommand(1006, 1, 40.0, 0, null, 'regular', 0),
+            new RecordScoreCommand(1006, $this->tableId->value(), 40.0, 0, null, 'regular', 0),
             $this->testJudge
         );
 
-        $scores = $this->service->listScoresForTable(new TableId(1));
+        $scores = $this->service->listScoresForTable($this->tableId);
 
         $this->assertCount(3, $scores);
     }
@@ -209,10 +171,8 @@ class JudgingScoreServiceIntegrationTest extends TestCase
     {
         $entryId = 1007;
 
-        // Record scores for the same entry at multiple tables
-        // (would need multiple test tables in real scenario)
         $this->service->recordScore(
-            new RecordScoreCommand($entryId, 1, 32.0, 0, null, 'regular', 0),
+            new RecordScoreCommand($entryId, $this->tableId->value(), 32.0, 0, null, 'regular', 0),
             $this->testJudge
         );
 
@@ -224,16 +184,16 @@ class JudgingScoreServiceIntegrationTest extends TestCase
     public function testCountScoresForTable(): void
     {
         $this->service->recordScore(
-            new RecordScoreCommand(1008, 1, 25.0, 0, null, 'regular', 0),
+            new RecordScoreCommand(1008, $this->tableId->value(), 25.0, 0, null, 'regular', 0),
             $this->testJudge
         );
 
         $this->service->recordScore(
-            new RecordScoreCommand(1009, 1, 28.0, 0, null, 'regular', 0),
+            new RecordScoreCommand(1009, $this->tableId->value(), 28.0, 0, null, 'regular', 0),
             $this->testJudge
         );
 
-        $count = $this->service->countScoresForTable(new TableId(1));
+        $count = $this->service->countScoresForTable($this->tableId);
 
         $this->assertGreaterThanOrEqual(2, $count);
     }
@@ -244,7 +204,7 @@ class JudgingScoreServiceIntegrationTest extends TestCase
 
         $command = new RecordScoreCommand(
             entryId: 1010,
-            tableId: 1,
+            tableId: $this->tableId->value(),
             score: 60.0, // Invalid: > 50
             version: 0,
             place: null,

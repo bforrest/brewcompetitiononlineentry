@@ -1,69 +1,34 @@
 <?php
 declare(strict_types=1);
 
-namespace Tests\Integration\Domain\Judging;
+namespace BCOEM\Tests\Integration;
 
 use Bcoem\Database\Connection;
 use Bcoem\Domain\Judging\Repository\JudgingTableRepository;
 use Bcoem\Domain\Judging\Service\JudgingTableService;
 use Bcoem\Domain\Judging\Service\JudgingValidationService;
 use Bcoem\Domain\Judging\ValueObject\LocationId;
-use Bcoem\Domain\Judging\ValueObject\TableId;
 use Bcoem\Domain\Judging\ValueObject\TableState;
-use Bcoem\Kernel\Identity;
-use Bcoem\Kernel\Security\User;
-use Bcoem\Kernel\Security\Role;
-use DateTime;
-use PHPUnit\Framework\TestCase;
+use Bcoem\Security\Identity;
 
-class JudgingTableServiceIntegrationTest extends TestCase
+class JudgingTableServiceIntegrationTest extends IntegrationTestCase
 {
-    private Connection $connection;
     private JudgingTableService $service;
-    private JudgingTableRepository $repository;
-    private string $tablePrefix = 'test_';
     private Identity $testAdmin;
 
     protected function setUp(): void
     {
-        if (!getenv('DB_TEST_HOST')) {
-            $this->markTestSkipped('No test database configured');
-        }
+        parent::setUp();
 
-        $mysqli = new \mysqli(
-            getenv('DB_TEST_HOST') ?: 'localhost',
-            getenv('DB_TEST_USER') ?: 'root',
-            getenv('DB_TEST_PASSWORD') ?: '',
-            getenv('DB_TEST_NAME') ?: 'bcoem_test'
-        );
-
-        if ($mysqli->connect_error) {
-            $this->markTestSkipped('Could not connect to test database');
-        }
-
-        $this->connection = new Connection($mysqli);
-        $this->repository = new JudgingTableRepository($this->connection, $this->tablePrefix);
+        $connection = new Connection(self::$conn);
+        $repository = new JudgingTableRepository($connection, self::$pfx);
         $validationService = new JudgingValidationService();
-        $this->service = new JudgingTableService($this->repository, $validationService);
+        $this->service = new JudgingTableService($repository, $validationService);
 
-        $user = new User(id: 1, email: 'admin@test.local', name: 'Admin User');
-        $this->testAdmin = new Identity($user, [Role::Admin]);
-
-        $this->cleanupTestTables();
-    }
-
-    protected function tearDown(): void
-    {
-        $this->cleanupTestTables();
-    }
-
-    private function cleanupTestTables(): void
-    {
-        try {
-            $this->connection->execute("DELETE FROM {$this->tablePrefix}judging_tables", []);
-        } catch (\Throwable) {
-            // Table may not exist
-        }
+        $this->testAdmin = Identity::fromSession([
+            'loginUsername' => 'admin@test.local',
+            'userLevel' => '1',
+        ]);
     }
 
     public function testCreateTable(): void
@@ -88,9 +53,9 @@ class JudgingTableServiceIntegrationTest extends TestCase
     {
         $location = new LocationId(2);
 
-        $id1 = $this->service->createTable('Table 1', $location, 10, $this->testAdmin);
-        $id2 = $this->service->createTable('Table 2', $location, 12, $this->testAdmin);
-        $id3 = $this->service->createTable('Table 3', new LocationId(3), 10, $this->testAdmin);
+        $this->service->createTable('Table 1', $location, 10, $this->testAdmin);
+        $this->service->createTable('Table 2', $location, 12, $this->testAdmin);
+        $this->service->createTable('Table 3', new LocationId(3), 10, $this->testAdmin);
 
         $tables = $this->service->listTablesByLocation($location);
 
@@ -104,7 +69,7 @@ class JudgingTableServiceIntegrationTest extends TestCase
         $location = new LocationId(4);
 
         $id1 = $this->service->createTable('Table Active', $location, 10, $this->testAdmin);
-        $id2 = $this->service->createTable('Table Planning', $location, 10, $this->testAdmin);
+        $this->service->createTable('Table Planning', $location, 10, $this->testAdmin);
 
         $this->service->transitionTableState($id1, TableState::Active, $this->testAdmin);
 

@@ -95,7 +95,7 @@ final class JudgingTableRepository
     public function insert(JudgingTable $table): TableId
     {
         $sql = sprintf(
-            'INSERT INTO %s (tableName, tableStyles, tableNumber, tableLocation, tableJudges, tableStewards, tableState, tableStateChanged) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO %s (tableName, tableStyles, tableNumber, tableLocation, tableEntryLimit, tableStewards, tableState, tableStateChanged) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             $this->table
         );
 
@@ -104,7 +104,7 @@ final class JudgingTableRepository
             null,
             null,
             $table->location()->value(),
-            null,
+            $table->entryLimit(),
             null,
             $table->state()->value,
             $table->stateChangedAt()->format('Y-m-d H:i:s'),
@@ -137,7 +137,7 @@ final class JudgingTableRepository
     public function update(JudgingTable $table): void
     {
         $sql = sprintf(
-            'UPDATE %s SET tableName = ?, tableStyles = ?, tableNumber = ?, tableLocation = ?, tableState = ?, tableStateChanged = ? WHERE id = ?',
+            'UPDATE %s SET tableName = ?, tableStyles = ?, tableNumber = ?, tableLocation = ?, tableEntryLimit = ?, tableState = ?, tableStateChanged = ? WHERE id = ?',
             $this->table
         );
 
@@ -146,6 +146,7 @@ final class JudgingTableRepository
             null,
             null,
             $table->location()->value(),
+            $table->entryLimit(),
             $table->state()->value,
             $table->stateChangedAt()->format('Y-m-d H:i:s'),
             $table->id()->value(),

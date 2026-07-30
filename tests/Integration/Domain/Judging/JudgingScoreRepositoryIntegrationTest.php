@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Tests\Integration\Domain\Judging;
+namespace BCOEM\Tests\Integration;
 
 use Bcoem\Database\Connection;
 use Bcoem\Domain\Judging\Repository\JudgingScoreRepository;
@@ -10,49 +10,17 @@ use Bcoem\Domain\Judging\ValueObject\Score;
 use Bcoem\Domain\Judging\ValueObject\TableId;
 use Bcoem\Domain\Entry\ValueObject\EntryId;
 use DateTime;
-use PHPUnit\Framework\TestCase;
 
-class JudgingScoreRepositoryIntegrationTest extends TestCase
+class JudgingScoreRepositoryIntegrationTest extends IntegrationTestCase
 {
-    private Connection $connection;
     private JudgingScoreRepository $repository;
-    private string $tablePrefix = 'test_';
 
     protected function setUp(): void
     {
-        if (!getenv('DB_TEST_HOST')) {
-            $this->markTestSkipped('No test database configured');
-        }
+        parent::setUp();
 
-        $mysqli = new \mysqli(
-            getenv('DB_TEST_HOST') ?: 'localhost',
-            getenv('DB_TEST_USER') ?: 'root',
-            getenv('DB_TEST_PASSWORD') ?: '',
-            getenv('DB_TEST_NAME') ?: 'bcoem_test'
-        );
-
-        if ($mysqli->connect_error) {
-            $this->markTestSkipped('Could not connect to test database');
-        }
-
-        $this->connection = new Connection($mysqli);
-        $this->repository = new JudgingScoreRepository($this->connection, $this->tablePrefix);
-
-        $this->cleanupTestTables();
-    }
-
-    protected function tearDown(): void
-    {
-        $this->cleanupTestTables();
-    }
-
-    private function cleanupTestTables(): void
-    {
-        try {
-            $this->connection->execute("DELETE FROM {$this->tablePrefix}judging_scores", []);
-        } catch (\Throwable) {
-            // Table may not exist
-        }
+        $connection = new Connection(self::$conn);
+        $this->repository = new JudgingScoreRepository($connection, self::$pfx);
     }
 
     public function testInsertAndGetById(): void
@@ -203,9 +171,8 @@ class JudgingScoreRepositoryIntegrationTest extends TestCase
         );
 
         // Manually increment the version in DB to simulate concurrent update
-        $this->connection->execute(
-            "UPDATE {$this->tablePrefix}judging_scores SET version = 2 WHERE id = ?",
-            [$insertedId]
+        self::$conn->query(
+            "UPDATE " . self::$pfx . "judging_scores SET version = 2 WHERE id = {$insertedId}"
         );
 
         $this->expectException(ConcurrentModificationException::class);
@@ -249,21 +216,16 @@ class JudgingScoreRepositoryIntegrationTest extends TestCase
 
     private function insertScore(TableId $tableId, EntryId $entryId, float $score, string $place): void
     {
-        $sql = sprintf(
-            'INSERT INTO %s (eid, bid, scoreTable, scoreEntry, scorePlace, scoreType, scoreMiniBOS, version, scoreUpdated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            $this->tablePrefix . 'judging_scores'
-        );
-
-        $this->connection->execute($sql, [
-            $entryId->value(),
-            90,
-            $tableId->value(),
-            $score,
-            $place,
-            'regular',
-            0,
-            1,
-            (new DateTime())->format('Y-m-d H:i:s'),
+        $this->insert('judging_scores', [
+            'eid' => $entryId->value(),
+            'bid' => 90,
+            'scoreTable' => $tableId->value(),
+            'scoreEntry' => $score,
+            'scorePlace' => $place,
+            'scoreCategory' => 'regular',
+            'scoreMiniBOS' => 0,
+            'version' => 1,
+            'scoreUpdated' => (new DateTime())->format('Y-m-d H:i:s'),
         ]);
     }
 }

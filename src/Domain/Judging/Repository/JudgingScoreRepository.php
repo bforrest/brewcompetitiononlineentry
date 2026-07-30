@@ -100,7 +100,7 @@ final class JudgingScoreRepository
     public function insert(Score $score): int
     {
         $sql = sprintf(
-            'INSERT INTO %s (eid, bid, scoreTable, scoreEntry, scorePlace, scoreType, scoreMiniBOS, version, scoreUpdated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO %s (eid, bid, scoreTable, scoreEntry, scorePlace, scoreCategory, scoreMiniBOS, version, scoreUpdated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             $this->table
         );
 
@@ -130,7 +130,7 @@ final class JudgingScoreRepository
     public function updateWithVersionCheck(Score $score): void
     {
         $sql = sprintf(
-            'UPDATE %s SET scoreEntry = ?, scorePlace = ?, scoreType = ?, scoreMiniBOS = ?, version = version + 1, scoreUpdated = ? WHERE id = ? AND version = ?',
+            'UPDATE %s SET scoreEntry = ?, scorePlace = ?, scoreCategory = ?, scoreMiniBOS = ?, version = version + 1, scoreUpdated = ? WHERE id = ? AND version = ?',
             $this->table
         );
 
@@ -183,8 +183,8 @@ final class JudgingScoreRepository
             brewerId: (int) $row['bid'],
             tableId: new TableId((int) $row['scoreTable']),
             score: (float) $row['scoreEntry'],
-            place: $row['scorePlace'],
-            scoreType: (string) $row['scoreType'],
+            place: $row['scorePlace'] !== null ? (string) $row['scorePlace'] : null,
+            scoreType: (string) $row['scoreCategory'],
             miniBos: (int) $row['scoreMiniBOS'],
             version: (int) $row['version']
         );

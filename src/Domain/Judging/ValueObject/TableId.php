@@ -7,8 +7,12 @@ final class TableId
 {
     public function __construct(private readonly int $value)
     {
-        if ($value <= 0) {
-            throw new \InvalidArgumentException('TableId must be positive');
+        // 0 is a legitimate sentinel for "not yet persisted" (see
+        // JudgingTableService::createTable(), which builds a JudgingTable
+        // before the repository has assigned a real auto-increment id) -
+        // mirrors EntryId's identical convention.
+        if ($value < 0) {
+            throw new \InvalidArgumentException('TableId cannot be negative');
         }
     }
 
