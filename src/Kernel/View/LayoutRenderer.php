@@ -75,7 +75,8 @@ final class LayoutRenderer
         $heroImageUrl = e($view->hero->imageUrl);
         $heroHeading = e($view->hero->heading);
         $heroSubheading = e($view->hero->subheading);
-        $hostName = e($view->contest->hostName);
+        $hostNameText = $view->contest->hostName;
+        $hostName = e($hostNameText);
         $hostPresentation = $view->contest->hostWebsite === null
             ? $hostName
             : '<a class="link-light" href="' . e($view->contest->hostWebsite) . '" target="_blank" rel="noopener noreferrer">' . $hostName . '</a>';
@@ -84,9 +85,11 @@ final class LayoutRenderer
             : ' <span class="text-light">&mdash; ' . e($view->contest->hostLocation) . '</span>';
         $hostLogo = $view->contest->logoPath === null
             ? ''
-            : '<img class="img-fluid mb-3" src="' . e($view->contest->logoPath) . '" alt="' . $hostName . ' logo">';
+            : '<img class="img-fluid mb-3" src="' . e($view->contest->logoPath) . '" alt="'
+                . e(sprintf($view->copy->hostLogoAlt, $hostNameText)) . '">';
         $locale = e($view->locale);
         $hostedBy = e($view->copy->hostedBy);
+        $returnToTop = e($view->copy->returnToTop);
 
         return <<<HTML
 <!DOCTYPE html>
@@ -95,7 +98,7 @@ final class LayoutRenderer
 <body>
 <header id="home" class="site-header">
 {$nav}
-<div id="sticky-home" class="contains-link d-print-none"><a href="#home" aria-label="Return to top"><i class="fas fa-arrow-circle-up fa-2x" aria-hidden="true"></i></a></div>
+<div id="sticky-home" class="contains-link d-print-none"><a href="#home" aria-label="{$returnToTop}"><i class="fas fa-arrow-circle-up fa-2x" aria-hidden="true"></i></a></div>
 <section id="hero" class="landing-hero text-light bg-dark pt-5 pb-4" aria-labelledby="landing-title" style="background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.75)), url('{$heroImageUrl}')">
     <div class="container-xxl pt-4">
         {$hostLogo}

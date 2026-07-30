@@ -61,6 +61,36 @@ final class LandingPageServiceTest extends TestCase
         ));
     }
 
+    public function test_upcoming_judge_copy_uses_its_distinct_window_date_in_every_locale(): void
+    {
+        $service = $this->service(
+            windows: $this->windows(
+                registrationOpensAt: 2000,
+                registrationClosesAt: 3000,
+                judgeOpensAt: 2500,
+                judgeClosesAt: 3500,
+            ),
+        );
+        $expected = [
+            'en-US' => 'Judge and steward registration will open 01/01/1970 12:41 AM, UTC.',
+            'en-GB' => 'Judge and steward registration will open 01/01/1970 12:41 AM, UTC.',
+            'es-419' => 'La inscripción de jueces y auxiliares se abrirá el 01/01/1970 12:41 AM, UTC.',
+        ];
+
+        foreach ($expected as $locale => $message) {
+            $view = $service->viewFor(
+                Identity::fromSession([]),
+                new LandingPageContext($locale, null, [1]),
+                1500,
+            );
+
+            self::assertSame(WindowStatus::Upcoming, $view->registrationStatus);
+            self::assertSame(WindowStatus::Upcoming, $view->judgeStatus);
+            self::assertSame($message, $view->copy->judgeUpcomingMessage);
+            self::assertStringNotContainsString('12:33 AM', $view->copy->judgeUpcomingMessage);
+        }
+    }
+
     public function test_fixed_timestamp_drives_judging_progress_without_wall_clock_reads(): void
     {
         $service = $this->service(

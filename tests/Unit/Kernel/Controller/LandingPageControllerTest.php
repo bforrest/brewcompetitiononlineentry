@@ -153,6 +153,10 @@ final class LandingPageControllerTest extends TestCase
 
         self::assertStringContainsString('<html lang="es-419">', $html);
         self::assertStringContainsString('De un vistazo', $html);
+        self::assertStringContainsString('aria-label="Volver al inicio"', $html);
+        self::assertStringContainsString('alt="Logotipo de Fixture Host"', $html);
+        self::assertStringNotContainsString('aria-label="Return to top"', $html);
+        self::assertStringNotContainsString('alt="Fixture Host logo"', $html);
         self::assertMatchesRegularExpression('/\\d{2}\\/\\d{2}\\/\\d{4} \\d{2}:\\d{2}, C(?:ST|DT)/', $html);
     }
 
@@ -258,7 +262,7 @@ final class LandingPageControllerTest extends TestCase
                 'Fixture Host',
                 'https://host.example.test',
                 'Austin, Texas',
-                null,
+                '/user_images/fixture-logo.svg',
             ),
         );
         $repository->method('competitionWindows')->willReturn(

@@ -21,6 +21,9 @@ final class LandingPageCopyAdapterTest extends TestCase
         self::assertSame('At a glance', $copy->atAGlance);
         self::assertSame('Drop-off locations', $copy->dropoffLocations);
         self::assertSame('Register as a steward', $copy->registerSteward);
+        self::assertSame('Judge and steward registration will open %s.', $copy->judgeUpcomingMessage);
+        self::assertSame('Return to top', $copy->returnToTop);
+        self::assertSame('%s logo', $copy->hostLogoAlt);
         self::assertSame(
             'The limit of %d entries has been reached. No further entries will be accepted.',
             $copy->entryLimitMessage,
@@ -46,6 +49,9 @@ final class LandingPageCopyAdapterTest extends TestCase
         self::assertSame('Entry Info', $copy->entryInfo);
         self::assertSame('Competition Officials', $copy->officials);
         self::assertSame('Past Winners', $copy->pastWinners);
+        self::assertSame('Judge and steward registration will open %s.', $copy->judgeUpcomingMessage);
+        self::assertSame('Return to top', $copy->returnToTop);
+        self::assertSame('%s logo', $copy->hostLogoAlt);
         self::assertSame(
             'The entry limit nearly reached! %d of %d maximum entries have been added into the system.',
             $copy->nearLimitMessage,
@@ -69,6 +75,9 @@ final class LandingPageCopyAdapterTest extends TestCase
         self::assertSame('De un vistazo', $copy->atAGlance);
         self::assertSame('Lugares de entrega', $copy->dropoffLocations);
         self::assertSame('Registrarse como auxiliar', $copy->registerSteward);
+        self::assertSame('La inscripción de jueces y auxiliares se abrirá el %s.', $copy->judgeUpcomingMessage);
+        self::assertSame('Volver al inicio', $copy->returnToTop);
+        self::assertSame('Logotipo de %s', $copy->hostLogoAlt);
         self::assertSame('Próximamente', $copy->statusUpcoming);
         self::assertSame('Abierto', $copy->statusOpen);
         self::assertSame('Cerrado', $copy->statusClosed);

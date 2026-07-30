@@ -90,6 +90,7 @@ final class LandingPageService
         $copy = $this->copyForView(
             $this->copy->forLocale($context->locale),
             $windows->registrationOpensAt,
+            $windows->judgeOpensAt,
             $context,
         );
         $locations = $this->repository->locations();
@@ -402,6 +403,7 @@ final class LandingPageService
     private function copyForView(
         LandingPageCopy $copy,
         int $registrationOpensAt,
+        int $judgeOpensAt,
         LandingPageContext $context,
     ): LandingPageCopy
     {
@@ -428,11 +430,17 @@ final class LandingPageService
             nearLimitMessage: $copy->nearLimitMessage,
             paidEntryLimitMessage: $copy->paidEntryLimitMessage,
             winnerDelayMessage: $copy->winnerDelayMessage,
+            judgeUpcomingMessage: sprintf(
+                $copy->judgeUpcomingMessage,
+                $this->formatDateTime($judgeOpensAt, $context),
+            ),
             home: $copy->home,
             toggleNavigation: $copy->toggleNavigation,
             account: $copy->account,
             hello: $copy->hello,
             hostedBy: $copy->hostedBy,
+            returnToTop: $copy->returnToTop,
+            hostLogoAlt: $copy->hostLogoAlt,
             atAGlance: $copy->atAGlance,
             entries: $copy->entries,
             paidEntries: $copy->paidEntries,
