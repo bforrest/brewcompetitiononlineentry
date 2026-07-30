@@ -67,4 +67,8 @@ return [
     'password_required' => 'Password is required.',
     'close' => 'Close',
     'visit_sponsor' => 'Visit %s',
+    'judge_registration_card_title' => 'Judge Registration',
+    'steward_registration_card_title' => 'Steward Registration',
+    'card_status_label' => 'Status',
+    'card_info_label' => 'Info',
 ];

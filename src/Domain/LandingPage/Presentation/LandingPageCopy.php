@@ -71,6 +71,10 @@ final readonly class LandingPageCopy
         public string $passwordRequired = 'Password is required.',
         public string $close = 'Close',
         public string $visitSponsor = 'Visit %s',
+        public string $judgeRegistrationCardTitle = 'Judge Registration',
+        public string $stewardRegistrationCardTitle = 'Steward Registration',
+        public string $cardStatusLabel = 'Status',
+        public string $cardInfoLabel = 'Info',
     ) {
     }
 }

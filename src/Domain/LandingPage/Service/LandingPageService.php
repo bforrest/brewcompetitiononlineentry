@@ -478,6 +478,10 @@ final class LandingPageService
             passwordRequired: $copy->passwordRequired,
             close: $copy->close,
             visitSponsor: $copy->visitSponsor,
+            judgeRegistrationCardTitle: $copy->judgeRegistrationCardTitle,
+            stewardRegistrationCardTitle: $copy->stewardRegistrationCardTitle,
+            cardStatusLabel: $copy->cardStatusLabel,
+            cardInfoLabel: $copy->cardInfoLabel,
         );
     }
 

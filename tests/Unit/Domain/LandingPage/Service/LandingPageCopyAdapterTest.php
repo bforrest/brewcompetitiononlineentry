@@ -24,6 +24,10 @@ final class LandingPageCopyAdapterTest extends TestCase
         self::assertSame('Judge and steward registration will open %s.', $copy->judgeUpcomingMessage);
         self::assertSame('Return to top', $copy->returnToTop);
         self::assertSame('%s logo', $copy->hostLogoAlt);
+        self::assertSame('Judge Registration', $copy->judgeRegistrationCardTitle);
+        self::assertSame('Steward Registration', $copy->stewardRegistrationCardTitle);
+        self::assertSame('Status', $copy->cardStatusLabel);
+        self::assertSame('Info', $copy->cardInfoLabel);
         self::assertSame(
             'The limit of %d entries has been reached. No further entries will be accepted.',
             $copy->entryLimitMessage,
@@ -52,6 +56,10 @@ final class LandingPageCopyAdapterTest extends TestCase
         self::assertSame('Judge and steward registration will open %s.', $copy->judgeUpcomingMessage);
         self::assertSame('Return to top', $copy->returnToTop);
         self::assertSame('%s logo', $copy->hostLogoAlt);
+        self::assertSame('Judge Registration', $copy->judgeRegistrationCardTitle);
+        self::assertSame('Steward Registration', $copy->stewardRegistrationCardTitle);
+        self::assertSame('Status', $copy->cardStatusLabel);
+        self::assertSame('Info', $copy->cardInfoLabel);
         self::assertSame(
             'The entry limit nearly reached! %d of %d maximum entries have been added into the system.',
             $copy->nearLimitMessage,
@@ -78,6 +86,10 @@ final class LandingPageCopyAdapterTest extends TestCase
         self::assertSame('La inscripción de jueces y auxiliares se abrirá el %s.', $copy->judgeUpcomingMessage);
         self::assertSame('Volver al inicio', $copy->returnToTop);
         self::assertSame('Logotipo de %s', $copy->hostLogoAlt);
+        self::assertSame('Registro de jueces', $copy->judgeRegistrationCardTitle);
+        self::assertSame('Registro de auxiliares', $copy->stewardRegistrationCardTitle);
+        self::assertSame('Estado', $copy->cardStatusLabel);
+        self::assertSame('Información', $copy->cardInfoLabel);
         self::assertSame('Próximamente', $copy->statusUpcoming);
         self::assertSame('Abierto', $copy->statusOpen);
         self::assertSame('Cerrado', $copy->statusClosed);

@@ -83,6 +83,10 @@ final class LandingPageCopyAdapter
             passwordRequired: $catalog['password_required'],
             close: $catalog['close'],
             visitSponsor: $catalog['visit_sponsor'],
+            judgeRegistrationCardTitle: $catalog['judge_registration_card_title'],
+            stewardRegistrationCardTitle: $catalog['steward_registration_card_title'],
+            cardStatusLabel: $catalog['card_status_label'],
+            cardInfoLabel: $catalog['card_info_label'],
         );
     }
 }

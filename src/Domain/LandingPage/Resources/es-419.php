@@ -67,4 +67,8 @@ return [
     'password_required' => 'Se requiere la contraseña.',
     'close' => 'Cerrar',
     'visit_sponsor' => 'Visitar %s',
+    'judge_registration_card_title' => 'Registro de jueces',
+    'steward_registration_card_title' => 'Registro de auxiliares',
+    'card_status_label' => 'Estado',
+    'card_info_label' => 'Información',
 ];
