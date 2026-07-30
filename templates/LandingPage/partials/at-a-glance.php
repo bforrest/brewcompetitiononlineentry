@@ -22,7 +22,7 @@ $statusLabel = static fn (\Bcoem\Domain\Shared\ValueObject\WindowStatus $status)
         <?php endif; ?>
         <?php if ($view->locations->awardsLocationName !== null || $view->locations->awardsLocation !== null || $view->locations->awardsDetails !== null): ?>
         <dt class="col-sm-4"><?= e($view->copy->awards) ?></dt>
-        <dd class="col-sm-8"><?php if ($view->locations->awardsLocationName !== null): ?><strong><?= e($view->locations->awardsLocationName) ?></strong><br><?php endif; ?><?= e($view->locations->awardsLocation) ?><?php if ($view->locations->awardsDetails !== null): ?><br><?= e($view->locations->awardsDetails) ?><?php endif; ?></dd>
+        <dd class="col-sm-8"><?php if ($view->locations->awardsLocationName !== null): ?><strong><?= e($view->locations->awardsLocationName) ?></strong><br><?php endif; ?><?= e($view->locations->awardsLocation) ?><?php if ($view->locations->awardsDetails !== null): ?><br><?php /* awardsDetails is trusted admin-authored HTML, matching legacy's own unescaped rendering of the same contestAwards column (pub/entry_info.pub.php:645) - not a new trust decision */ ?><?= $view->locations->awardsDetails ?><?php endif; ?></dd>
         <?php endif; ?>
         <?php if ($view->dates?->awards !== null): ?>
         <dt class="col-sm-4"><?= e($view->copy->awardsTime) ?></dt>

@@ -160,6 +160,52 @@ final class LandingPageControllerTest extends TestCase
         self::assertMatchesRegularExpression('/\\d{2}\\/\\d{2}\\/\\d{4} \\d{2}:\\d{2}, C(?:ST|DT)/', $html);
     }
 
+    public function test_awards_details_renders_as_html_not_escaped_tags(): void
+    {
+        $repository = $this->createMock(LandingPageReadRepository::class);
+        $repository->method('contestOverview')->willReturn(
+            new ContestOverview('Fixture Competition', 'Fixture Host', null, null, null),
+        );
+        $now = time();
+        $repository->method('competitionWindows')->willReturn(
+            new CompetitionWindows($now - 3600, $now + 3600, $now - 3600, $now + 3600, $now - 3600, $now + 3600, null, null, null, null),
+        );
+        $repository->method('competitionLimits')->willReturn(new CompetitionLimits(5, 3, 100, 80, 90));
+        $repository->method('judgingProgress')->willReturn(new JudgingProgress(false, false, false, 0));
+        $repository->method('locations')->willReturn(
+            new CompetitionLocations(null, null, '<p>Awards details paragraph.</p>', null, null, null),
+        );
+        $repository->method('contacts')->willReturn([]);
+        $repository->method('competitionRules')->willReturn(new CompetitionRules('', null));
+        $repository->method('contactMode')->willReturn(ContactMode::Directory);
+        $repository->method('sponsors')->willReturn([]);
+        $repository->method('visibleArchives')->willReturn([]);
+        $repository->method('winnerSummary')->willReturn(new WinnerSummary(WinnerMethod::Overall, '', []));
+        $repository->method('bestOfShow')->willReturn(new BestOfShowSummary([]));
+
+        $selector = new class implements HeroImageSelector {
+            public function select(array $candidates): string
+            {
+                return $candidates[0];
+            }
+        };
+
+        $controller = new LandingPageController(
+            new LandingPageService($repository, new LandingPageCopyAdapter(), $selector),
+            new LayoutRenderer(),
+        );
+
+        $request = (new ServerRequestFactory())
+            ->createServerRequest('GET', '/')
+            ->withAttribute('identity', Identity::fromSession([]));
+
+        $response = $controller->show($request, (new ResponseFactory())->createResponse());
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('<p>Awards details paragraph.</p>', $html);
+        self::assertStringNotContainsString('&lt;p&gt;', $html);
+    }
+
     public function test_fallback_style_type_is_ignored_when_valid_style_is_selected(): void
     {
         $_SESSION['prefsSelectedStyles'] = '[{"brewStyleType":0},{"brewStyleType":1}]';
