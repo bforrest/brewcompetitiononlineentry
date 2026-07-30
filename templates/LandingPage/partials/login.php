@@ -24,7 +24,7 @@ declare(strict_types=1);
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" type="button" data-bs-dismiss="modal"><?= e($view->copy->close) ?></button>
-                    <button class="btn btn-primary" type="submit"><?= e($view->copy->login) ?></button>
+                    <button class="btn btn-success" type="submit"><?= e($view->copy->login) ?></button>
                 </div>
             </form>
         </div>

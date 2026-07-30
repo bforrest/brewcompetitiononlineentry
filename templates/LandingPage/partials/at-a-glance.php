@@ -1,32 +1,143 @@
 <?php
 declare(strict_types=1);
-$statusLabel = static fn (\Bcoem\Domain\Shared\ValueObject\WindowStatus $status): string => match ($status) {
-    \Bcoem\Domain\Shared\ValueObject\WindowStatus::Upcoming => $view->copy->statusUpcoming,
-    \Bcoem\Domain\Shared\ValueObject\WindowStatus::Open => $view->copy->statusOpen,
-    \Bcoem\Domain\Shared\ValueObject\WindowStatus::Closed => $view->copy->statusClosed,
+
+use Bcoem\Domain\LandingPage\Presentation\LandingAction;
+use Bcoem\Domain\Shared\ValueObject\WindowStatus;
+
+/** @return array{0: string, 1: string, 2: string} [colorSuffix, faIcon, label] */
+$statusBadge = static function (WindowStatus $status) use ($view): array {
+    return match ($status) {
+        WindowStatus::Open => ['success', 'fa-circle-check', $view->copy->statusOpen],
+        WindowStatus::Upcoming => ['secondary', 'fa-clock', $view->copy->statusUpcoming],
+        WindowStatus::Closed => ['danger', 'fa-circle-exclamation', $view->copy->statusClosed],
+    };
+};
+
+/** Renders one "Open – <date> / Close – <date>" bullet list, matching legacy's card body pattern. */
+$dateRangeBody = static function (\Bcoem\Domain\LandingPage\Presentation\LandingPageDateRange $range) use ($view): string {
+    $items = '';
+    if ($range->opens !== null) {
+        $items .= '<li><strong>' . e($view->copy->opens) . '</strong> &ndash; ' . e($range->opens) . '</li>';
+    }
+    if ($range->closes !== null) {
+        $items .= '<li><strong>' . e($view->copy->closes) . '</strong> &ndash; ' . e($range->closes) . '</li>';
+    }
+    return '<ul class="list-unstyled">' . $items . '</ul>';
+};
+
+$renderCard = static function (
+    string $slug,
+    string $title,
+    string $color,
+    string $icon,
+    string $badgeLabel,
+    string $bodyHtml,
+    ?LandingAction $action,
+) use ($view): void {
+    ?>
+    <div class="col" data-glance-card="<?= e($slug) ?>">
+        <div class="card h-100 glance-card-bg">
+            <div class="card-body glance-card-body">
+                <h5 class="card-title pt-2 pb-2 glance-header text-<?= e($color) ?>-glance-header"><?= e($title) ?></h5>
+                <div class="position-absolute top-0 start-50 translate-middle badge bg-<?= e($color) ?>-glance-pill dark rounded-pill glance-status-pill"><i class="fa <?= e($icon) ?> pe-2"></i><?= e($badgeLabel) ?></div>
+                <p class="card-text glance-card-text"><small><?= $bodyHtml ?></small></p>
+                <?php if ($action !== null): ?>
+                <div class="d-grid"><a class="btn btn-success" href="<?= e($action->url) ?>"<?php if ($action->url === '#login-modal'): ?> data-bs-toggle="modal" data-bs-target="#login-modal"<?php endif; ?>><?= e($action->label) ?></a></div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+    <?php
 };
 ?>
 <section id="at-a-glance" class="container-xxl py-4" aria-labelledby="glance-heading">
-    <h2 id="glance-heading"><?= e($view->copy->atAGlance) ?></h2>
-    <dl class="row mb-0">
-        <dt class="col-sm-4"><?= e($view->copy->entries) ?></dt>
-        <dd class="col-sm-8"><?= e((string) $view->capacity->entryCount) ?><?php if ($view->capacity->entryLimit !== null): ?> / <?= e((string) $view->capacity->entryLimit) ?><?php endif; ?></dd>
-        <dt class="col-sm-4"><?= e($view->copy->paidEntries) ?></dt>
-        <dd class="col-sm-8"><?= e((string) $view->capacity->paidEntryCount) ?><?php if ($view->capacity->paidEntryLimit !== null): ?> / <?= e((string) $view->capacity->paidEntryLimit) ?><?php endif; ?></dd>
-        <dt class="col-sm-4"><?= e($view->copy->entryStatus) ?></dt><dd class="col-sm-8"><?= e($statusLabel($view->entryStatus)) ?></dd>
-        <dt class="col-sm-4"><?= e($view->copy->dropoffStatus) ?></dt><dd class="col-sm-8"><?= e($statusLabel($view->dropoffStatus)) ?></dd>
-        <dt class="col-sm-4"><?= e($view->copy->shippingStatus) ?></dt><dd class="col-sm-8"><?= e($statusLabel($view->shippingStatus)) ?></dd>
-        <?php if ($view->locations->shippingEnabled && ($view->locations->shippingName !== null || $view->locations->shippingAddress !== null)): ?>
-        <dt class="col-sm-4"><?= e($view->copy->shipping) ?></dt>
-        <dd class="col-sm-8"><?php if ($view->locations->shippingName !== null): ?><strong><?= e($view->locations->shippingName) ?></strong><br><?php endif; ?><?= e($view->locations->shippingAddress) ?></dd>
-        <?php endif; ?>
-        <?php if ($view->locations->awardsLocationName !== null || $view->locations->awardsLocation !== null || $view->locations->awardsDetails !== null): ?>
-        <dt class="col-sm-4"><?= e($view->copy->awards) ?></dt>
-        <dd class="col-sm-8"><?php if ($view->locations->awardsLocationName !== null): ?><strong><?= e($view->locations->awardsLocationName) ?></strong><br><?php endif; ?><?= e($view->locations->awardsLocation) ?><?php if ($view->locations->awardsDetails !== null): ?><br><?php /* awardsDetails is trusted admin-authored HTML, matching legacy's own unescaped rendering of the same contestAwards column (pub/entry_info.pub.php:645) - not a new trust decision */ ?><?= $view->locations->awardsDetails ?><?php endif; ?></dd>
-        <?php endif; ?>
-        <?php if ($view->dates?->awards !== null): ?>
-        <dt class="col-sm-4"><?= e($view->copy->awardsTime) ?></dt>
-        <dd class="col-sm-8"><time><?= e($view->dates->awards) ?></time></dd>
-        <?php endif; ?>
-    </dl>
+    <header class="landing-page-section-header"><h2 id="glance-heading" class="fs-1 fw-bold"><?= e($view->copy->atAGlance) ?></h2></header>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-3 g-4 justify-content-center">
+        <?php
+        $entryCountBody = '<ul class="list-unstyled">'
+            . '<li><strong>' . e($view->copy->entries) . '</strong> &ndash; ' . e((string) $view->capacity->entryCount)
+            . ($view->capacity->entryLimit !== null ? ' / ' . e((string) $view->capacity->entryLimit) : '') . '</li>'
+            . '<li><strong>' . e($view->copy->paidEntries) . '</strong> &ndash; ' . e((string) $view->capacity->paidEntryCount)
+            . ($view->capacity->paidEntryLimit !== null ? ' / ' . e((string) $view->capacity->paidEntryLimit) : '') . '</li>'
+            . '</ul>';
+        $renderCard('entries', $view->copy->entries, 'primary', 'fa-circle-info', $view->copy->cardStatusLabel, $entryCountBody, null);
+
+        if ($view->dates !== null) {
+            [$color, $icon, $badge] = $statusBadge($view->registrationStatus);
+            $renderCard(
+                'account-registration',
+                $view->copy->registrationDates,
+                $color,
+                $icon,
+                $badge,
+                $dateRangeBody($view->dates->registration),
+                $view->actions?->account,
+            );
+
+            [$color, $icon, $badge] = $statusBadge($view->entryStatus);
+            $renderCard(
+                'entry-registration',
+                $view->copy->entryDates,
+                $color,
+                $icon,
+                $badge,
+                $dateRangeBody($view->dates->entries),
+                $view->actions?->entry,
+            );
+
+            [$color, $icon, $badge] = $statusBadge($view->judgeStatus);
+            $renderCard(
+                'judge-registration',
+                $view->copy->judgeRegistrationCardTitle,
+                $color,
+                $icon,
+                $badge,
+                $dateRangeBody($view->dates->judges),
+                $view->actions?->judge,
+            );
+
+            [$color, $icon, $badge] = $statusBadge($view->judgeStatus);
+            $renderCard(
+                'steward-registration',
+                $view->copy->stewardRegistrationCardTitle,
+                $color,
+                $icon,
+                $badge,
+                $dateRangeBody($view->dates->judges),
+                $view->actions?->steward,
+            );
+
+            if ($view->dates->dropoff->opens !== null || $view->dates->dropoff->closes !== null) {
+                [$color, $icon, $badge] = $statusBadge($view->dropoffStatus);
+                $renderCard('dropoff', $view->copy->dropoffDates, $color, $icon, $badge, $dateRangeBody($view->dates->dropoff), null);
+            }
+
+            if ($view->locations->shippingEnabled && ($view->dates->shipping->opens !== null || $view->dates->shipping->closes !== null)) {
+                [$color, $icon, $badge] = $statusBadge($view->shippingStatus);
+                $renderCard('shipping', $view->copy->shippingDates, $color, $icon, $badge, $dateRangeBody($view->dates->shipping), null);
+            }
+        }
+
+        if ($view->locations->awardsLocationName !== null || $view->locations->awardsLocation !== null || $view->locations->awardsDetails !== null) {
+            $awardsBody = '<ul class="list-unstyled">';
+            if ($view->locations->awardsLocationName !== null) {
+                $awardsBody .= '<li><strong>' . e($view->locations->awardsLocationName) . '</strong></li>';
+            }
+            if ($view->locations->awardsLocation !== null) {
+                $awardsBody .= '<li>' . e($view->locations->awardsLocation) . '</li>';
+            }
+            if ($view->dates?->awards !== null) {
+                $awardsBody .= '<li><strong>' . e($view->copy->awardsTime) . '</strong> &ndash; ' . e($view->dates->awards) . '</li>';
+            }
+            if ($view->locations->awardsDetails !== null) {
+                /* awardsDetails is trusted admin-authored HTML, matching legacy's own
+                   unescaped rendering of the same contestAwards column
+                   (pub/entry_info.pub.php:645) - not a new trust decision. */
+                $awardsBody .= '<li>' . $view->locations->awardsDetails . '</li>';
+            }
+            $awardsBody .= '</ul>';
+            $renderCard('awards', $view->copy->awards, 'primary', 'fa-circle-info', $view->copy->cardInfoLabel, $awardsBody, null);
+        }
+        ?>
+    </div>
 </section>

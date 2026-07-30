@@ -316,6 +316,38 @@ final class LandingPageControllerTest extends TestCase
         );
     }
 
+    public function test_at_a_glance_renders_eight_status_cards_with_slugs(): void
+    {
+        $response = $this->controllerWithAllGlanceCardsPopulated()->show(
+            (new ServerRequestFactory())->createServerRequest('GET', '/')->withAttribute('identity', Identity::fromSession([])),
+            (new ResponseFactory())->createResponse(),
+        );
+        $html = (string) $response->getBody();
+
+        foreach ([
+            'entries', 'account-registration', 'entry-registration', 'judge-registration',
+            'steward-registration', 'dropoff', 'shipping', 'awards',
+        ] as $slug) {
+            self::assertStringContainsString('data-glance-card="' . $slug . '"', $html);
+        }
+        self::assertStringContainsString('glance-card-bg', $html);
+        self::assertStringContainsString('bg-success-glance-pill', $html);
+    }
+
+    public function test_open_account_registration_shows_a_green_register_button(): void
+    {
+        $response = $this->controller()->show(
+            (new ServerRequestFactory())->createServerRequest('GET', '/')->withAttribute('identity', Identity::fromSession([])),
+            (new ResponseFactory())->createResponse(),
+        );
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString(
+            'class="btn btn-success" href="/index.php?section=register&amp;go=entrant"',
+            $html,
+        );
+    }
+
     private function controller(): LandingPageController
     {
         $now = time();
@@ -421,6 +453,80 @@ final class LandingPageControllerTest extends TestCase
             ),
         ]);
         $repository->method('competitionRules')->willReturn(new CompetitionRules('Test competition rules', null));
+        $repository->method('contactMode')->willReturn(ContactMode::Directory);
+        $repository->method('sponsors')->willReturn([]);
+        $repository->method('visibleArchives')->willReturn([]);
+        $repository->method('winnerSummary')->willReturn(
+            new WinnerSummary(WinnerMethod::Overall, '', []),
+        );
+        $repository->method('bestOfShow')->willReturn(new BestOfShowSummary([]));
+
+        $selector = new class implements HeroImageSelector {
+            public function select(array $candidates): string
+            {
+                return $candidates[4] ?? $candidates[0];
+            }
+        };
+
+        return new LandingPageController(
+            new LandingPageService($repository, new LandingPageCopyAdapter(), $selector),
+            new LayoutRenderer(),
+        );
+    }
+
+    /**
+     * Unlike controller(), populates dropoff/shipping windows, shipping-enabled locations,
+     * and awards location fields so all eight at-a-glance cards actually render. controller()'s
+     * shared fixture leaves dropoff/shipping windows null and shippingEnabled false/locations
+     * empty, so those three cards never appear under it - a dedicated fixture is required to
+     * exercise the full eight-card grid.
+     */
+    private function controllerWithAllGlanceCardsPopulated(): LandingPageController
+    {
+        $now = time();
+        $repository = $this->createMock(LandingPageReadRepository::class);
+        $repository->method('contestOverview')->willReturn(
+            new ContestOverview(
+                'Fixture Competition',
+                'Fixture Host',
+                'https://host.example.test',
+                'Austin, Texas',
+                '/user_images/fixture-logo.svg',
+            ),
+        );
+        $repository->method('competitionWindows')->willReturn(
+            new CompetitionWindows(
+                $now - 3600,
+                $now + 3600,
+                $now - 3600,
+                $now + 3600,
+                $now - 3600,
+                $now + 3600,
+                $now - 3600,
+                $now + 3600,
+                $now - 3600,
+                $now + 3600,
+            ),
+        );
+        $repository->method('competitionLimits')->willReturn(
+            new CompetitionLimits(5, 3, 100, 80, 90),
+        );
+        $repository->method('judgingProgress')->willReturn(
+            new JudgingProgress(false, false, false, 0),
+        );
+        $repository->method('locations')->willReturn(
+            new CompetitionLocations(
+                'Fixture Shipping Co',
+                '123 Ship Lane',
+                '<p>Awards details.</p>',
+                'Fixture Hall',
+                '456 Malt Ave',
+                null,
+                true,
+            ),
+        );
+        $repository->method('contacts')->willReturn([]);
+        $repository->method('competitionRules')->willReturn(new CompetitionRules('', null));
         $repository->method('contactMode')->willReturn(ContactMode::Directory);
         $repository->method('sponsors')->willReturn([]);
         $repository->method('visibleArchives')->willReturn([]);

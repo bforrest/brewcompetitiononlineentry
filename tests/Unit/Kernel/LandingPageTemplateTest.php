@@ -33,8 +33,8 @@ final class LandingPageTemplateTest extends TestCase
         $templateDirectory = dirname(__DIR__, 3) . '/templates/LandingPage';
         $expectedPartials = [
             'alerts.php',
-            'registration.php',
             'at-a-glance.php',
+            'volunteers.php',
             'rules.php',
             'entry-info.php',
             'winners.php',

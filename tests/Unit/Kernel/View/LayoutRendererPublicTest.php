@@ -114,10 +114,10 @@ class LayoutRendererPublicTest extends TestCase
             $html,
         );
         self::assertStringContainsString('<section id="volunteers"', $html);
-        self::assertStringContainsString('Entry status</dt><dd class="col-sm-8">Open</dd>', $html);
-        self::assertStringContainsString('Drop-off status</dt><dd class="col-sm-8">Upcoming</dd>', $html);
-        self::assertStringContainsString('Shipping status</dt><dd class="col-sm-8">Open</dd>', $html);
-        self::assertStringContainsString('<time>08/02/2026 2:00 PM, CDT</time>', $html);
+        self::assertMatchesRegularExpression('#data-glance-card="entry-registration".*?glance-status-pill">[^<]*<i[^>]*></i>Open#s', $html);
+        self::assertMatchesRegularExpression('#data-glance-card="dropoff".*?glance-status-pill">[^<]*<i[^>]*></i>Upcoming#s', $html);
+        self::assertMatchesRegularExpression('#data-glance-card="shipping".*?glance-status-pill">[^<]*<i[^>]*></i>Open#s', $html);
+        self::assertStringContainsString('<strong>Awards time</strong> &ndash; 08/02/2026 2:00 PM, CDT', $html);
         self::assertStringNotContainsString('December 3, 2024 4:26 AM UTC', $html);
         self::assertStringNotContainsString('href="/#sponsors">Sponsors</a>', $html);
     }
@@ -258,8 +258,8 @@ class LayoutRendererPublicTest extends TestCase
                 new LandingPageDateRange('07/24/2026 9:00 AM, CDT', '07/31/2026 5:00 PM, CDT', 1, 2),
                 new LandingPageDateRange('07/24/2026 9:00 AM, CDT', '07/31/2026 5:00 PM, CDT', 1, 2),
                 new LandingPageDateRange('07/24/2026 9:00 AM, CDT', '07/31/2026 5:00 PM, CDT', 1, 2),
-                new LandingPageDateRange(null, null, null, null),
-                new LandingPageDateRange(null, null, null, null),
+                new LandingPageDateRange('07/20/2026 9:00 AM, CDT', '07/22/2026 5:00 PM, CDT', 3, 4),
+                new LandingPageDateRange('07/15/2026 9:00 AM, CDT', '07/20/2026 5:00 PM, CDT', 5, 6),
                 '08/02/2026 2:00 PM, CDT',
             ),
             new LandingPageActions(
