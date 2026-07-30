@@ -38,7 +38,7 @@ $renderCard = static function (
     <div class="col" data-glance-card="<?= e($slug) ?>">
         <div class="card h-100 glance-card-bg">
             <div class="card-body glance-card-body">
-                <h3 class="h5 card-title pt-2 pb-2 glance-header text-<?= e($color) ?>-glance-header"><?= e($title) ?></h3>
+                <h3 class="h5 card-title pt-2 pb-2 glance-header my-2 text-<?= e($color) ?>-glance-header"><?= e($title) ?></h3>
                 <div class="position-absolute top-0 start-50 translate-middle badge bg-<?= e($color) ?>-glance-pill dark rounded-pill glance-status-pill"><i class="fa <?= e($icon) ?> pe-2"></i><?= e($badgeLabel) ?></div>
                 <p class="card-text glance-card-text"><small><?= $bodyHtml ?></small></p>
                 <?php if ($action !== null): ?>
