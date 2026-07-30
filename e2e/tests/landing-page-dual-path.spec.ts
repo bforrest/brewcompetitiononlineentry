@@ -142,10 +142,8 @@ async function normalizeLandingScreenshot(page: Page): Promise<void> {
   expect(heroGradient).toBe(HERO_GRADIENT);
 }
 
-function landingDefinition(page: Page, term: string) {
-  return page.locator('#at-a-glance dt')
-    .filter({ hasText: new RegExp(`^${term}$`, 'i') })
-    .locator('xpath=following-sibling::dd[1]');
+function landingGlanceCardBadge(page: Page, slug: string) {
+  return page.locator(`[data-glance-card="${slug}"] .glance-status-pill`);
 }
 
 test.describe.serial('landing page dual-path parity', () => {
@@ -235,9 +233,8 @@ test.describe.serial('landing page dual-path parity', () => {
     expect(modern.title).toBe(legacy.title);
     expect(legacy.regions).toEqual(['at-a-glance', 'volunteers', 'contact']);
     expect(modern.regions).toEqual([
-      'registration',
-      'volunteers',
       'at-a-glance',
+      'volunteers',
       'rules',
       'entry-info',
       'contact',
@@ -379,8 +376,9 @@ test.describe.serial('landing page state matrix', () => {
     );
     await page.goto('/');
 
-    await expect(page.locator('#registration')).toContainText(/registration (?:opens|will open)/i);
-    await expect(page.locator('#registration').getByRole('link', { name: 'Register', exact: true })).toHaveCount(0);
+    const registrationAlert = page.getByRole('alert').filter({ hasText: /registration (?:opens|will open)/i });
+    await expect(registrationAlert).toBeVisible();
+    await expect(registrationAlert.getByRole('link', { name: 'Register', exact: true })).toHaveCount(0);
   });
 
   test('renders open registration and entry actions', async ({ page }) => {
@@ -391,9 +389,10 @@ test.describe.serial('landing page state matrix', () => {
     );
     await page.goto('/');
 
-    await expect(page.locator('#registration')).toContainText(/registration is open/i);
-    await expect(page.locator('#registration').getByRole('link', { name: 'Register', exact: true })).toBeVisible();
-    await expect(landingDefinition(page, 'Entry status')).toHaveText('Open');
+    const registrationAlert = page.getByRole('alert').filter({ hasText: /registration is open/i });
+    await expect(registrationAlert).toBeVisible();
+    await expect(registrationAlert.getByRole('link', { name: 'Register', exact: true })).toBeVisible();
+    await expect(landingGlanceCardBadge(page, 'entry-registration')).toContainText('Open');
   });
 
   test('keeps judge registration visible after entrant registration closes', async ({ page }) => {
@@ -404,11 +403,10 @@ test.describe.serial('landing page state matrix', () => {
     );
     await page.goto('/');
 
-    await expect(page.locator('#registration')).toContainText(/registration is closed/i);
+    const closedAlert = page.getByRole('alert').filter({ hasText: /registration is closed/i });
+    await expect(closedAlert).toBeVisible();
     await expect(page.locator('#volunteers')).toContainText(/judge (?:or steward )?registration is open/i);
-    const loginAlert = page.getByRole('alert')
-      .filter({ hasText: /registration is closed/i })
-      .getByRole('link', { name: 'Log In', exact: true });
+    const loginAlert = closedAlert.getByRole('link', { name: 'Log In', exact: true });
     await loginAlert.click();
     await expect(page.getByRole('dialog', { name: 'Log In' })).toBeVisible();
     await expect(page.locator('#login-modal input[name="loginUsername"]')).toBeFocused();
@@ -452,7 +450,7 @@ test.describe.serial('landing page state matrix', () => {
     await setLandingCapacityPreferences(1, null, 1, 0);
     await page.goto('/');
 
-    await expect(landingDefinition(page, 'Entry status')).toHaveText('Closed');
+    await expect(landingGlanceCardBadge(page, 'entry-registration')).toContainText('Closed');
     await expect(page.getByRole('alert').filter({ hasText: /limit|capacity/i }))
       .toContainText(/limit.*reached|capacity.*full/i);
   });
@@ -461,8 +459,11 @@ test.describe.serial('landing page state matrix', () => {
     await setLandingOptionalDates([null, null], [null, null], null);
     await page.goto('/');
 
-    await expect(landingDefinition(page, 'Drop-off status')).toHaveText('Open');
-    await expect(landingDefinition(page, 'Shipping status')).toHaveText('Open');
+    // Matching legacy's own gating (pub/at-a-glance.pub.php only adds the drop-off/shipping
+    // cards when an open date is configured): with no dates configured, the cards are omitted
+    // entirely rather than rendered with a stale/undefined status.
+    await expect(page.locator('[data-glance-card="dropoff"]')).toHaveCount(0);
+    await expect(page.locator('[data-glance-card="shipping"]')).toHaveCount(0);
     await expect(page.locator('#at-a-glance')).not.toContainText(/undefined|invalid date/i);
   });
 
