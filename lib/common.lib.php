@@ -465,19 +465,6 @@ function relocate($referer,$page,$msg,$id,$keep_id="default") {
 
 }
 
-function check_judging_numbers() {
-	require(CONFIG.'config.php');
-	mysqli_select_db($connection,$database);
-
-	$query_check = sprintf("SELECT COUNT(*) as count FROM %s WHERE brewJudgingNumber IS NULL", $prefix."brewing");
-	$check = mysqli_query($connection,$query_check) or die (mysqli_error($connection));
-	$row_check = mysqli_fetch_assoc($check);
-
-	if ($row_check['count'] == 0) return TRUE;
-	else return FALSE;
-}
-
-
 // ---------------------------- Temperature, Weight, and Volume Conversion ----------------------------------
 
 function temp_convert($temp,$t) { // $t = desired output, defined at function call
@@ -1296,18 +1283,6 @@ function total_fees_paid($entry_fee, $entry_fee_discount, $entry_discount, $entr
 	// ----------------------------------------------------------------------
 }
 
-function total_entries_brewer($bid) {
-	require(CONFIG.'config.php');
-	mysqli_select_db($connection,$database);
-
-	$query_all = sprintf("SELECT COUNT(*) as 'count' FROM %s WHERE brewBrewerID='%s'", $prefix."brewing", $bid);
-	$all = mysqli_query($connection,$query_all) or die (mysqli_error($connection));
-	$row_all = mysqli_fetch_assoc($all);
-
-	return $row_all['count'];
-}
-
-
 function total_not_paid_brewer($bid) {
 	require(CONFIG.'config.php');
 	mysqli_select_db($connection,$database);
@@ -1338,17 +1313,6 @@ function total_paid_received($go,$id,$archive="") {
 	$query_entry_count =  sprintf("SELECT COUNT(*) as 'count' FROM %s", $prefix."brewing".$archive_suffix);
 	if (($go == "judging_scores") || ($go == "judging_tables")) $query_entry_count .= " WHERE brewPaid='1' AND brewReceived='1'";
 	if (($id > 0) && ($id !="default")) $query_entry_count .= " WHERE brewBrewerID='$id' AND brewPaid='1' AND brewReceived='1'";
-	$result = mysqli_query($connection,$query_entry_count) or die (mysqli_error($connection));
-	$row = mysqli_fetch_array($result);
-	return $row['count'];
-}
-
-function total_paid() {
-	require(CONFIG.'config.php');
-	mysqli_select_db($connection,$database);
-
-	$query_entry_count =  sprintf("SELECT COUNT(*) as 'count' FROM %s", $prefix."brewing");
-	$query_entry_count .= " WHERE brewPaid='1'";
 	$result = mysqli_query($connection,$query_entry_count) or die (mysqli_error($connection));
 	$row = mysqli_fetch_array($result);
 	return $row['count'];
@@ -2166,18 +2130,6 @@ function style_type($type,$method,$source) {
 	}
 	return $type;
 }
-
-/*
-function check_bos_loc($id) {
-	require(CONFIG.'config.php');
-	$query_judging = sprintf("SELECT judgingLocName,judgingDate FROM %s WHERE id='$id'", $prefix."judging_locations");
-	$judging = mysqli_query($connection,$query_judging) or die (mysqli_error($connection));
-	$row_judging = mysqli_fetch_assoc($judging);
-	$totalRows_judging = mysqli_num_rows($judging);
-	$bos_loc = $row_judging['judgingLocName']." (".getTimeZoneDateTime($_SESSION['prefsTimeZone'], $row_judging['judgingDate'], $_SESSION['prefsDateFormat'],  $_SESSION['prefsTimeFormat'], "long", "date-time").")";
-	return $bos_loc;
-}
-*/
 
 function table_location($table_id,$date_format,$time_zone,$time_format,$method) {
 	require(CONFIG.'config.php');
@@ -3171,32 +3123,6 @@ function readable_number($a){
 	return $out;
 }
 
-function winner_method($type,$output_type) {
-
-	require(LANG.'language.lang.php');
-
-	$output = "";
-
-	if ($output_type == 1) {
-		switch ($type) {
-			case 0: $output = $label_by_table; break;
-			case 1: $output = $label_by_category; break;
-			case 3: $output = $label_by_subcategory; break;
-		}
-	}
-
-	if ($output_type == 2) {
-		switch ($type) {
-			case 0: $output = sprintf("<p>%s</p>",$winners_text_002); break;
-			case 1: $output = sprintf("<p>%s</p>",$winners_text_003); break;
-			case 3: $output = sprintf("<p>%s</p>",$winners_text_004); break;
-		}
-	}
-
-	return $output;
-}
-
-
 function table_exists($table_name) {
 	require(CONFIG.'config.php');
 	mysqli_select_db($connection,$database);
@@ -3327,35 +3253,6 @@ function table_assignments($uid,$method,$time_zone,$date_format,$time_format,$me
 	if ($method2 == 2) $output = array_unique($output);
 	return $output;
 
-}
-
-function available_at_location($location,$role,$round) {
-	// Returns the number of judges available per location/date
-	// Takes into account assignments in the judging_assignments table
-	// and returns a total number available less those who have been
-	// assigned to the location and round.
-	require(CONFIG.'config.php');
-	mysqli_select_db($connection,$database);
-
-	if ($role == "judges") $query_available = sprintf("SELECT brewerJudgeLocation FROM %s WHERE brewerJudgeLocation IS NOT NULL", $prefix."brewer");
-	if ($role == "stewards") $query_available = sprintf("SELECT brewerStewardLocation FROM %s WHERE brewerStewardLocation IS NOT NULL", $prefix."brewer");
-	$available = mysqli_query($connection,$query_available) or die (mysqli_error($connection));
-	$row_available = mysqli_fetch_assoc($available);
-	$totalRows_available = mysqli_num_rows($available);
-
-	$return = 0;
-
-	if ($totalRows_available > 0) {
-
-		do {
-			if ($role == "judges") $available_location = explode(",",$row_available['brewerJudgeLocation']);
-			if ($role == "stewards") $available_location =  explode(",",$row_available['brewerStewardLocation']);
-			if (in_array("Y-".$location,$available_location)) $return += 1;
-		} while ($row_available = mysqli_fetch_assoc($available));
-
-	}
-
-	return $return;
 }
 
 function str_osplit($string, $offset){
@@ -3547,31 +3444,6 @@ function format_phone_us($phone = '', $convert = true, $trim = true) {
 
 }
 
-function check_judging_flights() {
-	// Checks if the count of received entries is the same as the count in judging_flights table
-	// If so, return TRUE
-	// If not, return FALSE
-
-	include (CONFIG.'config.php');
-	mysqli_select_db($connection,$database);
-
-	$query_check_tables = sprintf("SELECT COUNT(*) AS 'count' FROM %s", $prefix."judging_tables");
-	$check_tables = mysqli_query($connection,$query_check_tables) or die (mysqli_error($connection));
-	$row_check_tables = mysqli_fetch_assoc($check_tables);
-
-	$query_check_received = sprintf("SELECT COUNT(*) AS 'count' FROM %s WHERE brewReceived='1'", $prefix."brewing");
-	$check_received = mysqli_query($connection,$query_check_received) or die (mysqli_error($connection));
-	$row_check_received = mysqli_fetch_assoc($check_received);
-
-	$query_check_flights = sprintf("SELECT COUNT(*) AS 'count' FROM %s", $prefix."judging_flights");
-	$check_flights = mysqli_query($connection,$query_flights) or die (mysqli_error($connection));
-	$row_check_flights = mysqli_fetch_assoc($check_flights);
-
-	if (($row_check_received['count'] > 0) && ($row_check_flights['count'] > 0) && ($row_check_tables['count'] > 0) && ($row_check_received['count'] == $row_check_flights['count'])) return TRUE;
-	if (($row_check_received['count'] > 0) && ($row_check_flights['count'] > 0) && ($row_check_tables['count'] > 0) && ($row_check_received['count'] != $row_check_flights['count'])) return FALSE;
-
-}
-
 function get_archive_count($table) {
 	include (CONFIG.'config.php');
 	mysqli_select_db($connection,$database);
@@ -3674,100 +3546,6 @@ function limit_subcategory($style,$pref_num,$pref_exception_sub_num,$pref_except
 	}
 
 	return $limit_reached;
-}
-
-// Unused. 2.6.0.
-function highlight_required($msg,$method,$style_version) {
-
-	require(CONFIG.'config.php');
-	mysqli_select_db($connection,$database);
-	$explodies = explode("-",$msg);
-	$return = FALSE;
-
-	if ($method == "0") { // mead cider sweetness
-
-		if (!empty($explodies)) {
-
-			if ((isset($explodies[1])) && (isset($explodies[2]))) {
-				$query_check = sprintf("SELECT brewStyleSweet FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') AND brewStyleGroup='%s' AND brewStyleNum='%s'", $prefix."styles",$style_version,$explodies[1],$explodies[2]);
-				$check = mysqli_query($connection,$query_check) or die (mysqli_error($connection));
-				$row_check = mysqli_fetch_assoc($check);
-				$totalRows_check = mysqli_num_rows($check);
-
-				if ((!empty($row_check)) && ($row_check['brewStyleSweet'] == 1)) $return = TRUE;
-			}
-
-		}
-
-	}
-
-	if ($method == "1") { // special ingredients REQUIRED beer/mead/cider
-
-		if (!empty($explodies)) {
-
-			if ((isset($explodies[1])) && (isset($explodies[2]))) {
-
-				$query_check = sprintf("SELECT brewStyleReqSpec FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') AND brewStyleGroup='%s' AND brewStyleNum='%s'", $prefix."styles",$style_version,$explodies[1],$explodies[2]);
-				$check = mysqli_query($connection,$query_check) or die (mysqli_error($connection));
-				$row_check = mysqli_fetch_assoc($check);
-
-				if ((!empty($row_check)) && ($row_check['brewStyleReqSpec'] == 1)) $return = TRUE;
-			}
-
-		}
-	}
-
-	if ($method == "2") { // mead cider carb
-
-		if (!empty($explodies)) {
-
-			if ((isset($explodies[1])) && (isset($explodies[2]))) {
-				$query_check = sprintf("SELECT brewStyleCarb FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') AND brewStyleGroup='%s' AND brewStyleNum='%s'", $prefix."styles",$style_version,$explodies[1],$explodies[2]);
-				$check = mysqli_query($connection,$query_check) or die (mysqli_error($connection));
-				$row_check = mysqli_fetch_assoc($check);
-
-				if ((!empty($row_check)) && ($row_check['brewStyleCarb'] == 1)) $return = TRUE;
-			}
-		}
-
-	}
-
-	if ($method == "3") { // mead strength
-
-		if (!empty($explodies)) {
-
-			if ((isset($explodies[1])) && (isset($explodies[2]))) {
-				$query_check = sprintf("SELECT brewStyleStrength FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') AND brewStyleGroup='%s' AND brewStyleNum='%s'", $prefix."styles",$style_version,$explodies[1],$explodies[2]);
-				$check = mysqli_query($connection,$query_check) or die (mysqli_error($connection));
-				$row_check = mysqli_fetch_assoc($check);
-
-				if ((!empty($row_check)) && ($row_check['brewStyleStrength'] == 1)) $return = TRUE;
-			}
-			
-		}
-
-	}
-
-	return $return;
-
-}
-
-function user_check($user_name) {
-
-	require(CONFIG.'config.php');
-	mysqli_select_db($connection,$database);
-
-	$return = "";
-
-	$query_userCheck = sprintf("SELECT * FROM %s WHERE user_name = '%s'",$prefix."users",$user_name);
-	$userCheck = mysqli_query($connection,$query_userCheck) or die (mysqli_error($connection));
-	$row_userCheck = mysqli_fetch_assoc($userCheck);
-	$totalRows_userCheck = mysqli_num_rows($userCheck);
-
-	if (!empty($row_userCheck)) $return = $totalRows_userCheck."^".$row_userCheck['userQuestion']."^".$row_userCheck['id'];
-
-	return $return;
-
 }
 
 function judging_location_info($id) {
@@ -4049,307 +3827,6 @@ function deobfuscateURL($data,$key) {
 			return base64_decode(str_replace($clean, $dirty, $data));
 		}
 	}
-
-}
-
-function get_ba_style_info($id) {
-
-	$return = "";
-
-	foreach ($_SESSION['styles'] as $styles => $stylesData) {
-
-		if (is_array($stylesData) || is_object($stylesData)) {
-
-			foreach ($stylesData as $key => $ba_style) {
-
-				if ($ba_style['id'] === $id) {
-					$return = $ba_style['name']."|";
-					$return .= $ba_style['category']['id']."|";
-					$return .= $ba_style['category']['name'];
-					if (isset($ba_style['description'])) $return .= $ba_style['description']."|";
-				}
-
-			} // end foreach ($stylesData as $data => $ba_style)
-
-		} // end if (is_array($stylesData) || is_object($stylesData))
-
-	} // end foreach ($_SESSION['styles'] as $styles => $stylesData)
-
-	return $return;
-}
-
-// Unused.
-function convert_to_ba() {
-
-	require(CONFIG.'config.php');
-	mysqli_select_db($connection,$database);
-
-	include (INCLUDES.'ba_constants.inc.php');
-
-	$query_check = sprintf("SELECT id, brewCategory, brewCategorySort, brewSubCategory, brewStyle, brewMead1, brewMead2, brewMead3, brewInfo FROM %s", $prefix."brewing");
-	$check = mysqli_query($connection,$query_check) or die (mysqli_error($connection));
-	$row_check = mysqli_fetch_assoc($check);
-
-	$return = "";
-
-	$carb = array("Still","Petillant","Sparkling");
-	$sweet = array("Dry","Medium Dry","Medium","Medium Sweet","Sweet");
-	$strength = array("Hydromel","Standard","Sack");
-
-	do {
-
-		$ba_category = "";
-		$ba_category_sort = "";
-		$ba_sub_category = "";
-		$ba_carb = "";
-		$ba_strength = "";
-		$ba_sweetness = "";
-		$ba_style = "";
-		$ba_style_info = "";
-		$ba_category_id = "";
-
-		$query_ba_random = sprintf("SELECT * FROM %s WHERE brewStyleVersion='BA' ORDER BY RAND() LIMIT 1", $prefix."styles");
-		$ba_random = mysqli_query($connection,$query_ba_random) or die (mysqli_error($connection));
-		$row_ba_random = mysqli_fetch_assoc($ba_random);
-
-		if ($row_ba_random['brewStyleReqSpec'] == 1) $brew_info = "Special ingredients, yo.";
-		else $brew_info = "";
-
-		$ba_category = ltrim($row_ba_random['brewStyleGroup'],"0");
-		$ba_style = $row_ba_random['brewStyle'];
-		$ba_sub_category = $row_ba_random['brewStyleNum'];
-
-		if ($row_ba_random['brewStyleCarb'] == 1) $ba_carb = $carb[array_rand($carb)];
-		if ($row_ba_random['brewStyleStrength'] == 1) $ba_strength = $strength[array_rand($strength)];
-		if ($row_ba_random['brewStyleSweet'] == 1) $ba_sweetness = $sweet[array_rand($sweet)];
-
-		$ba_category_sort = $row_ba_random['brewStyleGroup'];
-
-		$updateSQL = sprintf("UPDATE %s SET brewCategory='%s', brewCategorySort='%s', brewSubCategory='%s', brewStyle='%s', brewMead1='%s', brewMead2='%s', brewMead3='%s', brewInfo='%s' WHERE id=%s;",$prefix."brewing",$ba_category,$ba_category_sort,$ba_sub_category,$ba_style,$ba_carb,$ba_sweetness,$ba_strength,$brew_info,$row_check['id']);
-		mysqli_real_escape_string($connection,$updateSQL);
-		$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
-
-		//$return .= $updateSQL."<br>";
-
-		//$return .= $ba_style_info."<br>";
-
-	} while ($row_check = mysqli_fetch_assoc($check));
-
-	// Change preference
-	if (session_status() === PHP_SESSION_NONE) session_start();
-	$_SESSION['prefsStyleSet'] = "BA";
-
-	$updateSQL = sprintf("UPDATE %s SET brewStyleActive='Y' WHERE brewStyleVersion='BA';",$prefix."brewing");
-	mysqli_real_escape_string($connection,$updateSQL);
-	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
-
-	return $return;
-
-}
-
-// Unused.
-function convert_to_pro() {
-
-	require(CONFIG.'config.php');
-	mysqli_select_db($connection,$database);
-
-	include (INCLUDES.'ba_constants.inc.php');
-
-	$query_check = sprintf("SELECT id FROM %s", $prefix."brewer");
-	$check = mysqli_query($connection,$query_check) or die (mysqli_error($connection));
-	$row_check = mysqli_fetch_assoc($check);
-
-	$return = "";
-
-	$breweries = array(
-	"10 Barrel Brewing Company","105 West Brewing Company","12 Degree Brewing","14er Brewing Company","3 Freaks Brewery","300 Suns Brewing","38 State Brewing Company","4 Noses Brewing Company","4B&rsquo;s Brewery","7 Hermits Brewing Company","Alpine Dog Brewing Company","Anheuser-Busch","Animas Brewing Company","Asher Brewing Company","Aspen Brewing Company","Avalanche Brewing Company","Avery Brewing Company","Backcountry Brewery","Baere Brewing Company","Banded Oak Brewing Company","Barnett &amp; Son Brewing Company","Barrels &amp; Bottles Brewery","Beer By Design","Berthoud Brewing Company","Beryl&rsquo;s Beer Company","Bierstadt Lagerhaus","BierWerks Brewery","Big Beaver Brewing Company","Big Thompson Brewery","BJ&rsquo;s Restaurant &amp; Brewery ","Black Bottle Brewery","Black Project Spontaneous &amp; Wild Ales","Black Shirt Brewing Company","Black Sky Brewery","Blue Moon Brewing Co. at the Sandlot","Blue Moon Brewing Company","Blue Spruce Brewing Company","Boggy Draw Brewery","Bonfire Brewing","Bootstrap Brewing Company","Bottom Shelf Brewery","BREW Pub &amp; Kitchen","Brewability Lab","Brewery Rickoli","Briar Common Brewery + Eatery","Bristol Brewing Company","Brix Taphouse &amp; Brewery","Broken Compass Brewery","Broken Plow Brewery","BRU Handbuilt Ales &amp; Eats","Brues Alehouse Brewing Company","Bruz Beers","Buckhorn Brewers","Bull &amp; Bush Pub &amp; Brewery","Butcherknife Brewing Company","Call to Arms Brewing Company","Cannonball Creek Brewing Company","Capitol Creek Brewery","Carbondale Beer Works","Carver Brewing Company","Casey Brewing &amp; Blending"," Beer Company","CAUTION: Brewing Company","CB &amp; Potts Restaurant &amp; Brewery Englewood","CB &amp; Potts Restaurant &amp; Brewery Flatirons","CB &amp; Potts Restaurant &amp; Brewery ","CB &amp; Potts Restaurant &amp; Brewery ","CB &amp; Potts Restaurant &amp; Brewery ","Cellar West Artisan Ales","Cerberus Brewing Company","Cerebral Brewing","Chain Reaction Brewing","Cheluna Brewing Company","City Star Brewing","CO-Brew","Cogstone Brewing Company","Colorado Boy Pizzeria &amp; Brewery","Colorado Boy Pub &amp; Brewery","Colorado Mountain Brewery","Colorado Mountain Brewery at the Roundhouse","Colorado Plus Brew Pub","Comrade Brewing Company","CooperSmith&rsquo;s Pub &amp; Brewing Company","Copper Club Brewing Company","Copper Kettle Brewing Company","Crabtree Brewing Company","Crazy Mountain Brewing Company","Crazy Mountain Tap Room","Creede Brewing Company","Crestone Brewing Company","Crooked Stave Artisan Beer Project","Crow Hop Brewing Company","Crystal Springs Brewing Company","Dad &amp; Dude&rsquo;s Breweria","DC Oakes Brewhouse and Eatery","De Steeg Brewing","Dead Hippie Brewing","Declaration Brewing","Deep Draft Brewing Company","Arvada Beer Company","Diebolt Brewing Company","Dillon DAM Brewery","Dodgeton Creek Brewing Company","Dolores River Brewery","Dostal Alley Brewpub &amp; Casino","Dry Dock Brewing Company North","Dry Dock Brewing Company South","Echo Brewing Cask and Barrel","Echo Brewing Company","Eddyline Brewery","El Rancho Brewing Company","Elevation Beer Company","Elk Mountain Brewing Company","Epic Brewing Company","Equinox Brewing Company","Estes Park Brewery","Evergreen Tap House &amp; Brewery","Factotum Brewhouse","FATE Brewing Company","FERMÆNTRA","Fiction Beer Company","Fieldhouse Brewing Company","Finkel &amp; Garf Brewing Company","Floodstage Ale Works","Florence Brewing Company","Fossil Craft Beer Company","Front Range Brewing Company","Funkwerks","Gilded Goat Brewing","Glenwood Canyon Brewing Company","Gold Camp Brewing Company","Goldspot Brewing Company","Gordon Biersch Brewery","Gore Range Brewery","Grand Lake Brewing Tavern","Grandma&rsquo;s House","Gravity Brewing","Great Divide Brewing Company","Great Frontier Brewing Company","Great Storm Brewing","Green Mountain Beer Company","Grimm Brothers Brewhouse Taproom","Grist Brewing Company","Grist Brewing Company Lab","Großen Bart Brewery","Guanella Pass Brewing Company","Gunbarrel Brewing Company","Halfpenny Brewing Company","Hideaway Park Brewery","High Alpine Brewing Company","High Hops Brewery","Hogshead Brewery","Holidaily Brewing Company","Horse and Dragon Brewing Company","Horsefly Brewing Company","Intersect Brewing","Iron Bird Brewing Company","Ironworks Brewery &amp; Pub","J Wells Brewery","J. Fargo&rsquo;s Family Dining &amp; Micro Brewery","Jagged Mountain Craft Brewery","JAKs Brewing Company","James Peak Brewery &amp; Smokehouse","Jessup Farm Barrel House","Joyride Brewing Company","Kannah Creek Brewing Company","Kettle and Spoke Brewery","Kokopelli Beer Company","LandLocked Ales","Lariat Lodge Brewing","Launch Pad Brewery","Left Hand Brewing Company","Liquid Mechanics Brewing Company","Little Machine Beer","Living The Dream Brewing Company","Local Relic","Locavore Beer Works","Lone Tree Brewing Company","Lost Highway Brewing Company","Lowdown Brewery + Kitchen","Lumpy Ridge Brewing Company","Mad Jack&rsquo;s Mountain Brewery","Mahogany Ridge Brewery and Grill","Main Street Brewery &amp; Restaurant","Mancos Brewing Company","Manitou Brewing Company","Mash Lab Brewing","Maxline Brewing","McClellan&rsquo;s Brewing Company","MillerCoors Brewing Company","Mockery Brewing","Moffat Station Restaurant and Brewery","Moonlight Pizza &amp; Brewery","Mother Tucker Brewery","Mountain Sun Pub &amp; Brewery","Mountain Tap Brewery","Mountain Toad Brewing","Nano 108 Brewing Company","Never Summer Brewing Company","New Belgium Brewing Company","New Image Brewing Company","New Terrain Brewing Company","Nighthawk Brewery","Odd13 Brewing","Odell Brewing Company","Odyssey Beerwerks","Old Colorado Brewing Company","Open Door Brewing Company","Oskar Blues Grill &amp; Brew","Oskar Blues Tasty Weasel Tap Room (Main Brewery)","Our Mutual Friend Brewing Company","Ouray Brewery","Ourayle House Brewery (Mr. Grumpy Pants)","Outer Range Brewing Company","Pagosa Brewing Company","Palisade Brewing Company","Paradox Beer Company","Parts and Labor Brewing","PDub Brewing Company","Peak to Peak Tap &amp; Brew","Peaks N Pines Brewing Company","Periodic Brewing","Phantom Canyon Brewing Company","Pikes Peak Brewing Company","Pints Pub Brewery &amp; Freehouse","Pitchers Sports Restaurant","Platt Park Brewing Company","Powder Keg Brewing Company","Prost Brewing Company","Pug Ryan&rsquo;s Brewery","Pumphouse Brewery","Rails End Beer Company","Rally King Brewing","Ratio Beerworks","Red Leg Brewing Company","Renegade Brewing Company","Resolute Brewing Company","Revolution Brewing","Riff Raff Brewing Company","River North Brewery","Roaring Fork Beer Company","Rock Bottom Brewery ","Rock Cut Brewing Company","Rockslide Brewery &amp; Restaurant","Rocky Mountain Brewery","Rockyard American Grill &amp; Brewing Company","Royal Gorge Brewing Company","Saint Patrick&rsquo;s Brewing Company","San Luis Valley Brewing Company","Sanitas Brewing Company","Seedstock Brewery","Shamrock Brewing Company","Shine Brewing Company","Shoes &amp; Brews","Ska Brewing Company","SKEYE Brewing","Smiling Toad Brewery","Smugglers Brewpub","Snowbank Brewing","SomePlace Else Brewery","Something Brewery","Soulcraft Brewing","South Park Brewing","Southern Sun Pub &amp; Brewery","Spangalang Brewery","Spice Trade Brewing Company","Square Peg Brewerks","Station 26 Brewing Company","Steamworks Brewing Company","Storm Peak Brewing Company","Storybook Brewing","Strange Craft Beer Company","Suds Brothers Brewery II","Telluride Brewing Company","The Bakers&rsquo; Brewery","The Brew on Broadway","The Eldo Brewery &amp; Taproom","The Industrial Revolution Brewing Company","The Intrepid Sojourner Beer Project","The Peak Bistro &amp; Brewery","The Post Brewing Company","Three Barrel Brewing Company","Three Four Beer Company","Tivoli Brewing Company","Tommyknocker Brewery &amp; Pub","Trinity Brewing Company","Triple S Brewing Company","TRVE Brewing Company","Twisted Pine Brewing Company","Two Rascals Brewing","Two22 Brew","Upslope Brewing Company","Ursula Brewery","Ute Pass Brewing Company","UTurn BBQ","Vail Brewing Company","Verboten Brewing","Very Nice Brewing Company","Veteran Brothers Brewing Company","Vindication Brewing Company","Vine Street Pub &amp; Brewery","Vision Quest Brewing Company","Walter Brewing Company","WeldWerks Brewing Company","West Flanders Brewing Company","Westbound &amp; Down Brewing Company","WestFax Brewing Company"," Brewing Company","Whistle Pig Brewing Company","White Labs Tasting Room","Wibby Brewing","Wild Woods Brewery","WildEdge Brewing Collective","Wiley Roots Brewing Company","Wit&rsquo;s End Brewing Company","Wolfe Brewing Company","Wonderland Brewing Company","Wynkoop Brewing Company","Yampa Valley Brewing Company","Zephyr Brewing Company","Zuni Street Brewing Company","Zwei Brewing"
-	);
-
-	do {
-
-		$key = (array_rand($breweries,1));
-		$value = $breweries[$key];
-
-		$query_check_brewery = sprintf("SELECT COUNT(*) as 'count' FROM %s WHERE brewerBreweryName='%s'", $prefix."brewer",$value);
-		$check_brewery = mysqli_query($connection,$query_check_brewery) or die (mysqli_error($connection));
-		$row_check_brewery = mysqli_fetch_assoc($check_brewery);
-
-		$update = TRUE;
-
-		if ($row_check_brewery['count'] > 0) {
-			$update = TRUE;
-		}
-
-		else {
-			$update = FALSE;
-			$updateSQL = sprintf("UPDATE %s SET brewerBreweryName='%s' WHERE id=%s;",$prefix."brewer",$value,$row_check['id']);
-			mysqli_real_escape_string($connection,$updateSQL);
-			$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
-		}
-
-	// $return .= $updateSQL."<br>";
-
-	} while ($row_check = mysqli_fetch_assoc($check));
-
-	return $return;
-
-}
-
-function remove_sensitive_data() {
-
-	require(CONFIG.'config.php');
-	mysqli_select_db($connection,$database);
-	include (INCLUDES.'constants.inc.php');
-
-	$result = "";
-
-	$first_name_array = array(
-	"Herbert",
-	"John",
-	"Kvothe",
-	"Jeoffry",
-	"Cersi",
-	"Danne",
-	"Bruce",
-	"Wade",
-	"Marnie",
-	"Dan",
-	"Chandler",
-	"Mario",
-	"Michelle",
-	"Kjell",
-	"Clark",
-	"Gerion",
-	"Rudolph",
-	"Albert",
-	"Justin",
-	"Jon",
-	"Toby",
-	"William",
-	"Christian",
-	"Weston",
-	"Zak",
-	"Neil",
-	"Tyson"
-	);
-
-	$last_name_array = array(
-	"Herbert",
-	"Johnson",
-	"Hull",
-	"Havens",
-	"Palmer",
-	"Lannister",
-	"Black",
-	"Snow",
-	"Wilson",
-	"Payne",
-	"Chandler",
-	"Gutierrez",
-	"Jones",
-	"Carlton",
-	"Clark",
-	"Gerion",
-	"Rudolph",
-	"Albertson",
-	"Ziegler",
-	"Bartlett",
-	"Watson",
-	"Williams",
-	"Potter",
-	"Jones",
-	"Owens",
-	"O&rsquo;Neil",
-	"Wainright",
-	"Bennett",
-	"Humboldt",
-	"Gould",
-	"Frasier"
-	);
-
-	$query_check_user = sprintf("SELECT * FROM %s", $prefix."users");
-	$check_user = mysqli_query($connection,$query_check_user) or die (mysqli_error($connection));
-	$row_check_user = mysqli_fetch_assoc($check_user);
-
-	$user_array = "";
-	$user_name = $default_to."@brewingcompetitions.com";
-
-	do {
-			if ($row_check_user['userLevel'] > 1) {
-			$random = random_generator(7,2);
-			$updateSQL = sprintf("UPDATE %s
-						 SET
-						 user_name='%s',
-						 password='f52dde34d49c8d69ab7fa5ee9ca13c72',
-						 userQuestion='Randomly generated.',
-						 userQuestionAnswer='%s'
-						 WHERE id='%s'",  $prefix."users", $user_name, $random, $row_check_user['id']);
-			mysqli_real_escape_string($connection,$updateSQL);
-			$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
-			$user_array[] = $row_check_user['id'];
-			}
-	} while ($row_check_brewer = mysqli_fetch_assoc($check_brewer));
-
-	$query_check_brewer = sprintf("SELECT * FROM %s", $prefix."brewer");
-	$check_brewer = mysqli_query($connection,$query_check_brewer) or die (mysqli_error($connection));
-	$row_check_brewer = mysqli_fetch_assoc($check_brewer);
-
-	do {
-
-			if ((is_array($user_array)) && (in_array($row_check_brewer['uid'],$user_array))) {
-
-				$update = TRUE;
-
-				while($update) {
-
-					$first_name_key = (array_rand($first_name_array,1));
-					$first_name = $first_name_array[$first_name_key];
-
-					$last_name_key = (array_rand($last_name_array,1));
-					$last_name = $last_name_array[$last_name_key];
-
-					$club_name = "";
-					if (!empty($row_check_brewer['brewerClubs'])) {
-						 $club_array = $_SESSION['club_array'];
-						 $club_name_key = (array_rand($club_array,1));
-						 $club_name = $club_array[$club_name_key];
-					}
-
-					$query_check_name = sprintf("SELECT COUNT(*) as 'count' FROM %s WHERE brewerFirstName='%s' AND brewerLastName='%s'", $prefix."brewer", $first_name, $last_name);
-					$check_name = mysqli_query($connection,$query_check_name) or die (mysqli_error($connection));
-					$row_check_name = mysqli_fetch_assoc($check_name);
-
-					if ($row_check_name['count'] > 0) {
-						$update = TRUE;
-					}
-
-					else {
-						$update = FALSE;
-						$updateSQL = sprintf("UPDATE %s
-							 SET
-							 brewerFirstName='%s',
-							 brewerLastName='%s',
-							 brewerAddress='1234 Main Street',
-							 brewerCity='Anytown',
-							 brewerState='CO',
-							 brewerZip='',
-							 brewerPhone1='303-555-1234',
-							 brewerPhone2='303-555-9876',
-							 brewerEmail='%s',
-							 brewerJudgeID='A0000',
-							 brewerClubs='%s'
-							 WHERE id='%s'", $prefix."brewer", $first_name, $last_name, $user_name, $club_name, $row_check_brewer['id']);
-						mysqli_real_escape_string($connection,$updateSQL);
-						$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
-					}
-
-				}
-
-				// $result .= $updateSQL."<br>";
-			}
-	} while ($row_check_brewer = mysqli_fetch_assoc($check_brewer));
-
-	return $result;
 
 }
 
@@ -5270,36 +4747,6 @@ function prep_redirect_link($link) {
 	$link = html_entity_decode($link);
 	$link = htmlspecialchars_decode($link);
 	return $link;
-}
-
-function display_array_content_style($arrayname,$method,$base_url) {
-	include (LANG.'language.lang.php');
-	$a = "";
-	sort($arrayname);
-	while(list($key, $value) = each($arrayname)) {
-
-		if (is_array($value)) {
-			$c = display_array_content($value,'');
-			$d = ltrim($c,"0");
-			$d = str_replace("-","",$c);
-			$a .= "<a href=\"#\" data-toggle=\"modal\" data-target=\"#".$d."\">".$d."</a>";
-		}
-
-		else {
-			$value = explode("|",$value);
-			$e = str_replace("-","",$value[0]);
-			$e = ltrim($e,"0");
-			$a .= sprintf("<a href=\"#\" data-toggle=\"modal\" data-target=\"#".$value[0]."\" data-tooltip=\"true\" title=\"%s ".$e.": ".$value[1]."\">".$e."</a>",$brew_text_000);
-		}
-		if ($method == "1") $a .= "";
-		if ($method == "2") $a .= "&nbsp;&nbsp;";
-		if ($method == "3") $a .= ", ";
-	}
-	$b = rtrim($a, "&nbsp;&nbsp;");
-	$b = rtrim($a, ", ;");
-	$b = rtrim($b, "  ");
-
-	return $b;
 }
 
 function admin_relocate($user_level,$go,$referrer) {

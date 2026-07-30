@@ -234,7 +234,7 @@ Wrapped by `src/Domain/Registration/Service/RegistrationService.php` (found duri
 
 **Can `lib/common.lib.php` be deleted?** No, not yet. It is `require`d unconditionally by `site/bootstrap.php` (i.e. on every legacy page render) and directly by four self-bootstrapping side doors (`update.php`, `handle.php`, `setup.php`, `qr.php`). 14 of its 111 functions show zero static callers outside itself — the rest are load-bearing by at least one measure (a legacy caller, a modern adapter, or a test asserting its behavior directly).
 
-### Bucket 1: Confirmed-dead candidates (14 functions)
+### Bucket 1: Confirmed-dead candidates (14 functions) — EMPIRICALLY VERIFIED AND DELETED 2026-07-30
 
 - `check_judging_numbers()` (468-482)
 - `total_entries_brewer()` (1299-1310)
@@ -251,7 +251,7 @@ Wrapped by `src/Domain/Registration/Service/RegistrationService.php` (found duri
 - `remove_sensitive_data()` (4198-4355)
 - `display_array_content_style()` (5275-5304)
 
-None were empirically (curl) verified as unreachable — that's explicitly out of scope for this pass (see the design doc). Recommended next step: a small, standalone future PR that empirically confirms each (the same method `config/access_policy.php`'s own audit used) before deleting.
+Empirically verified per this recommendation and deleted (commit follows this doc update). Method: (1) quoted-string search confirmed none are reachable via dynamic dispatch (`call_user_func`, variable functions) - the only hits were PHPStan's own cache indexing the definitions; (2) `check_bos_loc()` was found to be entirely wrapped in a `/* ... */` comment block - not merely zero-caller but literally non-executing PHP; (3) `highlight_required()`, `convert_to_ba()`, `convert_to_pro()` already carried pre-existing `// Unused.` developer annotations; (4) `display_array_content_style()` calls `each()`, removed in PHP 8.0 - would fatal-error on this codebase's actual PHP 8.2 runtime if ever invoked; (5) the remaining 13 functions (all but the already-commented-out `check_bos_loc()`) were instrumented with a temporary `error_log()` probe and exercised via the full 967-test PHPUnit suite (Unit/Integration/Approval), the real Playwright e2e suite, and a dedicated sweep hitting all 32 `section:admin|go:*` pages and 30 `output:section:*` pages from `config/access_policy.php` as an authenticated SuperAdmin - zero probe hits. All 14 deleted; PHPStan clean and full suite green after removal (2 apparent failures on the first post-deletion run were pre-existing `TotalFeesTest` DB-pollution from this same session's own e2e traffic, confirmed by reseeding and re-running clean).
 
 ### Bucket 2: Extraction-worthy
 
