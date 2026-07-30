@@ -135,4 +135,51 @@ on the new badges, focus order in the merged grid).
   this is templates + one small escaping fix.
 - Legacy's scroll-reveal animation (`.reveal-element`/`.active-element`) is not being
   ported to modern; not part of the stated visual-parity goal and not raised as a
-  requirement.
+  requirement. Mechanism documented below (Appendix) in case a future maintainer
+  wants it added.
+
+## Appendix: legacy's scroll-reveal mechanism (reference only, not implemented here)
+
+Legacy sections below the fold (`Volunteers`, `Contact`, individual `at-a-glance`
+cards) carry a `reveal-element` class that starts hidden and fades/slides in as the
+user scrolls each one into view. Confirmed via manual testing (real `mouse.wheel`
+scroll events, not an automated `fullPage` screenshot's internal scroll, which does
+*not* reliably trigger it) that this is a genuine, working progressive-disclosure
+effect, not a bug — see "Evidence" above for how that was verified.
+
+**CSS** (`css/common-3.css`, already loaded by both pages — no new stylesheet
+needed):
+
+```css
+.reveal-element {
+    position: relative;
+    transform: translateY(-15px); /* affects topOffset var in invoke.js */
+    opacity: 0;
+    transition: 1s all ease;
+}
+
+.reveal-element.active-element {
+    transform: translateY(0);
+    opacity: 1;
+}
+```
+
+**JS trigger:** the code that toggles `.active-element` on scroll lives in
+`js_includes/app.pub.min.js` (minified; the CSS comment above points to
+`js_includes/invoke.min.js`'s `topOffset` variable as the scroll-position
+calculation it depends on). It's a scroll-position/`getBoundingClientRect()`-based
+check, not an `IntersectionObserver` — worth de-minifying and reading directly
+before reimplementing, rather than guessing the threshold logic from the minified
+output.
+
+**To add it to modern's cards later:** add the `reveal-element` class to each card's
+container (or the `LandingPage/partials/*.php` section wrappers) and either reuse
+`app.pub.min.js`'s existing scroll handler (if it's already loaded on modern pages)
+or port the equivalent handler into the modern JS bundle. Two things to verify before
+shipping it, given the modern page already has real users depending on it rendering
+correctly: (1) that the Playwright pixel-snapshot tests account for the animation
+(the same `animations: 'disabled'` + forced-`opacity:1` override technique used to
+capture fair comparison screenshots for this spec's own evidence would apply), and
+(2) that the effect doesn't fight the WCAG accessibility suite (motion sensitivity /
+`prefers-reduced-motion` isn't handled by legacy's current implementation either —
+worth deciding whether to fix that gap rather than copy it forward).
