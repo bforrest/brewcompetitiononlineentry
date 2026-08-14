@@ -70,8 +70,6 @@ if ($action == "password-check") {
 
 		else {
 
-			$password = md5($password);
-
 			// Check user input against DB
 			$db_conn->where("id", 1);
 			$row_qr_password = $db_conn->getOne($prefix."contest_info", "contestCheckInPassword");
@@ -85,7 +83,7 @@ if ($action == "password-check") {
 
 				$stored_hash = $row_qr_password['contestCheckInPassword'];
 				$check = password_verify_legacy($password, $stored_hash);
-				if (($check == 1) && (password_needs_legacy_upgrade($stored_hash))) upgrade_legacy_password_hash($connection, $prefix."contest_info", "id", 1, $password);
+				if (($check == 1) && (password_needs_legacy_upgrade($stored_hash))) upgrade_legacy_password_hash($db_conn, $prefix."contest_info", "id", 1, $password);
 
 				// If successful, register a session variable and set the redirect
 				if ($check == 1) {

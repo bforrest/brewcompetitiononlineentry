@@ -14,13 +14,12 @@ $loginUsername = sterilize($_POST['loginUsername']);
 $entered_password = sterilize($_POST['loginPassword']);
 $location = $base_url."index.php?section=login";
 
-if (strlen($entered_password) > 72) { 
+if (strlen($entered_password) > 72) {
 	session_destroy();
 	header(sprintf("Location: %s", $base_url."index.php?msg=11"));
 	exit;
 }
 
-$entered_password = md5($entered_password);
 $loginUsername = strtolower($loginUsername);
 
 /**
@@ -38,7 +37,10 @@ if ($section == "update") {
 
 	$check = 0;
 
-	if ($totalRows_login > 0) $check = $hasher->CheckPassword($entered_password, $stored_hash);
+	if ($totalRows_login > 0) {
+		$check = password_verify_legacy($entered_password, $stored_hash);
+		if (($check == 1) && (password_needs_legacy_upgrade($stored_hash))) upgrade_legacy_password_hash($db_conn, $prefix."users", "id", $row_login['id'], $entered_password);
+	}
 
 	else $check = 0;
 
@@ -53,7 +55,10 @@ else {
 	$stored_hash = $row_login['password'];
 	$check = 0;
 
-	if ($totalRows_login > 0) $check = $hasher->CheckPassword($entered_password, $stored_hash);
+	if ($totalRows_login > 0) {
+		$check = password_verify_legacy($entered_password, $stored_hash);
+		if (($check == 1) && (password_needs_legacy_upgrade($stored_hash))) upgrade_legacy_password_hash($db_conn, $prefix."users", "id", $row_login['id'], $entered_password);
+	}
 
 }
 
