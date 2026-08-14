@@ -164,7 +164,8 @@ function is_https() {
  */
 
 function sterilize($sterilize = NULL) {
-    if ($sterilize == NULL) return NULL;
+    if (is_array($sterilize)) return array_map('sterilize', $sterilize);
+    elseif ($sterilize == NULL) return NULL;
     elseif (empty($sterilize)) return $sterilize;
     else {
         $sterilize = trim($sterilize);
@@ -222,7 +223,7 @@ if (HOSTED) {
 if (empty($installation_id)) $prefix_session = md5(__FILE__);
 else $prefix_session = md5($installation_id);
 
-if (session_status() == PHP_SESSION_ACTIVE) {
+if (session_status() == PHP_SESSION_NONE) {
     // **PREVENTING SESSION HIJACKING**
     // Prevents javascript XSS attacks aimed to steal the session ID
     ini_set('session.cookie_httponly', 1);
@@ -232,10 +233,12 @@ if (session_status() == PHP_SESSION_ACTIVE) {
     ini_set('session.use_only_cookies', 1);
 
     // Uses a secure connection (HTTPS) if possible
-    ini_set('session.cookie_secure', 1);
-}
+    if (is_https()) ini_set('session.cookie_secure', 1);
 
-if (session_status() == PHP_SESSION_NONE) {
+    // Mitigates CSRF by restricting cross-site cookie delivery; "Lax" (not "Strict") so that
+    // top-level redirects back into the app (e.g. the PayPal return flow) still carry the cookie.
+    ini_set('session.cookie_samesite', 'Lax');
+
     session_name($prefix_session);
     session_start();
 }

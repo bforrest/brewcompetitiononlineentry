@@ -13,35 +13,39 @@ if (!check_update("prefsRecordLimit", $prefix."preferences")) {
 	
 	$output .= "<ul>";
 
-	$updateSQL = "ALTER TABLE `".$prefix."brewer` CHANGE `brewerJudgeAssignedLocation` `brewerJudgeAssignedLocation` VARCHAR( 255 ) NULL DEFAULT NULL, CHANGE `brewerStewardAssignedLocation` `brewerStewardAssignedLocation` VARCHAR( 255 ) NULL DEFAULT NULL, CHANGE `brewerJudgeLocation` `brewerJudgeLocation` VARCHAR( 255 ) NULL DEFAULT NULL, CHANGE `brewerStewardLocation` `brewerStewardLocation` VARCHAR( 255 ) NULL DEFAULT NULL, ADD `brewerAHA` INT( 11 ) NULL;"; 
-	mysqli_real_escape_string($connection,$updateSQL);
-	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
-	$output .= "<li>Updates to the brewer table completed.</li>";
-	
-	$updateSQL = "ALTER TABLE `".$prefix."preferences` ADD `prefsRecordLimit` INT( 11 ) NULL DEFAULT '500' COMMENT 'User defined record limit for using DataTables vs. PHP paging';"; 
-	mysqli_real_escape_string($connection,$updateSQL);
-	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
-	
-	$updateSQL = "ALTER TABLE `".$prefix."preferences` ADD `prefsRecordPaging` INT( 11 ) NULL DEFAULT '30' COMMENT 'User defined per page record limit'"; 
-	mysqli_real_escape_string($connection,$updateSQL);
-	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
-	
-	
-	
-	$updateSQL = "UPDATE `".$prefix."preferences` SET `prefsRecordLimit` = '500', `prefsRecordPaging` = '50' WHERE `id` = '1';"; 
-	mysqli_real_escape_string($connection,$updateSQL);
-	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
-	$output .= "<li>Updates to preferences info table completed.</li>";
-	
-	$updateSQL = "ALTER TABLE `".$prefix."brewing` CHANGE `brewPaid` `brewPaid` CHAR( 1 ) NULL DEFAULT 'N' ;"; 
-	mysqli_real_escape_string($connection,$updateSQL);
-	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
-	
-	$updateSQL = "ALTER TABLE `".$prefix."brewing` ADD `brewCoBrewer` VARCHAR( 255 ) NULL ;"; 
-	mysqli_real_escape_string($connection,$updateSQL);
-	$result = mysqli_query($connection,$updateSQL) or die (mysqli_error($connection));
-	
-	$output .= "<li>Updates to brewing table completed.</li>";
+	$updateSQL = "ALTER TABLE `".$prefix."brewer` CHANGE `brewerJudgeAssignedLocation` `brewerJudgeAssignedLocation` VARCHAR( 255 ) NULL DEFAULT NULL, CHANGE `brewerStewardAssignedLocation` `brewerStewardAssignedLocation` VARCHAR( 255 ) NULL DEFAULT NULL, CHANGE `brewerJudgeLocation` `brewerJudgeLocation` VARCHAR( 255 ) NULL DEFAULT NULL, CHANGE `brewerStewardLocation` `brewerStewardLocation` VARCHAR( 255 ) NULL DEFAULT NULL, ADD `brewerAHA` INT( 11 ) NULL;";
+	$result = $db_conn->rawQuery($updateSQL);
+
+	if ($db_conn->getLastErrno() === 0) $output .= "<li>Updates to the brewer table completed.</li>";
+	else $output .= "<li class=\"text-danger\">Error: Brewer table NOT updated. ".$db_conn->getLastError()."</li>";
+
+	$block_ok = TRUE;
+
+	$updateSQL = "ALTER TABLE `".$prefix."preferences` ADD `prefsRecordLimit` INT( 11 ) NULL DEFAULT '500' COMMENT 'User defined record limit for using DataTables vs. PHP paging';";
+	$result = $db_conn->rawQuery($updateSQL);
+	if ($db_conn->getLastErrno() !== 0) { $output .= "<li class=\"text-danger\">Error: ".$db_conn->getLastError()."</li>"; $block_ok = FALSE; }
+
+	$updateSQL = "ALTER TABLE `".$prefix."preferences` ADD `prefsRecordPaging` INT( 11 ) NULL DEFAULT '30' COMMENT 'User defined per page record limit'";
+	$result = $db_conn->rawQuery($updateSQL);
+	if ($db_conn->getLastErrno() !== 0) { $output .= "<li class=\"text-danger\">Error: ".$db_conn->getLastError()."</li>"; $block_ok = FALSE; }
+
+	$updateSQL = "UPDATE `".$prefix."preferences` SET `prefsRecordLimit` = '500', `prefsRecordPaging` = '50' WHERE `id` = '1';";
+	$result = $db_conn->rawQuery($updateSQL);
+	if ($db_conn->getLastErrno() !== 0) { $output .= "<li class=\"text-danger\">Error: ".$db_conn->getLastError()."</li>"; $block_ok = FALSE; }
+
+	if ($block_ok) $output .= "<li>Updates to preferences info table completed.</li>";
+
+	$block_ok = TRUE;
+
+	$updateSQL = "ALTER TABLE `".$prefix."brewing` CHANGE `brewPaid` `brewPaid` CHAR( 1 ) NULL DEFAULT 'N' ;";
+	$result = $db_conn->rawQuery($updateSQL);
+	if ($db_conn->getLastErrno() !== 0) { $output .= "<li class=\"text-danger\">Error: ".$db_conn->getLastError()."</li>"; $block_ok = FALSE; }
+
+	$updateSQL = "ALTER TABLE `".$prefix."brewing` ADD `brewCoBrewer` VARCHAR( 255 ) NULL ;";
+	$result = $db_conn->rawQuery($updateSQL);
+	if ($db_conn->getLastErrno() !== 0) { $output .= "<li class=\"text-danger\">Error: ".$db_conn->getLastError()."</li>"; $block_ok = FALSE; }
+
+	if ($block_ok) $output .= "<li>Updates to brewing table completed.</li>";
 	$output .= "</ul>";
 	
 }

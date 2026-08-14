@@ -1,31 +1,33 @@
-<?php
+﻿<?php
 /**
  * Module:        config.php
  * Description:   This module houses configuration variables for DB connection, etc.
- * Last Modified: July 21, 2026
+ * Last Modified: 12 August 2026
  *
- * Task 13: this file is the single source of truth for deploy-varying
- * configuration on EVERY installation type - shared hosting (hand-edited,
- * no environment variables ever set) and Docker (real environment
- * variables, no more bind-mounted override). Every value below follows the
- * same pattern: `getenv('X') ?: <the literal that used to be hardcoded
- * here>`. On a shared-hosting install where no env var is ever set,
- * getenv() returns false for every one of these keys and every line below
- * resolves to EXACTLY the literal a hand-edited install has always had -
- * zero observable behavior change for that deployment type. Docker (see
- * docker-compose.yml) sets the real env vars instead of bind-mounting a
- * second copy of this file over it (the old docker/config.php, retired by
- * this task).
+ * ******************************************************************************
+ * SETUP INSTRUCTIONS - READ BEFORE UPLOADING
+ * ******************************************************************************
+ * This is a template file. Before uploading to your server:
+ *
+ *   1. Fill in your own database connection details and any other settings
+ *      below (look for the blank '' values with instructions above them).
+ *   2. Rename this file from "config.sample.php" to "config.php".
+ *   3. Upload/keep the renamed "config.php" in this same "site" folder on
+ *      your server.
+ *
+ * Do NOT upload this file as "config.sample.php" - the application looks
+ * for "config.php" specifically. Once renamed and filled in, this file
+ * contains your real credentials and should never be committed to a public
+ * repository or shared publicly.
+ * ******************************************************************************
  */
 
 /**
  * ******************************************************************************
  * Set up MySQL connection variables
  * ******************************************************************************
- */
-
-/**
- * Generally, 'localhost' will work for most environments.
+ *
+ * Generally, 'localhost' will work for most environments. 
  * However, some environments may require another hostname.
  * *** This has been confirmed for GO DADDY shared hosting users.
  * *** This article details how to change "localhost" to suit your Go Daddy
@@ -50,7 +52,6 @@ $hostname = getenv('DB_HOST') ?: 'localhost';
 
 $username = getenv('DB_USER') ?: '';
 
-
 /**
  * INSERT YOUR PASSWORD BETWEEN THE SINGLE-QUOTATION MARKS ('').
  * For example, if your password is flintstone then the line should read
@@ -66,7 +67,6 @@ $password = getenv('DB_PASSWORD') ?: '';
  */
 
 $database = getenv('DB_NAME') ?: '';
-
 
 /**
  * If the database port is different from the default then overwrite as the 

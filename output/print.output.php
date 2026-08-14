@@ -27,17 +27,22 @@ if ($filter == "default") {
 else {
 
 	// Query the archive table for preferences
-	$query_archive_prefs = sprintf("SELECT * FROM %s WHERE archiveSuffix='%s'",$prefix."archive", $filter);
-	$archive_prefs = mysqli_query($connection,$query_archive_prefs) or die (mysqli_error($connection));
-	$row_archive_prefs = mysqli_fetch_assoc($archive_prefs);
-	$totalRows_archive_prefs = mysqli_num_rows($archive_prefs);
+	$filter_clean = preg_replace("/[^a-zA-Z0-9]+/", "", $filter);
+	$db_conn->where("archiveSuffix", $filter);
+	$row_archive_prefs = $db_conn->getOne($prefix."archive");
+	$totalRows_archive_prefs = $db_conn->count;
 
 	if ($totalRows_archive_prefs > 0) {
 		$winner_method = $row_archive_prefs['archiveWinnerMethod'];
 		$style_set = $row_archive_prefs['archiveStyleSet'];
-		$judging_scores_db_table = $prefix."judging_scores_".$filter;
-		$brewing_db_table = $prefix."brewing_".$filter;
-		$brewer_db_table = $prefix."brewer_".$filter;
+		// $filter is a separate request parameter from whatever validated this archive's suffix
+		// upstream, so it isn't guaranteed to point at tables that actually exist.
+		$judging_scores_archive_table = $prefix."judging_scores_".$filter_clean;
+		$brewing_archive_table = $prefix."brewing_".$filter_clean;
+		$brewer_archive_table = $prefix."brewer_".$filter_clean;
+		if (table_exists($judging_scores_archive_table)) $judging_scores_db_table = $judging_scores_archive_table;
+		if (table_exists($brewing_archive_table)) $brewing_db_table = $brewing_archive_table;
+		if (table_exists($brewer_archive_table)) $brewer_db_table = $brewer_archive_table;
 	}
 
 }
@@ -114,7 +119,7 @@ else {
     	
     	if ($row_contact) {
 
-    		$page_info .= sprintf("<h2><strong>%s &ndash; %s %s</strong><br><small>%s</small></h2>",$label_contact,$row_contact['contactFirstName'],$row_contact['contactLastName'],$row_contact['contactPosition']);
+    		$page_info .= sprintf("<h2><strong>%s &ndash; %s %s</strong><br><small>%s</small></h2>",$label_contact,h($row_contact['contactFirstName']),h($row_contact['contactLastName']),h($row_contact['contactPosition']));
     		$page_info .= sprintf("<p><strong>%s</strong></p>",hide_email($row_contact['contactEmail']));
     		$page_info .= sprintf("<p>%s</p>",$contact_text_011);
     		$page_info .= sprintf("<p><small><em>%s</em></small></p>",$contact_text_012);
@@ -159,7 +164,7 @@ else {
 		// Scoresheets are available without logging in if the $token url var is present.
 		if ($section == "evaluation")					include (EVALS.'scoresheet_output.eval.php');
 
-		if (($section == "admin") && ($_SESSION['userLevel'] <= 1)) {
+		if (($section == "admin") && (isset($_SESSION['userLevel'])) && ($_SESSION['userLevel'] <= 1)) {
 			include (LIB.'admin.lib.php');
 			include (DB.'admin_common.db.php');
 			include (DB.'judging_locations.db.php');

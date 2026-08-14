@@ -30,10 +30,6 @@ templates/simple-us-entry-barcode.html
 templates/simple-us-entry.html
 brewingcompetitions.com
 site/config.php
-*.claude
-.phpunit.cache/
-e2e/node_modules/
-e2e/test-results/
-e2e/playwright-report/
-.phpstan.cache/
-vendor/
+lint-all.ps1
+cleanup_double_encoding.php
+*.code-workspace

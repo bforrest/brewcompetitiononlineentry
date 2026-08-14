@@ -88,16 +88,21 @@ if ($filter == "default") {
 else {
 
 	// Query the archive table for preferences
-	$query_archive_prefs = sprintf("SELECT * FROM %s WHERE archiveSuffix='%s'",$prefix."archive", $filter);
-	$archive_prefs = mysqli_query($connection,$query_archive_prefs) or die (mysqli_error($connection));
-	$row_archive_prefs = mysqli_fetch_assoc($archive_prefs);
-	$totalRows_archive_prefs = mysqli_num_rows($archive_prefs);
+	$filter_clean = preg_replace("/[^a-zA-Z0-9]+/", "", $filter);
+	$db_conn->where("archiveSuffix", $filter);
+	$row_archive_prefs = $db_conn->getOne($prefix."archive");
+	$totalRows_archive_prefs = $db_conn->count;
 
 	$winner_method = $row_archive_prefs['archiveWinnerMethod'];
 	$style_set = $row_archive_prefs['archiveStyleSet'];
-	$judging_scores_db_table = $prefix."judging_scores_".$filter;
-	$brewing_db_table = $prefix."brewing_".$filter;
-	$brewer_db_table = $prefix."brewer_".$filter;
+	// $filter is a separate request parameter from whatever validated this archive's suffix
+	// upstream, so it isn't guaranteed to point at tables that actually exist.
+	$judging_scores_archive_table = $prefix."judging_scores_".$filter_clean;
+	$brewing_archive_table = $prefix."brewing_".$filter_clean;
+	$brewer_archive_table = $prefix."brewer_".$filter_clean;
+	if (table_exists($judging_scores_archive_table)) $judging_scores_db_table = $judging_scores_archive_table;
+	if (table_exists($brewing_archive_table)) $brewing_db_table = $brewing_archive_table;
+	if (table_exists($brewer_archive_table)) $brewer_db_table = $brewer_archive_table;
 
 }
 

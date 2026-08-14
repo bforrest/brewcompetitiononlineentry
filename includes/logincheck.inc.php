@@ -14,14 +14,14 @@ $loginUsername = sterilize($_POST['loginUsername']);
 $entered_password = sterilize($_POST['loginPassword']);
 $location = $base_url."index.php?section=login";
 
-if (NHC) $base_url = "../";
-else $base_url = $base_url;
-
-if (strlen($entered_password) > 72) {
+if (strlen($entered_password) > 72) { 
 	session_destroy();
 	header(sprintf("Location: %s", $base_url."index.php?msg=11"));
 	exit;
 }
+
+$entered_password = md5($entered_password);
+$loginUsername = strtolower($loginUsername);
 
 /**
  * ONLY for 1.3.0.0 release; evaluate for deletion in future releases
@@ -30,46 +30,30 @@ if (strlen($entered_password) > 72) {
 
 if ($section == "update") {
 
-	$loginUsername = strtolower($loginUsername);
-
-	$stmt_login = mysqli_prepare($connection, sprintf("SELECT * FROM %s WHERE user_name = ?",$prefix."users")) or die("A database error occurred.");
-	mysqli_stmt_bind_param($stmt_login, "s", $loginUsername);
-	mysqli_stmt_execute($stmt_login);
-	$login = mysqli_stmt_get_result($stmt_login);
-	$row_login = mysqli_fetch_assoc($login);
-	$totalRows_login = mysqli_num_rows($login);
+	$db_conn->where('user_name', $loginUsername);
+	$row_login = $db_conn->getOne($prefix."users");
+	$totalRows_login = $db_conn->count;
 
 	$stored_hash = $row_login['password'];
 
 	$check = 0;
 
-	if ($totalRows_login > 0) {
-		$check = password_verify_legacy($entered_password, $stored_hash);
-		if (($check == 1) && (password_needs_legacy_upgrade($stored_hash))) upgrade_legacy_password_hash($connection, $prefix."users", "id", $row_login['id'], $entered_password);
-	}
+	if ($totalRows_login > 0) $check = $hasher->CheckPassword($entered_password, $stored_hash);
 
 	else $check = 0;
 
 }
 
-if ($section != "update") {
+else {
 
-	$loginUsername = strtolower($loginUsername);
-
-	$stmt_login = mysqli_prepare($connection, sprintf("SELECT * FROM %s WHERE user_name = ?", $prefix."users")) or die("A database error occurred.");
-	mysqli_stmt_bind_param($stmt_login, "s", $loginUsername);
-	mysqli_stmt_execute($stmt_login);
-	$login = mysqli_stmt_get_result($stmt_login);
-	$row_login = mysqli_fetch_assoc($login);
-	$totalRows_login = mysqli_num_rows($login);
+	$db_conn->where('user_name', $loginUsername);
+	$row_login = $db_conn->getOne($prefix."users");
+	$totalRows_login = $db_conn->count;
 
 	$stored_hash = $row_login['password'];
 	$check = 0;
 
-	if ($totalRows_login > 0) {
-		$check = password_verify_legacy($entered_password, $stored_hash);
-		if (($check == 1) && (password_needs_legacy_upgrade($stored_hash))) upgrade_legacy_password_hash($connection, $prefix."users", "id", $row_login['id'], $entered_password);
-	}
+	if ($totalRows_login > 0) $check = $hasher->CheckPassword($entered_password, $stored_hash);
 
 }
 
@@ -80,19 +64,16 @@ if ($section != "update") {
 
 if ($check == 1) {
 
-	// Regenerate the session id on privilege elevation to prevent session
-	// fixation (P1-SEC-006) - must run before any session data is trusted.
+	// Regenerate the session ID on successful authentication to prevent session fixation.
 	session_regenerate_id(true);
 
 	// Register the loginUsername but first update the db record to make sure the the user name is stored as all lowercase.
-	$stmt_update = mysqli_prepare($connection, sprintf("UPDATE %s SET user_name=? WHERE id=?",$prefix."users")) or die("A database error occurred.");
-	mysqli_stmt_bind_param($stmt_update, "si", $loginUsername, $row_login['id']);
-	mysqli_stmt_execute($stmt_update);
+	$db_conn->where('id', $row_login['id']);
+	$db_conn->update($prefix."users", array('user_name' => $loginUsername));
 
 	// Convert email address in the user's accociated record in the "brewer" table
-	$stmt_update = mysqli_prepare($connection, sprintf("UPDATE %s SET brewerEmail=? WHERE uid=?",$prefix."brewer")) or die("A database error occurred.");
-	mysqli_stmt_bind_param($stmt_update, "si", $loginUsername, $row_login['id']);
-	mysqli_stmt_execute($stmt_update);
+	$db_conn->where('uid', $row_login['id']);
+	$db_conn->update($prefix."brewer", array('brewerEmail' => $loginUsername));
 	
 	// Register the session variable
 	$_SESSION['loginUsername'] = $loginUsername;
@@ -143,5 +124,5 @@ else {
 
 // Relocate
 header(sprintf("Location: %s", $location, true));
-exit;
+exit();
 ?>
