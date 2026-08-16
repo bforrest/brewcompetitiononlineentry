@@ -5231,7 +5231,7 @@ function display_array_content_style($arrayname,$method,$base_url) {
 	include (LANG.'language.lang.php');
 	$a = "";
 	sort($arrayname);
-	while(list($key, $value) = each($arrayname)) {
+	foreach ($arrayname as $key => $value) {
 
 		if (is_array($value)) {
 			$c = display_array_content($value,'');
