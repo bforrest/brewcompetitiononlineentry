@@ -608,6 +608,7 @@ function currency_info($input,$method) {
 			case "tlira": $currency_code = "&#8356;^TRY"; break;
 			case "R": $currency_code = "R^ZAR"; break;
 			case "rupee": $currency_code = "&#8360;^INR"; break;
+			case "krw": $currency_code = "&#8361;^KRW"; break;
 		}
 
 	}
@@ -642,7 +643,8 @@ function currency_info($input,$method) {
 			"tlira^&#8356; Turkish Lira^TRY",
 			" ^---------------------^-----------",
 			"R^R South African Rand^ZAR",
-			"rupee^&#8360; Rupee^INR"
+			"rupee^&#8360; Rupee^INR",
+			"krw^&#8361; Won^KRW"
 		);
 
 	}
