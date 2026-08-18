@@ -444,11 +444,8 @@ function purge_entries($type, $interval) {
 }
 
 // function to generate random number
-function random_generator($digits, $method) {
-	// Method "3" always returns a single digit 0–4 (preserves legacy behaviour)
-	if ($method == "3") {
-		return (string)random_int(0, 4);
-	}
+function random_generator($digits,$method){
+	srand ((float) microtime() * 10000000);
 
 	// Method "1" = alphanumeric; method "2" = numeric only
 	$pool = ($method == "2")
