@@ -3219,12 +3219,14 @@ function winner_method($type,$output_type) {
 function table_exists($table_name) {
 	require(CONFIG.'config.php');
 	$db_conn = new MysqliDb($connection);
-	// taken from http://snippets.dzone.com/posts/show/3369
-	// SHOW statements don't support bound placeholders in MySQL/MariaDB's prepared-statement
-	// protocol, so the table name is allow-listed to word characters and spliced directly.
-	$table_name_clean = preg_replace("/[^a-zA-Z0-9_]+/", "", $table_name);
-	$rows_exists = $db_conn->rawQuery("SHOW TABLES LIKE '".$table_name_clean."'");
-	if (count($rows_exists) > 0) return TRUE;
+	// Queries information_schema rather than SHOW TABLES - some MySQL/MariaDB
+	// versions don't support preparing SHOW statements at all (bound params or
+	// not), and MysqliDb always prepares queries, so a SHOW-based check can fail
+	// outright on those servers.
+	$db_conn->where('table_schema', $database);
+	$db_conn->where('table_name', $table_name);
+	$row_log = $db_conn->getOne('information_schema.tables', 'COUNT(*) AS count');
+	if ($row_log['count'] > 0) return TRUE;
 	else return FALSE;
 }
 
@@ -3901,6 +3903,10 @@ function styles_active($method,$archive="") {
 			$query_styles = "SELECT DISTINCT brewStyleGroup FROM ".$styles_db_table." WHERE ((brewStyleVersion='BJCP2025' AND brewStyleType='2') OR (brewStyleVersion='BJCP2021' AND brewStyleType !='2') OR brewStyleOwn='custom')";
 			$bind_params = array();
 		}
+		elseif ($style_set == "AABC2025") {
+			$query_styles = "SELECT DISTINCT brewStyleGroup FROM ".$styles_db_table." WHERE ((brewStyleVersion='AABC2025' AND brewStyleType='2') OR (brewStyleVersion='AABC2022' AND brewStyleType !='2') OR brewStyleOwn='custom')";
+			$bind_params = array();
+		}
 		else {
 			$query_styles = "SELECT DISTINCT brewStyleGroup FROM ".$styles_db_table." WHERE (brewStyleVersion=? OR brewStyleOwn='custom')";
 			$bind_params = array($style_set);
@@ -3938,11 +3944,18 @@ function styles_active($method,$archive="") {
 		if (HOSTED) $query_styles = sprintf("SELECT brewStyleGroup,brewStyleNum,brewStyle FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') UNION ALL SELECT brewStyleGroup,brewStyleNum,brewStyle FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom')", $styles_db_table, $style_set, $prefix."styles", $style_set);
 		else 
 		*/
-		$query_styles = "SELECT brewStyleGroup,brewStyleNum,brewStyle FROM ".$styles_db_table." WHERE (brewStyleVersion=? OR brewStyleOwn='custom')";
+		if ($style_set == "AABC2025") {
+			$query_styles = "SELECT brewStyleGroup,brewStyleNum,brewStyle FROM ".$styles_db_table." WHERE ((brewStyleVersion='AABC2025' AND brewStyleType='2') OR (brewStyleVersion='AABC2022' AND brewStyleType !='2') OR brewStyleOwn='custom')";
+			$bind_params = array();
+		}
+		else {
+			$query_styles = "SELECT brewStyleGroup,brewStyleNum,brewStyle FROM ".$styles_db_table." WHERE (brewStyleVersion=? OR brewStyleOwn='custom')";
+			$bind_params = array($style_set);
+		}
 		if ((empty($archive)) || ($archive == "default")) $query_styles .= " AND brewStyleActive='Y'";
 		$query_styles .= " ORDER BY brewStyleGroup,brewStyleNum ASC";
 
-		$rows_styles = $db_conn->rawQuery($query_styles, array($style_set));
+		$rows_styles = $db_conn->rawQuery($query_styles, $bind_params);
 		$totalRows_styles = $db_conn->count;
 
 		$a = array();
