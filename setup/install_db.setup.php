@@ -425,7 +425,8 @@ if ($setup_free_access == TRUE) {
 			`flightNumber` int(8) DEFAULT NULL,
 			`flightEntryID` int(11) DEFAULT NULL COMMENT 'id of entry from the brewing table',
 			`flightRound` int(8) DEFAULT NULL,
-			PRIMARY KEY (`id`)
+			PRIMARY KEY (`id`),
+			UNIQUE KEY `flightEntryID` (`flightEntryID`)
 			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 			", $judging_flights_db_table);
 		$db_conn->rawQuery($sql);
@@ -617,6 +618,35 @@ if ($setup_free_access == TRUE) {
 
 		/**
 		 * --------------------------------------
+		 * Payments Table
+		 * --------------------------------------
+		 */
+
+		$sql = sprintf("CREATE TABLE IF NOT EXISTS `%s` (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`uid` int(11) DEFAULT NULL,
+			`item_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`first_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`last_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`txn_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`payment_gross` float(10,2) DEFAULT NULL,
+			`currency_code` varchar(5) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`payment_status` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`payment_entries` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`payment_time` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			PRIMARY KEY (`id`)
+			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
+			", $payments_db_table);
+		$db_conn->rawQuery($sql);
+		if (!check_setup($payments_db_table,$database)) {
+			$error_output[] = $db_conn->getLastError();
+			$errors = TRUE;
+			$output .= "<li class=\"list-group-item\"><span class=\"fa fa-lg fa-times text-danger\"></span> The <strong>Payments</strong> table was NOT installed successfully.</li>";
+		}
+		else $output .= "<li class=\"list-group-item\"><span class=\"fa fa-lg fa-check text-success\"></span> The <strong>Payments</strong> table was installed successfully.</li>";
+
+		/**
+		 * --------------------------------------
 		 * Preferences Table
 		 * --------------------------------------
 		 */
@@ -694,6 +724,7 @@ if ($setup_free_access == TRUE) {
 			`prefsDropOff` tinyint(1) DEFAULT NULL,
 			`prefsShipping` tinyint(1) DEFAULT NULL,
 			`prefsHeroImages` mediumtext COLLATE utf8mb4_unicode_ci COMMENT 'JSON map of hero banner image filename to active flag',
+			`prefsSessionTimeout` int(4) DEFAULT NULL COMMENT 'Minutes of inactivity before auto-logout; NULL falls back to $session_expire_after in config.php',
 			PRIMARY KEY (`id`)
 			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 		", $preferences_db_table);
