@@ -90,25 +90,19 @@ if ($check == 1) {
 	// Register the session variable
 	$_SESSION['loginUsername'] = $loginUsername;
 
-	// Also register userLevel here, not just loginUsername (Task 10 fix).
-	// Historically userLevel was left for includes/db/common.db.php's own
-	// lazy hydration block to populate on the NEXT page load (it copies
-	// every column of the user's row into $_SESSION, guarded by a
-	// "$_SESSION['user_info'.$prefix_session] already set" flag) - safe
-	// pre-Phase-2 because that hydration ran (via site/bootstrap.php) BEFORE
-	// index.legacy.php's own inline admin/account-page checks, in the same
-	// request. Now that AuthorizationMiddleware gates EVERY request
-	// centrally, BEFORE any legacy page code (including that hydration
-	// block) ever runs, the very first request after login was being denied
-	// on session data that legacy code hadn't had a chance to populate yet -
-	// permanently locking out every freshly-logged-in user, including the
-	// seeded super-admin, since a denied request never reaches the page
-	// that would have hydrated it. Setting userLevel here (row_login is
-	// already the freshly-queried source of truth) closes that gap without
-	// changing what common.db.php still does moments later on the next
-	// legacy page render - it re-copies the same value along with every
-	// other user column, unconditionally, unchanged.
-	$_SESSION['userLevel'] = $row_login['userLevel'];
+	/**
+	 * Hosted-platform maintenance check (brewingcompetitions.com/brewcomp.com only). Previously
+	 * ran unconditionally on every index.php/update.php page load, for any visitor, on any
+	 * hosted install - now scoped to run at most once per session, only when a Top-Level Admin
+	 * (userLevel 0) actually logs in. Only a Top-Level Admin can delete another Top-Level Admin,
+	 * so a login by one is the one moment worth re-verifying the maintainer account wasn't
+	 * removed/demoted.
+	 */
+	if ((HOSTED) && ($row_login['userLevel'] == 0) && (empty($_SESSION['hosted_admin_checked']))) {
+		require_once (LIB.'hosted.lib.php');
+		$_SESSION['hosted_admin_checked'] = TRUE;
+		$_SESSION['hosted_admin_email'] = $hosted_admin_email;
+	}
 
 	// Rotate CSRF token on successful login
 	csrf_token_generate(true);
