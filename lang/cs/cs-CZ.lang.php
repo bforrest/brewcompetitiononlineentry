@@ -2181,6 +2181,13 @@ $entry_info_text_058 = "Přihlaste se pro zobrazení místa a jeho adresy, pokud
 $contact_text_014 = "Správci stránek zakázali zveřejňování kontaktních údajů na soutěž. Pro kontaktování pořadatelů soutěže využijte jiné způsoby (sociální sítě, webové stránky organizace atd.).";
 
 /**
+ * ------------------------------------------
+ * NEW FOR 3.1.0 - GitHub issue #1752
+ * ------------------------------------------
+ */
+$brewer_text_058 = "Administrátoři právě organizují přiřazení stolů. Pro změnu dostupnosti na dané session nebo odstoupení z role rozhodčího/pomocníka se prosím obraťte na pořadatele soutěže.";
+
+/**
  * ----------------------------------------------------------------------------------
  * END TRANSLATIONS
  * ----------------------------------------------------------------------------------
