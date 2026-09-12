@@ -2260,6 +2260,13 @@ $entry_info_text_058 = "Inicie sesión para ver la ubicación y su dirección, s
 $contact_text_014 = "Los administradores del sitio han desactivado la visualización de los datos de contacto de la competencia. Utiliza otros medios para ponerte en contacto con cualquier responsable de la competencia (redes sociales, el sitio web de la organización, etc.).";
 
 /**
+ * ------------------------------------------
+ * NEW FOR 3.1.0 - GitHub issue #1752
+ * ------------------------------------------
+ */
+$brewer_text_058 = "Los administradores están organizando actualmente las asignaciones de mesas. Comuníquese con un funcionario de la competencia para cambiar su disponibilidad de sesión o retirarse de su función de juez/asistente.";
+
+/**
  * ----------------------------------------------------------------------------------
  * END TRANSLATIONS
  * ----------------------------------------------------------------------------------

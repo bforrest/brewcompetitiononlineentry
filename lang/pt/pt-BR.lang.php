@@ -2248,6 +2248,13 @@ $entry_info_text_058 = "Faça login para ver o local e seu endereço, se dispon�
 $contact_text_014 = "A exibição dos contatos da competição foi desativada pelos administradores do site. Utilize outros meios para entrar em contato com qualquer representante da competição (redes sociais, site da organização, etc.).";
 
 /**
+ * ------------------------------------------
+ * NEW FOR 3.1.0 - GitHub issue #1752
+ * ------------------------------------------
+ */
+$brewer_text_058 = "Os administradores estão organizando as atribuições de mesas no momento. Entre em contato com um responsável da competição para alterar sua disponibilidade para a sessão ou para desistir de sua função de juiz/assistente.";
+
+/**
  * ----------------------------------------------------------------------------------
  * END TRANSLATIONS
  * ----------------------------------------------------------------------------------

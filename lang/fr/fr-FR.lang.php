@@ -2261,8 +2261,15 @@ $entry_info_text_058 = "Connectez-vous pour voir le lieu et son adresse, si disp
 $contact_text_014 = "L'affichage des coordonnées des responsables de la compétition a été désactivé par les administrateurs du site. Veuillez utiliser d'autres moyens pour contacter les responsables de la compétition (réseaux sociaux, site web de l'organisation, etc.).";
 
 /**
+ * ------------------------------------------
+ * NEW FOR 3.1.0 - GitHub issue #1752
+ * ------------------------------------------
+ */
+$brewer_text_058 = "Les administrateurs sont en train d'organiser les affectations de tables. Veuillez contacter un responsable du concours pour modifier votre disponibilité pour la session ou vous retirer de votre rôle de juge/assistant.";
+
+/**
  * ----------------------------------------------------------------------------------
- * END TRANSLATIONS 
+ * END TRANSLATIONS
  * ----------------------------------------------------------------------------------
  */
 
