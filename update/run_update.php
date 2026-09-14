@@ -5200,6 +5200,69 @@ if ((!empty($row_current_prefs)) && ($row_current_prefs['prefsStyleSet'] == "AAB
 	}
 }
 
+/**
+ * eval/scoresheet.eval.php and pub/eval_scoresheet.pub.php resolved an entry's style
+ * via brewStyleGroup+brewStyleNum+brewStyleVersion, but never special-cased custom
+ * styles the way process_brewing.inc.php's own entry-registration lookups already
+ * did - so a judge scoresheet for an entry under a custom (non-cider) style,
+ * submitted while the competition's active style set was BJCP2025, resolved zero
+ * rows (custom styles are always tagged with the literal active prefsStyleSet at
+ * creation time, but the scoresheet lookup re-derives 'BJCP2021' for anything not
+ * starting with "C"). This left evalStyle NULL on the judge's evaluation row, which
+ * cascades into judging_scores.scoreType being saved as 0 once that score is
+ * imported (ajax/import_scores.ajax.php derives scoreType from evalStyle) - hiding
+ * the entry from every scoreType-filtered screen (Best of Show entry/place
+ * management, in particular) despite it having a real, valid scorePlace. Backfill
+ * evalStyle first: import_scores.ajax.php's own scoreType computation is otherwise
+ * correct, so leaving evalStyle NULL would let a future score re-import silently
+ * revert the scoreType correction below. Safe to run more than once: only touches
+ * rows still NULL.
+ */
+$sql = sprintf("UPDATE `%s` e JOIN `%s` b ON b.id = e.eid JOIN `%s` s ON s.brewStyleGroup = b.brewCategorySort AND s.brewStyleNum = b.brewSubCategory AND s.brewStyleOwn = 'custom' SET e.evalStyle = s.id WHERE e.evalStyle IS NULL;", $prefix."evaluation", $prefix."brewing", $prefix."styles");
+$db_conn->rawQuery($sql);
+if (($db_conn->getLastErrno() === 0) && ($db_conn->count > 0)) $v3100_update .= "<li>Backfilled the recorded style for ".$db_conn->count." judge evaluation(s) under a custom style that were saved without one due to a since-fixed bug.</li>";
+elseif ($db_conn->getLastErrno() !== 0) {
+	$v3100_update .= "<li>Could not check judge evaluations for a since-fixed custom-style bug. <strong class=\"text-warning\">Error: ".$db_conn->getLastError()."</strong></li>";
+	$error_count++;
+}
+
+/**
+ * Companion fix to the evalStyle backfill immediately above - corrects the
+ * downstream judging_scores.scoreType values already saved as 0 by the same bug.
+ * scoreType=0 is never a legitimate value (it's always a real style_types.id, 1 or
+ * higher), so any row still at 0 that matches a real custom style unambiguously is
+ * safe to correct. Safe to run more than once: only touches rows still at
+ * scoreType=0.
+ */
+$sql = sprintf("UPDATE `%s` js JOIN `%s` b ON b.id = js.eid JOIN `%s` s ON s.brewStyleGroup = b.brewCategorySort AND s.brewStyleNum = b.brewSubCategory AND s.brewStyleOwn = 'custom' SET js.scoreType = s.brewStyleType WHERE (js.scoreType = 0 OR js.scoreType IS NULL) AND s.brewStyleType IS NOT NULL AND s.brewStyleType <> '';", $prefix."judging_scores", $prefix."brewing", $prefix."styles");
+$db_conn->rawQuery($sql);
+if (($db_conn->getLastErrno() === 0) && ($db_conn->count > 0)) $v3100_update .= "<li>Corrected the Best of Show category for ".$db_conn->count." entr(y/ies) under a custom style that were incorrectly hidden from Best of Show due to a since-fixed bug.</li>";
+elseif ($db_conn->getLastErrno() !== 0) {
+	$v3100_update .= "<li>Could not check for entries hidden from Best of Show by a since-fixed custom-style bug. <strong class=\"text-warning\">Error: ".$db_conn->getLastError()."</strong></li>";
+	$error_count++;
+}
+
+/**
+ * GitHub issue #1754: judging_assignments.assignLocation is a snapshot of a table's
+ * location taken when each assignment was made, not a live reference - editing a
+ * table's location afterward (process_judging_tables.inc.php) never retroactively
+ * updated it on judges/stewards already assigned there (now fixed). Left stale, it
+ * broke unassign() (lib/admin.lib.php, also now fixed to match by assignTable
+ * instead) - the id needed to remove that person from the table never resolved, so
+ * they appeared permanently stuck no matter how many times an admin tried to remove
+ * them - and it could still cause incorrect cross-table conflict detection elsewhere
+ * (unavailable()) even after that fix. Re-sync every assignment's assignLocation to
+ * its table's current location. Safe to run more than once: only touches rows that
+ * still differ.
+ */
+$sql = sprintf("UPDATE `%s` ja JOIN `%s` jt ON jt.id = ja.assignTable SET ja.assignLocation = jt.tableLocation WHERE NOT (ja.assignLocation <=> jt.tableLocation);", $prefix."judging_assignments", $prefix."judging_tables");
+$db_conn->rawQuery($sql);
+if (($db_conn->getLastErrno() === 0) && ($db_conn->count > 0)) $v3100_update .= "<li>Corrected ".$db_conn->count." judge/steward table assignment(s) with an outdated session location, which could have prevented removing that person from a table due to a since-fixed bug.</li>";
+elseif ($db_conn->getLastErrno() !== 0) {
+	$v3100_update .= "<li>Could not check judge/steward table assignments for an outdated session location. <strong class=\"text-warning\">Error: ".$db_conn->getLastError()."</strong></li>";
+	$error_count++;
+}
+
 if (!check_update("prefsSessionTimeout", $prefix."preferences")) {
 
 	$sql = sprintf("ALTER TABLE `%s` ADD `prefsSessionTimeout` INT(4) NULL DEFAULT NULL COMMENT 'Minutes of inactivity before auto-logout; NULL falls back to \$session_expire_after in config.php';",$prefix."preferences");
