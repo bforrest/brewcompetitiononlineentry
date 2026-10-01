@@ -170,8 +170,8 @@ if ($totalRows_log > 0) {
 		}
 
 		$cider_mead_req_info = "";
-		if (!empty($row_log['brewMead1'])) $cider_mead_req_info .= "<li><strong>".$label_carbonation.":</strong> ".$row_log['brewMead1']."</li>";
-		if (!empty($row_log['brewMead2'])) $cider_mead_req_info .= "<li><strong>".$label_sweetness.":</strong> ".$row_log['brewMead2']."</li>";
+		if (!empty($row_log['brewMead1'])) $cider_mead_req_info .= "<li><strong>".$label_carbonation.":</strong> ".h(translate_mead_req_value($row_log['brewMead1']))."</li>";
+		if (!empty($row_log['brewMead2'])) $cider_mead_req_info .= "<li><strong>".$label_sweetness.":</strong> ".h(translate_mead_req_value($row_log['brewMead2']))."</li>";
 		
 		if (!empty($row_log['brewSweetnessLevel'])) {
 
@@ -190,7 +190,7 @@ if ($totalRows_log > 0) {
 		
 		}
 		
-		if (!empty($row_log['brewMead3'])) $cider_mead_req_info .= "<li><strong>".$label_strength.":</strong> ".$row_log['brewMead3']."</li>";
+		if (!empty($row_log['brewMead3'])) $cider_mead_req_info .= "<li><strong>".$label_strength.":</strong> ".h(translate_mead_strength_value($row_log['brewMead3']))."</li>";
 		if (!empty($cider_mead_req_info)) $required_info .= $cider_mead_req_info;
 		if (!empty($row_log['brewABV'])) $required_info .= "<li><strong>".$label_abv.":</strong> ".$row_log['brewABV']."%</li>";
 
@@ -222,9 +222,9 @@ if ($totalRows_log > 0) {
 
 		if ((!empty($row_log['brewPouring'])) && ((!empty($row_log['brewStyleType'])) && ($row_log['brewStyleType'] == 1))) {
 			$pouring_arr = json_decode($row_log['brewPouring'],true);
-			$required_info .= "<li><strong>".$label_pouring.":</strong> ".$pouring_arr['pouring']."</li>";
+			$required_info .= "<li><strong>".$label_pouring.":</strong> ".h(translate_pouring_value($pouring_arr['pouring']))."</li>";
 			if ((isset($pouring_arr['pouring_notes'])) && (!empty($pouring_arr['pouring_notes']))) $required_info .= "<li><strong>".$label_pouring_notes.":</strong> ".$pouring_arr['pouring_notes']."</li>";
-			$required_info .= "<li><strong>".$label_rouse_yeast.":</strong> ".$pouring_arr['pouring_rouse']."</li>";
+			$required_info .= "<li><strong>".$label_rouse_yeast.":</strong> ".h(translate_pouring_rouse_value($pouring_arr['pouring_rouse']))."</li>";
 		}
 
 		if (!empty($row_log['brewPossAllergens'])) {
@@ -245,6 +245,11 @@ if ($totalRows_log > 0) {
 		if ((check_special_ingredients($entry_style,$_SESSION['prefsStyleSet'])) && ($row_log['brewInfo'] == "") && ($action != "print")) $entry_tr_style = "warning";
 		if ((is_array($entries_unconfirmed)) && (in_array($row_log['id'],$entries_unconfirmed))) $entry_tr_style = "warning";
 
+		// Data-completeness flag, not a judging-eligibility one - e.g. an entry submitted
+		// before BJCP2026 made mead Sweetness required. Shared with admin/entries.admin.php,
+		// eval/scoresheet.eval.php, and pub/eval_scoresheet.pub.php via one helper function.
+		$missing_mead_info = entry_missing_required_mead_info($row_log, $_SESSION['prefsStyleSet']);
+
 		$entry_output .= "<tr class=\"bg-".$entry_tr_style."\">";
 		$entry_output .= "<td class=\"\">";
 		$entry_output .= $entry_number;
@@ -256,7 +261,12 @@ if ($totalRows_log > 0) {
 		$scoresheet_link = "";
 		$scoresheet_link_eval = "";
 
-		if (($show_scores) && ($show_scoresheets)) {
+		// $user_has_scoresheet (computed once in list.pub.php, which is the only
+		// place this file is ever included from) is FALSE only when none of the
+		// user's entries have a scoresheet at all - skips the in_array()/
+		// file_exists() checks below for every row in that case, with no change
+		// in what renders, since they'd all come up empty anyway.
+		if (($show_scoresheets) && ($user_has_scoresheet)) {
 
 			if ($_SESSION['prefsEval'] == 1) {
 						
@@ -265,6 +275,13 @@ if ($totalRows_log > 0) {
 					if ($_SESSION['prefsStyleSet'] == "BJCP2025") {
 					    $first_character = mb_substr($row_log['brewCategorySort'], 0, 1);
 					    if ($first_character == "C") $chosen_style_set = "BJCP2025";
+					    else $chosen_style_set = "BJCP2021";
+					}
+
+					elseif ($_SESSION['prefsStyleSet'] == "BJCP2026") {
+					    $first_character = mb_substr($row_log['brewCategorySort'], 0, 1);
+					    if ($first_character == "M") $chosen_style_set = "BJCP2026";
+					    elseif ($first_character == "C") $chosen_style_set = "BJCP2025";
 					    else $chosen_style_set = "BJCP2021";
 					}
 
@@ -386,6 +403,12 @@ if ($totalRows_log > 0) {
 	    	$entry_output .= "</div>";
 		}
 
+		if (!empty($missing_mead_info)) {
+			$entry_output .= "<div style=\"padding: .6em\" class=\"mt-1 badge text-bg-warning fw-semibold lh-sm text-wrap\">";
+			$entry_output .= sprintf($label_mead_info_missing, mead_missing_label_list($missing_mead_info));
+	    	$entry_output .= "</div>";
+		}
+
 		/*
 		$entry_output .= "<div class=\"d-lg-none card card-body mt-2 d-print-none\">";
 		$entry_output .= "<p class=\"small\">";
@@ -466,33 +489,47 @@ if ($totalRows_log > 0) {
 		// Display if Closed, Judging Dates have passed, winner display is enabled, and the winner display delay time period has passed
 		if ($show_scores) {
 
-			$medal_winner = winner_check($row_log['id'],$judging_scores_db_table,$judging_tables_db_table,$brewing_db_table,$_SESSION['prefsWinnerMethod']);
-			
-			$winner_place = strpos($medal_winner, ':');
-			$winner_place = substr($medal_winner, 0, $winner_place);
-			if (preg_match("~[0-9]+~", $medal_winner)) {
-				$winner_place = preg_replace("/[^0-9\s.-]/", "", $winner_place);
-			}
-			
 			$score = score_check($row_log['id'],$judging_scores_db_table);
-	 		$entry_mini_bos = FALSE;
-	 		if (minibos_check($row_log['id'],$judging_scores_db_table)) $entry_mini_bos = TRUE;
+
+			if ($_SESSION['prefsDisplayTableAwards'] == 1) {
+
+				$medal_winner = winner_check($row_log['id'],$judging_scores_db_table,$judging_tables_db_table,$brewing_db_table,$_SESSION['prefsWinnerMethod']);
+
+				$winner_place = strpos($medal_winner, ':');
+				$winner_place = substr($medal_winner, 0, $winner_place);
+				if (preg_match("~[0-9]+~", $medal_winner)) {
+					$winner_place = preg_replace("/[^0-9\s.-]/", "", $winner_place);
+				}
+
+				$entry_mini_bos = FALSE;
+				if (minibos_check($row_log['id'],$judging_scores_db_table)) $entry_mini_bos = TRUE;
+
+			}
+			else {
+				$medal_winner = "";
+				$winner_place = "";
+				$entry_mini_bos = FALSE;
+			}
 
 			$entry_output .= "<td>";
 			$entry_output .= $score;
 			$entry_output .= "</td>";
 
-			$entry_output .= "<td>";
-			if ($entry_mini_bos) {
-				if ($action != "print") $entry_output .= "<span class =\"fa fa-lg fa-check text-success\"></span>";
-				else $entry_output .= $label_yes;
-			}
-			else $entry_output .= "&nbsp;";
-			$entry_output .= "</td>";
+			if ($_SESSION['prefsDisplayTableAwards'] == 1) {
 
-			$entry_output .= "<td>";
-			$entry_output .= $medal_winner;
-			$entry_output .= "</td>";
+				$entry_output .= "<td>";
+				if ($entry_mini_bos) {
+					if ($action != "print") $entry_output .= "<span class =\"fa fa-lg fa-check text-success\"></span>";
+					else $entry_output .= $label_yes;
+				}
+				else $entry_output .= "&nbsp;";
+				$entry_output .= "</td>";
+
+				$entry_output .= "<td>";
+				$entry_output .= $medal_winner;
+				$entry_output .= "</td>";
+
+			}
 
 		}
 
@@ -648,13 +685,21 @@ if ($totalRows_log > 0) {
 		$entry_output_cards .= sprintf("<li><strong>%s:</strong> %s</li>", $label_entry_number, $entry_number);
 		if (!empty($row_log['brewCoBrewer'])) $entry_output_cards .= sprintf("<li><strong>%s:</strong> %s</li>",$label_cobrewer,$row_log['brewCoBrewer']);
 
+		if (($scoresheet) || ($show_scores)) $entry_output_cards .= sprintf("<li><strong>%s:</strong> %s</li>",$label_judging_number, $judging_number);
+
 		if ($show_scores) {
-			$entry_output_cards .= sprintf("<li><strong>%s:</strong> %s</li>",$label_judging_number, $judging_number);
-			$entry_output_cards .= sprintf("<li><strong>%s:</strong> %s</li>",$label_score, $score);
-			if (minibos_check($row_log['id'],$judging_scores_db_table)) $entry_output_cards .= sprintf("<li><strong>%s:</strong> <i class=\"fa fa-sm fa-check text-success\"></i></li>",$label_mini_bos);
 			if (!empty($medal_winner)) $entry_output_cards .= sprintf("<li><strong>%s:</strong> %s</li>",str_replace("?", "", $label_winner), str_replace(":", " -", $medal_winner));
-			if ($scoresheet) $entry_output_cards .= sprintf("<li><strong>%s:</strong> %s%s %s</li>", $label_scoresheet, $scoresheet_link_eval, $scoresheet_link, $scoresheet_mixed);
 			// $entry_output_cards .= "<li><hr class=\"mt-1 mb-1\"></li>";
+		}
+
+		// Scoresheet availability is gated independently of $show_scores (it can release
+		// before official results/scores), so this can't rely on $score above, which is
+		// only ever computed inside if ($show_scores) - look it up fresh here instead.
+		if ($scoresheet) {
+			$scoresheet_score = score_check($row_log['id'],$judging_scores_db_table);
+			$entry_output_cards .= sprintf("<li><strong>%s:</strong> %s</li>",$label_score, $scoresheet_score);
+			if (minibos_check($row_log['id'],$judging_scores_db_table)) $entry_output_cards .= sprintf("<li><strong>%s:</strong> <i class=\"fa fa-sm fa-check text-success\"></i></li>",$label_mini_bos);
+			$entry_output_cards .= sprintf("<li><strong>%s:</strong> %s%s %s</li>", $label_scoresheet, $scoresheet_link_eval, $scoresheet_link, $scoresheet_mixed);
 		}
 
 		$entry_output_cards .= $required_info;
@@ -666,10 +711,23 @@ if ($totalRows_log > 0) {
 			$entry_output_cards .= sprintf("<li><strong>%s:</strong> %s</li>", $label_paid, yes_no($row_log['brewPaid'],$base_url,4));
 			$entry_output_cards .= sprintf("<li><strong>%s:</strong> %s</li>", $label_received, yes_no($row_log['brewReceived'],$base_url,4));
 			if (!empty($allergen_info)) {
-				$entry_output_cards .= "<div style=\"padding: .6em\" class=\"mt-2 badge text-bg-danger\">";
+				$entry_output_cards .= "<div style=\"padding: .6em\" class=\"mt-2 badge text-bg-danger text-wrap\">";
 				$entry_output_cards .= $allergen_info;
 		    	$entry_output_cards .= "</div>";
 			}
+		}
+
+		// Unlike the allergen notice above (pre-results only), a missing-required-mead-info
+		// gap is a data-completeness issue relevant to the brewer whether or not results have
+		// been released yet, so this renders unconditionally rather than nested in !$show_scores.
+		if (!empty($missing_mead_info)) {
+			// text-wrap added (missing from the allergen badge above, which this was modeled
+			// on) - a Bootstrap 5 .badge defaults to white-space:nowrap, and this message
+			// runs noticeably longer than the allergen badge's typical content, so without it
+			// the badge overflows the card instead of wrapping onto multiple lines.
+			$entry_output_cards .= "<div style=\"padding: .6em\" class=\"mt-2 badge text-bg-warning text-wrap\">";
+			$entry_output_cards .= sprintf($label_mead_info_missing, mead_missing_label_list($missing_mead_info));
+	    	$entry_output_cards .= "</div>";
 		}
 		
 		$entry_output_cards .= "</ul>";
@@ -798,8 +856,10 @@ if (($totalRows_log > 0) && ($entry_window_open >= 1)) {
 				    <?php } ?>
 				  	<?php if ($show_scores) { ?>
 				  	<th width="5%"><?php echo $label_score; ?></th>
+				    <?php if ($_SESSION['prefsDisplayTableAwards'] == 1) { ?>
 				    <th width="5%" nowrap><?php echo $label_mini_bos; ?></th>
 				  	<th width="5%"><?php echo $label_winner; ?></th>
+				  	<?php } ?>
 				  	<?php } ?>
 				  	<?php if ((!$show_scores) && ($print_bottle_labels)) { ?>
 				  	<?php if ((!$judging_started) && ($registration_open < 2)) { ?>

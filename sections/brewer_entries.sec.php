@@ -155,8 +155,8 @@ if ($totalRows_log > 0) {
 		}
 
 		$cider_mead_req_info = "";
-		if (!empty($row_log['brewMead1'])) $cider_mead_req_info .= "<li><strong>".$label_carbonation.":</strong> ".$row_log['brewMead1']."</li>";
-		if (!empty($row_log['brewMead2'])) $cider_mead_req_info .= "<li><strong>".$label_sweetness.":</strong> ".$row_log['brewMead2']."</li>";
+		if (!empty($row_log['brewMead1'])) $cider_mead_req_info .= "<li><strong>".$label_carbonation.":</strong> ".h(translate_mead_req_value($row_log['brewMead1']))."</li>";
+		if (!empty($row_log['brewMead2'])) $cider_mead_req_info .= "<li><strong>".$label_sweetness.":</strong> ".h(translate_mead_req_value($row_log['brewMead2']))."</li>";
 		
 		if (!empty($row_log['brewSweetnessLevel'])) {
 
@@ -175,7 +175,7 @@ if ($totalRows_log > 0) {
 		
 		}
 		
-		if (!empty($row_log['brewMead3'])) $cider_mead_req_info .= "<li><strong>".$label_strength.":</strong> ".$row_log['brewMead3']."</li>";
+		if (!empty($row_log['brewMead3'])) $cider_mead_req_info .= "<li><strong>".$label_strength.":</strong> ".h(translate_mead_strength_value($row_log['brewMead3']))."</li>";
 		if (!empty($cider_mead_req_info)) $required_info .= $cider_mead_req_info;
 
 		if (!empty($row_log['brewABV'])) $required_info .= "<li><strong>".$label_abv.":</strong> ".$row_log['brewABV']."%</li>";
@@ -208,9 +208,9 @@ if ($totalRows_log > 0) {
 
 		if ((!empty($row_log['brewPouring'])) && ((!empty($row_log['brewStyleType'])) && ($row_log['brewStyleType'] == 1))) {
 			$pouring_arr = json_decode($row_log['brewPouring'],true);
-			$required_info .= "<li><strong>".$label_pouring.":</strong> ".$pouring_arr['pouring']."</li>";
+			$required_info .= "<li><strong>".$label_pouring.":</strong> ".h(translate_pouring_value($pouring_arr['pouring']))."</li>";
 			if ((isset($pouring_arr['pouring_notes'])) && (!empty($pouring_arr['pouring_notes']))) $required_info .= "<li><strong>".$label_pouring_notes.":</strong> ".$pouring_arr['pouring_notes']."</li>";
-			$required_info .= "<li><strong>".$label_rouse_yeast.":</strong> ".$pouring_arr['pouring_rouse']."</li>";
+			$required_info .= "<li><strong>".$label_rouse_yeast.":</strong> ".h(translate_pouring_rouse_value($pouring_arr['pouring_rouse']))."</li>";
 		}
 
 		if (!empty($row_log['brewPossAllergens'])) {
@@ -244,7 +244,7 @@ if ($totalRows_log > 0) {
 		$scoresheet_link = "";
 		$scoresheet_link_eval = "";
 
-		if (($show_scores) && ($show_scoresheets)) {
+		if ($show_scoresheets) {
 
 			if ($_SESSION['prefsEval'] == 1) {
 						
@@ -253,6 +253,13 @@ if ($totalRows_log > 0) {
 					if ($_SESSION['prefsStyleSet'] == "BJCP2025") {
 					    $first_character = mb_substr($row_log['brewCategorySort'], 0, 1);
 					    if ($first_character == "C") $chosen_style_set = "BJCP2025";
+					    else $chosen_style_set = "BJCP2021";
+					}
+
+					elseif ($_SESSION['prefsStyleSet'] == "BJCP2026") {
+					    $first_character = mb_substr($row_log['brewCategorySort'], 0, 1);
+					    if ($first_character == "M") $chosen_style_set = "BJCP2026";
+					    elseif ($first_character == "C") $chosen_style_set = "BJCP2025";
 					    else $chosen_style_set = "BJCP2021";
 					}
 
@@ -450,26 +457,33 @@ if ($totalRows_log > 0) {
 		// Display if Closed, Judging Dates have passed, winner display is enabled, and the winner display delay time period has passed
 		if ($show_scores) {
 
-			$medal_winner = winner_check($row_log['id'],$judging_scores_db_table,$judging_tables_db_table,$brewing_db_table,$_SESSION['prefsWinnerMethod']);
-			$winner_place = preg_replace("/[^0-9\s.-:]/", "", $medal_winner);
 	 		$score = score_check($row_log['id'],$judging_scores_db_table);
 
 			$entry_output .= "<td>";
 			$entry_output .= $score;
 			$entry_output .= "</td>";
 
-			$entry_output .= "<td class=\"hidden-xs\">";
-			if (minibos_check($row_log['id'],$judging_scores_db_table)) {
-				if ($action != "print") $entry_output .= "<span class =\"fa fa-lg fa-check text-success\"></span>";
-				else $entry_output .= $label_yes;
-			}
-			else $entry_output .= "&nbsp;";
-			$entry_output .= "</td>";
+			if ($_SESSION['prefsDisplayTableAwards'] == 1) {
 
-			$entry_output .= "<td>";
-			$entry_output .= $medal_winner;
-			if ((NHC) && ($prefix != "final_")) $enter_output .= $admin_adv;
-			$entry_output .= "</td>";
+				$medal_winner = winner_check($row_log['id'],$judging_scores_db_table,$judging_tables_db_table,$brewing_db_table,$_SESSION['prefsWinnerMethod']);
+				$winner_place = preg_replace("/[^0-9\s.-:]/", "", $medal_winner);
+				$entry_mini_bos = FALSE;
+				if (minibos_check($row_log['id'],$judging_scores_db_table)) $entry_mini_bos = TRUE;
+
+				$entry_output .= "<td class=\"hidden-xs\">";
+				if ($entry_mini_bos) {
+					if ($action != "print") $entry_output .= "<span class =\"fa fa-lg fa-check text-success\"></span>";
+					else $entry_output .= $label_yes;
+				}
+				else $entry_output .= "&nbsp;";
+				$entry_output .= "</td>";
+
+				$entry_output .= "<td>";
+				$entry_output .= $medal_winner;
+				if ((NHC) && ($prefix != "final_")) $enter_output .= $admin_adv;
+				$entry_output .= "</td>";
+
+			}
 
 		}
 
@@ -617,8 +631,10 @@ if (($totalRows_log > 0) && ($entry_window_open >= 1)) {
     <?php } ?>
   	<?php if ($show_scores) { ?>
   	<th><?php echo $label_score; ?></th>
+    <?php if ($_SESSION['prefsDisplayTableAwards'] == 1) { ?>
     <th width="5%" class="hidden-xs" nowrap><?php echo $label_mini_bos; ?></th>
   	<th width="5%"><?php echo $label_winner; ?></th>
+  	<?php } ?>
   	<?php } ?>
   	<?php if ((!$show_scores) && ($multiple_bottle_ids)) { ?>
     <th width="7%" class="hidden-print" nowrap><input type="checkbox" id="select_all"><a class="hide-loader" style="cursor: pointer;" data-toggle="popover" data-container="body" data-trigger="hover focus" data-placement="auto" title="<?php echo $brewer_entries_text_024; ?>" data-content="<?php echo $brewer_entries_text_021; ?>"><span style="padding-left:5px;" class="fa fa-question-circle hide-loader hidden-xs hidden-sm"></span></a></th>
@@ -696,8 +712,10 @@ if ($entry_window_open == 0) echo sprintf("<p>%s %s.</p>",$brewer_entries_text_0
 				<?php } ?>
 				<?php if ($show_scores) { ?>
 				null,
+				<?php if ($_SESSION['prefsDisplayTableAwards'] == 1) { ?>
 				{ "asSorting": [  ] },
 				null,
+				<?php } ?>
 				<?php } ?>
 				<?php if ($action != "print") { ?>
 				{ "asSorting": [  ] }

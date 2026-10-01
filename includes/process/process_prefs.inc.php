@@ -11,6 +11,8 @@ else
 */
 $styles_db_table = $prefix."styles";
 
+require_once (LIB.'styles_import.lib.php');
+
 if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) && ((isset($_SESSION['userLevel'])) && ($_SESSION['userLevel'] == 0))) || ($setup_free_access))) {
 
 	$errors = FALSE;
@@ -192,6 +194,21 @@ if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) &
 			if (!empty($_POST['prefsWinnerDelay'])) $prefsWinnerDelay = to_utc_epoch(sterilize($_POST['prefsWinnerDelay']), $timezone_raw);
 			else $prefsWinnerDelay = 2145916800;
 
+			// Scoresheet Early Release - optional, and not part of the setup wizard, so
+			// $_POST won't have it there; leave disabled (blank/"N") in that case.
+			$prefsScoresheetDelay = "";
+			$prefsDisplayScoresheets = "N";
+
+			if (isset($_POST['prefsScoresheetDelay'])) {
+
+				if (!empty($_POST['prefsScoresheetDelay'])) {
+					$prefsScoresheetDelay = to_utc_epoch(sterilize($_POST['prefsScoresheetDelay']), $timezone_raw);
+					$prefsDisplayScoresheets = "Y";
+				}
+
+				else $prefsDisplayScoresheets = "N";
+			}
+
 			// Restrict the selected languages to known, valid codes regardless of
 			// what was posted, and never allow the list to end up empty.
 			// get_available_language_codes() (lib/common.lib.php, already loaded
@@ -220,7 +237,10 @@ if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) &
 				'prefsSessionTimeout' => $prefsSessionTimeout,
 				'prefsMHPDisplay' => $prefsMHPDisplay,
 				'prefsDisplayWinners' => sterilize($_POST['prefsDisplayWinners']),
+				'prefsDisplayTableAwards' => sterilize($_POST['prefsDisplayTableAwards']),
 				'prefsWinnerDelay' => $prefsWinnerDelay,
+				'prefsDisplayScoresheets' => blank_to_null($prefsDisplayScoresheets),
+				'prefsScoresheetDelay' => blank_to_null($prefsScoresheetDelay),
 				'prefsWinnerMethod' => sterilize($_POST['prefsWinnerMethod']),
 				'prefsTheme' => sterilize($_POST['prefsTheme']),
 				'prefsSEF' => sterilize($_POST['prefsSEF']),
@@ -672,6 +692,40 @@ if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) &
 			}
 
 			/**
+			 * If the style set has changed to BJCP 2026, map old (BJCP2021,
+			 * and any orphaned BJCP2015) mead styles to their updated 2026
+			 * equivalents in the brewing DB. Mead is currently resolved under
+			 * BJCP2021 regardless of whether the outgoing set was BJCP2021 or
+			 * BJCP2025 (BJCP2025 only ever added cider - see
+			 * convert_bjcp_2026.inc.php's own header comment), so either
+			 * prior set triggers this conversion.
+			 *
+			 * As a safeguard to make sure the brewing table data is updated,
+			 * perform a query for any old mead styles whose names have
+			 * changed and/or whose category has changed. "Fruit and Spice
+			 * Mead" and "Experimental Mead" are checked against their old
+			 * group/sub-category combo specifically, since both names are
+			 * reused at a different sub-category slot in BJCP2026.
+			 */
+
+			if ($prefsStyleSet == "BJCP2026") {
+
+				include (LIB.'convert.lib.php');
+
+				if (($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2025")) {
+					include (INCLUDES.'convert/convert_bjcp_2026.inc.php');
+				}
+
+				$db_conn->where("brewStyle='Melomel' OR brewStyle='Spice, Herb, or Vegetable Mead' OR brewStyle='Historical Mead' OR (brewCategorySort='M3' AND brewSubCategory='A' AND brewStyle='Fruit and Spice Mead') OR (brewCategorySort='M4' AND brewSubCategory='C' AND brewStyle='Experimental Mead')");
+				$row_check_entry_styles = $db_conn->getOne($prefix."brewing", "COUNT(*) as 'count'");
+
+				if ($row_check_entry_styles['count'] > 0) {
+					include (INCLUDES.'convert/convert_bjcp_2026.inc.php');
+				}
+
+			}
+
+			/**
 			 * If the style set has changed from AABC 2022 to AABC 2025, map
 			 * 2022 styles to updated 2025 styles in brewing DB.
 			 *
@@ -796,12 +850,31 @@ if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) &
 
 				foreach ($style_limits as $key => $value) {
 
-					$db_conn->where("brewCategorySort", $key);
+					// $key is stored as one representative brewStyleGroup code.
+					// For a style set with style_set_overall_categories (e.g.
+					// GABF, where each individual style has its own group
+					// number and the broad grouping an admin actually limits
+					// by spans many of them), expand it to every sibling group
+					// sharing that broad grouping so the limit is enforced -
+					// and its entry count reflects - the whole rolled-up
+					// group, not just $key's own individual style. For every
+					// other set (no overall categories defined) this is
+					// always just array($key), unchanged single-group behavior.
+					$sibling_groups = style_group_limit_siblings($prefsStyleSet, $key);
+
+					$db_conn->where("brewCategorySort", $sibling_groups, 'IN');
 					$row_style_limit_entry_count = $db_conn->getOne($prefix."brewing", "COUNT(*) as 'count'");
 
 					if ($prefsStyleSet == "BJCP2025") {
 						$first_character = mb_substr($key, 0, 1);
 						if ($first_character == "C") $chosen_style_set = "BJCP2025";
+						else $chosen_style_set = "BJCP2021";
+					}
+
+					elseif ($prefsStyleSet == "BJCP2026") {
+						$first_character = mb_substr($key, 0, 1);
+						if ($first_character == "M") $chosen_style_set = "BJCP2026";
+						elseif ($first_character == "C") $chosen_style_set = "BJCP2025";
 						else $chosen_style_set = "BJCP2021";
 					}
 
@@ -814,13 +887,15 @@ if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) &
 					// as the already-correct lookup in process_brewing.inc.php.
 					if ($row_style_limit_entry_count['count'] >= $value) {
 						$data = array('brewStyleAtLimit' => 1);
-						$db_conn->where ("(brewStyleVersion = ? OR brewStyleOwn = ?) AND brewStyleGroup = ?", array($chosen_style_set, "custom", $key));
+						$db_conn->where ("(brewStyleVersion = ? OR brewStyleOwn = ?)", array($chosen_style_set, "custom"));
+						$db_conn->where ("brewStyleGroup", $sibling_groups, 'IN');
 						$result = $db_conn->update ($prefix."styles", $data);
 					}
 
 					if ($row_style_limit_entry_count['count'] < $value) {
 						$data = array('brewStyleAtLimit' => 0);
-						$db_conn->where ("(brewStyleVersion = ? OR brewStyleOwn = ?) AND brewStyleGroup = ?", array($chosen_style_set, "custom", $key));
+						$db_conn->where ("(brewStyleVersion = ? OR brewStyleOwn = ?)", array($chosen_style_set, "custom"));
+						$db_conn->where ("brewStyleGroup", $sibling_groups, 'IN');
 						$result = $db_conn->update ($prefix."styles", $data);
 					}
 

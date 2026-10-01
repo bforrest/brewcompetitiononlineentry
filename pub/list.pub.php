@@ -6,6 +6,8 @@
  *
  */
 
+require_once (LIB.'practice_session.lib.php');
+
 function pay_to_print($prefs_pay,$entry_paid) {
 	if (($prefs_pay == "Y") && ($entry_paid == "1")) return TRUE;
 	elseif (($prefs_pay == "Y") && ($entry_paid == "0")) return FALSE;
@@ -18,9 +20,55 @@ $add_entry_button_disable = "";
 $judging_date = $judging_past;
 $total_not_paid = total_not_paid_brewer($_SESSION['user_id']);
 
+// Determine whether the user actually has a scoresheet on any of their own
+// entries (typed evaluation or admin-uploaded PDF) before showing the button
+// below - mirrors the per-entry checks in brewer_entries.pub.php (included
+// further down, and reusing this same flag to skip its own per-entry checks
+// when nothing exists), just scoped to "does at least one exist" rather than
+// building display links. Also covers "no entries at all", since the loop
+// below can't set this TRUE without at least one row in $rows_log. Skipped
+// entirely when $show_scoresheets is already FALSE, since nothing downstream
+// consults this flag unless that's also TRUE.
+$user_has_scoresheet = FALSE;
+
+if (($show_scoresheets) && ($totalRows_log > 0)) {
+
+	$evals_check = array();
+
+	if ($_SESSION['prefsEval'] == 1) {
+		$rows_eval_exists_check = $db_conn->get($prefix."evaluation", null, "DISTINCT eid");
+		if ($db_conn->count > 0) {
+			foreach ($rows_eval_exists_check as $row_eval_exists_check) $evals_check[] = $row_eval_exists_check['eid'];
+		}
+	}
+
+	foreach ($rows_log as $row_log_check) {
+
+		if ((!empty($evals_check)) && (in_array($row_log_check['id'], $evals_check))) {
+			$user_has_scoresheet = TRUE;
+			break;
+		}
+
+		$entry_number_check = sprintf("%06s", $row_log_check['id']);
+		$judging_number_check = sprintf("%06s", $row_log_check['brewJudgingNumber']);
+
+		if ((($_SESSION['prefsDisplaySpecial'] == "E") && (file_exists(USER_DOCS.$entry_number_check.".pdf"))) || (($_SESSION['prefsDisplaySpecial'] == "J") && (file_exists(USER_DOCS.strtolower($judging_number_check).".pdf")))) {
+			$user_has_scoresheet = TRUE;
+			break;
+		}
+
+	}
+
+}
+
 $user_edit_links = "<div class=\"d-grid gap-2 mb-5 d-print-none\">";
 
 if (($remaining_entries == 0) && ($show_entries) && (!$show_scores)) $user_edit_links .= sprintf("<div style=\"padding: .6em\" class=\"badge text-dark bg-warning fw-semibold lh-sm text-wrap \"><i class=\"fa fa-lg fa-exclamation-circle text-danger pe-1\"></i>%s (%s: %s).</div>",rtrim($alert_text_031,"."),strtolower($label_limit),$row_limits['prefsUserEntryLimit']);
+
+// $show_scoresheets already covers "scoresheet gate passed OR results gate
+// passed" for a logged-in user (includes/constants.inc.php) - it's TRUE
+// once either prefsScoresheetDelay or prefsWinnerDelay has passed.
+if (($show_scoresheets) && ($user_has_scoresheet)) $user_edit_links .= sprintf("<a class=\"btn btn-info\" href=\"#entries\"><i class=\"fa fa-download me-2\"></i>%s</a>",$label_scoresheets_available);
 
 if (($show_entries) && ($totalRows_log > 0)) $user_edit_links .= sprintf("<a class=\"btn btn-primary\" href=\"#entries\"><i class=\"fa fa-list me-2\"></i>%s</a>",$label_entries);
 
@@ -34,7 +82,10 @@ if (($show_entries) && (!$show_scores)) $user_edit_links .= sprintf("<a class=\"
 $user_edit_links .= sprintf("<a class=\"btn btn-dark\" href=\"%s\"><i class=\"fa fa-user me-2\"></i>%s</a>",$edit_user_info_link,$label_edit_account);
 $user_edit_links .= sprintf("<a class=\"btn btn-dark\" href=\"".$edit_user_email_link."\"><i class=\"fa fa-envelope me-2\"></i>%s</a>",$label_change_email);
 $user_edit_links .= sprintf("<a class=\"btn btn-dark\" href=\"%s\"><i class=\"fa fa-key me-2\"></i>%s</a>",$edit_user_password_link,$label_change_password);
-if ((isset($assignment_array) && ((in_array($label_judge,$assignment_array)) && ($_SESSION['brewerJudge'] == "Y")) && (time() >= $row_judging_prefs['jPrefsJudgingOpen']))) {
+// A judge assigned only to the practice session (not yet the real competition)
+// should still reach the dashboard - its own judging_locations row is always
+// open immediately, independent of jPrefsJudgingOpen.
+if ((isset($assignment_array)) && (in_array($label_judge,$assignment_array)) && ($_SESSION['brewerJudge'] == "Y") && ((time() >= $row_judging_prefs['jPrefsJudgingOpen']) || (judge_has_practice_assignment($db_conn, $prefix, $_SESSION['user_id'])))) {
 	$user_edit_links .= sprintf("<a class=\"btn btn-primary\" href=\"%s\"><i class=\"fa fa-gavel me-2\"></i>%s</a>",build_public_url("evaluation","default","default","default",$sef,$base_url,"default"),$label_judging_dashboard);
 }
 //  $user_edit_links .= sprintf("<a class=\"btn btn-dark\"><i class=\"fa fa-chevron-circle-down me-2\"></i>%s</a>","Expand/Collapse Status");
@@ -315,8 +366,10 @@ $(document).ready(function() {
 		<?php } ?>
 		<?php if ($show_scores) { ?>
 		null,
+		<?php if ($_SESSION['prefsDisplayTableAwards'] == 1) { ?>
 		{ "asSorting": [  ] },
 		null,
+		<?php } ?>
 		<?php } ?>
 		<?php if ($action != "print") { ?>
 		{ "asSorting": [  ] }

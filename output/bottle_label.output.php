@@ -221,10 +221,15 @@ if (isset($_SESSION['loginUsername'])) {
               $brewInfo = "";
               $brewMeadCider = "";
 
-              if ((!empty($row_log['brewMead1'])) || (!empty($row_log['brewMead2'])) || (!empty($row_log['brewMead3']))) {
-                if (!empty($row_log['brewMead1'])) $brewMeadCider .= h($row_log['brewMead1'])."&nbsp;&nbsp;";
-                if (!empty($row_log['brewMead2'])) $brewMeadCider .= h($row_log['brewMead2'])."&nbsp;&nbsp;";
-                if (!empty($row_log['brewMead3'])) $brewMeadCider .= h($row_log['brewMead3']);
+              $missing_mead_info_bl = entry_missing_required_mead_info($row_log, $_SESSION['prefsStyleSet']);
+
+              if ((!empty($row_log['brewMead1'])) || (!empty($row_log['brewMead2'])) || (!empty($row_log['brewMead3'])) || (!empty($missing_mead_info_bl))) {
+                if (!empty($row_log['brewMead1'])) $brewMeadCider .= h(translate_mead_req_value($row_log['brewMead1']))."&nbsp;&nbsp;";
+                elseif (in_array("carb",$missing_mead_info_bl)) $brewMeadCider .= h($label_mead_info_not_recorded)."&nbsp;&nbsp;";
+                if (!empty($row_log['brewMead2'])) $brewMeadCider .= h(translate_mead_req_value($row_log['brewMead2']))."&nbsp;&nbsp;";
+                elseif (in_array("sweet",$missing_mead_info_bl)) $brewMeadCider .= h($label_mead_info_not_recorded)."&nbsp;&nbsp;";
+                if (!empty($row_log['brewMead3'])) $brewMeadCider .= h(translate_mead_strength_value($row_log['brewMead3']));
+                elseif (in_array("strength",$missing_mead_info_bl)) $brewMeadCider .= h($label_mead_info_not_recorded);
               }
 
               if (!empty($row_log['brewInfo'])) {
@@ -239,7 +244,7 @@ if (isset($_SESSION['loginUsername'])) {
 
               if (!empty($brewInfo)) {
                 $page_info1 .= "<div style=\"margin: 0 0 5px 0;\">";
-                if ((($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2025")) && ($row_log['brewCategorySort'] == "02") && ($row_log['brewSubCategory'] == "A")) $page_info1 .= "<strong>".$label_regional_variation.":</strong> <span class=\"break-long\">".$brewInfo."</span>";
+                if ((($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2025") || ($_SESSION['prefsStyleSet'] == "BJCP2026")) && ($row_log['brewCategorySort'] == "02") && ($row_log['brewSubCategory'] == "A")) $page_info1 .= "<strong>".$label_regional_variation.":</strong> <span class=\"break-long\">".$brewInfo."</span>";
                 else $page_info1 .= "<strong>".$label_required_info.":</strong> <span class=\"break-long\">".$brewInfo."</span>";
                 $page_info1 .= "</div>";
               }

@@ -79,7 +79,8 @@ $versions = array(
 	"3.0.2.0" => 33,
 	"3.0.3.0" => 34,
 	"3.0.4.0" => 35,
-	"3.1.0.0" => 36
+	"3.1.0.0" => 36,
+	"3.2.0.0" => 37
 );
 
 $pre_update_version_index = $versions[$row_pv['version']];
@@ -146,6 +147,7 @@ $row_current_prefs = $db_conn->rawQueryOne($query_current_prefs);
  */
 
 
+$error_count_before_v2150 = $error_count;
 $v2150_update = "";
 
 if (!$setup_running) $v2150_update .= "<ul>";
@@ -272,7 +274,7 @@ if (!check_update("brewStyleComEx", $styles_db_table)) {
 if (!$setup_running) $v2150_update .= "</ul>";
 
 $this_update_version_block = $versions['2.1.5.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2150_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2150)) $output_run_update .= $v2150_update;
 
 /**
  * ----------------------------------------------- 2.1.8 -----------------------------------------------
@@ -281,6 +283,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * -----------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v2180 = $error_count;
 $v2180_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -414,7 +417,7 @@ if (!check_new_style("27","A2","Piwo Grodziskie","BJCP2015")) {
 
 if (!check_new_style("27","A3","Lichtenhainer","BJCP2015")) {
 
-	$data = array('id' => '229','brewStyleGroup' => '27','brewStyleNum' => 'A3','brewStyle' => 'Lichtenhainer','brewStyleCategory' => 'Historical Beer','brewStyleVersion' => 'BJCP2015','brewStyleOG' => '1.032','brewStyleOGMax' => '1.040','brewStyleFG' => '1.004','brewStyleFGMax' => '1.008','brewStyleABV' => '3.5','brewStyleABVMax' => '4.7','brewStyleIBU' => '5','brewStyleIBUMax' => '12','brewStyleSRM' => '3','brewStyleSRMMax' => '6','brewStyleType' => '1','brewStyleInfo' => 'A sour, smoked, lower-gravity historical German wheat beer. Complex yet refreshing character due to high attenuation and carbonation, along with low bitterness and moderate sourness. ','brewStyleLink' => 'https://www.bjcp.org/bjcp-style-guidelines/','brewStyleActive' => 'Y','brewStyleOwn' => 'bcoe','brewStyleReqSpec' => '0','brewStyleStrength' => '0','brewStyleCarb' => '0','brewStyleSweet' => '0','brewStyleTags' => 'standard-strength, pale-color, top-fermented, centraleurope, historical-style, wheat-beer-family, sour, smoke','brewStyleComEx' => NULL,'brewStyleEntry' => NULL);
+	$data = array('brewStyleGroup' => '27','brewStyleNum' => 'A3','brewStyle' => 'Lichtenhainer','brewStyleCategory' => 'Historical Beer','brewStyleVersion' => 'BJCP2015','brewStyleOG' => '1.032','brewStyleOGMax' => '1.040','brewStyleFG' => '1.004','brewStyleFGMax' => '1.008','brewStyleABV' => '3.5','brewStyleABVMax' => '4.7','brewStyleIBU' => '5','brewStyleIBUMax' => '12','brewStyleSRM' => '3','brewStyleSRMMax' => '6','brewStyleType' => '1','brewStyleInfo' => 'A sour, smoked, lower-gravity historical German wheat beer. Complex yet refreshing character due to high attenuation and carbonation, along with low bitterness and moderate sourness. ','brewStyleLink' => 'https://www.bjcp.org/bjcp-style-guidelines/','brewStyleActive' => 'Y','brewStyleOwn' => 'bcoe','brewStyleReqSpec' => '0','brewStyleStrength' => '0','brewStyleCarb' => '0','brewStyleSweet' => '0','brewStyleTags' => 'standard-strength, pale-color, top-fermented, centraleurope, historical-style, wheat-beer-family, sour, smoke','brewStyleComEx' => NULL,'brewStyleEntry' => NULL);
 	$result = $db_conn->insert ($update_table, $data);
 	if ($db_conn->getLastErrno() === 0) $v2180_update .= "<li>Lichtenhainer style added to BJCP 2015 styles.</li>";
 	else {
@@ -572,7 +575,7 @@ $v2180_update .= "</li>";
 if (!$setup_running) $v2180_update .= "</ul>";
 
 $this_update_version_block = $versions['2.1.8.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2180_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2180)) $output_run_update .= $v2180_update;
 
 /**
  * ----------------------------------------------- 2.1.9 -----------------------------------------------
@@ -580,6 +583,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * -----------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v2190 = $error_count;
 $v2190_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -643,7 +647,7 @@ if (!check_update("assignRoles", $prefix."judging_assignments")) {
 if (!$setup_running) $v2190_update .= "</ul>";
 
 $this_update_version_block = $versions['2.1.9.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2190_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2190)) $output_run_update .= $v2190_update;
 
 /**
  * ----------------------------------------------- 2.1.10 ----------------------------------------------
@@ -655,6 +659,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * -----------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v21100 = $error_count;
 $v21100_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -1231,7 +1236,7 @@ if ($totalRows_entry_names > 0) {
 }
 
 $this_update_version_block = $versions['2.1.10.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v21100_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v21100)) $output_run_update .= $v21100_update;
 
 /**
  * ----------------------------------------------- 2.1.11 ----------------------------------------------
@@ -1239,6 +1244,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * -----------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v21110 = $error_count;
 $v21110_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -1277,7 +1283,7 @@ $v21110_update .= "<li>PDF file names in the user_docs directory converted to lo
 if (!$setup_running) $v21110_update .= "</ul>";
 
 $this_update_version_block = $versions['2.1.11.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v21110_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v21110)) $output_run_update .= $v21110_update;
 
 /**
  * ----------------------------------------------- 2.1.12 ----------------------------------------------
@@ -1286,6 +1292,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * Saves the preference from current when archiving for correct display of archived scoresheets
  */
 
+$error_count_before_v21120 = $error_count;
 $v21120_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -1356,7 +1363,7 @@ if (($update_counter == 0) && (!$setup_running)) $v21120_update .= "<li>No updat
 if (!$setup_running) $v21120_update .= "</ul>";
 
 $this_update_version_block = $versions['2.1.12.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v21120_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v21120)) $output_run_update .= $v21120_update;
 
 /**
  * ----------------------------------------------- 2.1.13 ----------------------------------------------
@@ -1365,6 +1372,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * -----------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v21130 = $error_count;
 $v21130_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -1620,7 +1628,7 @@ foreach ($style_type_convert as $key => $value) {
 if (!$setup_running) $v21130_update .= "</ul>";
 
 $this_update_version_block = $versions['2.1.13.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v21130_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v21130)) $output_run_update .= $v21130_update;
 
 /**
  * ----------------------------------------------- 2.1.14 ----------------------------------------------
@@ -1628,6 +1636,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * -----------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v21140 = $error_count;
 $v21140_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -1679,7 +1688,7 @@ if (($update_counter == 0) && (!$setup_running)) $v21140_update .= "<li>No updat
 if (!$setup_running) $v21140_update .= "</ul>";
 
 $this_update_version_block = $versions['2.1.14.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v21140_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v21140)) $output_run_update .= $v21140_update;
 
 
 /**
@@ -1689,6 +1698,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * -----------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v21150 = $error_count;
 $v21150_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -1730,7 +1740,7 @@ else {
 if (!$setup_running) $v21150_update .= "</ul>";
 
 $this_update_version_block = $versions['2.1.15.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v21150_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v21150)) $output_run_update .= $v21150_update;
 
 /**
  * ----------------------------------------------- 2.1.19 ----------------------------------------------
@@ -1738,6 +1748,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * -----------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v21190 = $error_count;
 $v21190_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -2043,7 +2054,7 @@ else {
 if (!$setup_running) $v21190_update .= "</ul>";
 
 $this_update_version_block = $versions['2.1.19.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v21190_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v21190)) $output_run_update .= $v21190_update;
 
 /**
  * ----------------------------------------------- 2.2.0 ---------------------------------------------
@@ -2054,6 +2065,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * ---------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v2200 = $error_count;
 $v2200_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -2464,7 +2476,7 @@ if (($update_counter == 0) && (!$setup_running)) $v2200_update .= "<li>No update
 if (!$setup_running) $v2200_update .= "</ul>";
 
 $this_update_version_block = $versions['2.2.0.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2200_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2200)) $output_run_update .= $v2200_update;
 
 /**
  * ----------------------------------------------- 2.3.0 ---------------------------------------------
@@ -2473,6 +2485,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * ---------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v2300 = $error_count;
 $v2300_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -2523,7 +2536,7 @@ if (($update_counter == 0) && (!$setup_running)) $v2300_update .= "<li>No update
 if (!$setup_running) $v2300_update .= "</ul>";
 
 $this_update_version_block = $versions['2.3.0.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2300_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2300)) $output_run_update .= $v2300_update;
 
 /**
  * ----------------------------------------------- 2.3.2 ---------------------------------------------
@@ -2531,6 +2544,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * ---------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v2320 = $error_count;
 $v2320_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -2561,7 +2575,7 @@ else {
 if (!$setup_running) $v2320_update .= "</ul>";
 
 $this_update_version_block = $versions['2.3.2.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2320_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2320)) $output_run_update .= $v2320_update;
 
 /**
  * ----------------------------------------------- 2.4.0 ---------------------------------------------
@@ -2571,6 +2585,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * ---------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v2400 = $error_count;
 $v2400_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -2691,7 +2706,7 @@ else {
 if (!$setup_running) $v2400_update .= "</ul>";
 
 $this_update_version_block = $versions['2.4.0.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2400_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2400)) $output_run_update .= $v2400_update;
 
 /**
  * ----------------------------------------------- 2.5.0 ---------------------------------------------
@@ -2700,6 +2715,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * ---------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v2500 = $error_count;
 $v2500_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -2938,7 +2954,7 @@ if (!check_update("jPrefsMinWords", $prefix."judging_preferences")) {
 if (!$setup_running) $v2500_update .= "</ul>";
 
 $this_update_version_block = $versions['2.5.0.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2500_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2500)) $output_run_update .= $v2500_update;
 
 /**
  * ----------------------------------------------- 2.6.0 ---------------------------------------------
@@ -2947,6 +2963,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * ---------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v2600 = $error_count;
 $v2600_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -3407,7 +3424,7 @@ if ($row_current_styleset) {
 if (!$setup_running) $v2600_update .= "</ul>";
 
 $this_update_version_block = $versions['2.6.0.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2600_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2600)) $output_run_update .= $v2600_update;
 
 /**
  * ----------------------------------------------- 2.6.1 ---------------------------------------------
@@ -3415,6 +3432,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * ---------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v2610 = $error_count;
 $v2610_update = "";
 
 if (!check_update("userAdminObfuscate", $prefix."users")) {
@@ -3473,7 +3491,7 @@ if (check_update("contestClubs", $prefix."contest_info")) {
 }
 
 $this_update_version_block = $versions['2.6.1.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2610_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2610)) $output_run_update .= $v2610_update;
 
 /**
  * ----------------------------------------------- 2.6.2 ---------------------------------------------
@@ -3493,6 +3511,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * ---------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v2620 = $error_count;
 $v2620_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -3699,7 +3718,7 @@ if (!check_update("prefsSelectedStyles", $prefix."preferences")) {
 if (!$setup_running) $v2620_update .= "</ul>";
 
 $this_update_version_block = $versions['2.6.2.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2620_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2620)) $output_run_update .= $v2620_update;
 
 /**
  * ----------------------------------------------- 2.7.0 ---------------------------------------------
@@ -3711,6 +3730,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * ---------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v2700 = $error_count;
 $v2700_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -4203,7 +4223,7 @@ if ($nw_cider_update_errors > 0) {
 if (!$setup_running) $v2700_update .= "</ul>";
 
 $this_update_version_block = $versions['2.7.0.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2700_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2700)) $output_run_update .= $v2700_update;
 
 /**
  * ----------------------------------------------- 2.7.1 ---------------------------------------------
@@ -4214,6 +4234,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * ---------------------------------------------------------------------------------------------------
  */
 
+$error_count_before_v2710 = $error_count;
 $v2710_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -4345,7 +4366,7 @@ $v2710_update .= "<li>Claussenii and Naardenensis themes are deprecated and were
 if (!$setup_running) $v2710_update .= "</ul>";
 
 $this_update_version_block = $versions['2.7.1.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v2710_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v2710)) $output_run_update .= $v2710_update;
 
 /**
  * ----------------------------------------------- 3.0.0 ----------------------------------------------
@@ -4357,6 +4378,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * Update Doppelbock entry instructions to "The entrant must specify whether the entry is a pale or a dark variant."
  */
 
+$error_count_before_v3000 = $error_count;
 $v3000_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -4628,13 +4650,14 @@ include (UPDATE.'styles_nw_cider_cup_2025.php');
 if (!$setup_running) $v3000_update .= "</ul>";
 
 $this_update_version_block = $versions['3.0.0.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v3000_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v3000)) $output_run_update .= $v3000_update;
 
 /**
  * ----------------------------------------------- 3.0.1 ----------------------------------------------
  * 
  */
 
+$error_count_before_v3010 = $error_count;
 $v3010_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -4659,7 +4682,7 @@ $v3010_update .= "<li>Fixed display bug where non-judging sessions were showing 
 if (!$setup_running) $v3010_update .= "</ul>";
 
 $this_update_version_block = $versions['3.0.1.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v3010_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v3010)) $output_run_update .= $v3010_update;
 
 
 /**
@@ -4667,6 +4690,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * 
  */
 
+$error_count_before_v3020 = $error_count;
 $v3020_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -4688,7 +4712,7 @@ $v3020_update .= "<li>Moved clubs master list to primary and secondary CDN sourc
 if (!$setup_running) $v3020_update .= "</ul>";
 
 $this_update_version_block = $versions['3.0.2.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v3020_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v3020)) $output_run_update .= $v3020_update;
 
 
 /**
@@ -4697,6 +4721,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * Parallel to the expansion of bottle label options.
  */
 
+$error_count_before_v3030 = $error_count;
 $v3030_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -4730,7 +4755,7 @@ $v3030_update .= "<li>Corrected minor security issues.</li>";
 if (!$setup_running) $v3030_update .= "</ul>";
 
 $this_update_version_block = $versions['3.0.3.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v3030_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v3030)) $output_run_update .= $v3030_update;
 
 
 /**
@@ -4746,6 +4771,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * reapplying exactly the sanitization the fixed code now uses.
  */
 
+$error_count_before_v3040 = $error_count;
 $v3040_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -4831,7 +4857,7 @@ if ($v304_total_changed > 0) $v3040_update .= "<li>Corrected data affected by a 
 if (!$setup_running) $v3040_update .= "</ul>";
 
 $this_update_version_block = $versions['3.0.4.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v3040_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v3040)) $output_run_update .= $v3040_update;
 
 
 /**
@@ -4841,6 +4867,7 @@ if ($pre_update_version_index < $this_update_version_block) $output_run_update .
  * QA pass, and widens the entry fee columns to better support foreign currencies (#1714).
  */
 
+$error_count_before_v3100 = $error_count;
 $v3100_update = "";
 
 if ((!$setup_running) && (!$update_running)) {
@@ -5537,7 +5564,323 @@ if (!empty($rows_nz_ipa_miscoded)) {
 if (!$setup_running) $v3100_update .= "</ul>";
 
 $this_update_version_block = $versions['3.1.0.0'];
-if ($pre_update_version_index < $this_update_version_block) $output_run_update .= $v3100_update;
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v3100)) $output_run_update .= $v3100_update;
+
+/**
+ * ----------------------------------------------- 3.2.0 ----------------------------------------------
+ * Adds the ability to release scoresheets to entrants before official results/winners are published,
+ * via a new admin-defined date independent of the existing Results Display date (#694).
+ */
+
+$error_count_before_v3200 = $error_count;
+$v3200_update = "";
+
+if ((!$setup_running) && (!$update_running)) {
+	$v3200_update .= "<p>";
+	$v3200_update .= "<strong>Version 3.2.0.0 Updates</strong>";
+	$v3200_update .= "</p>";
+}
+
+elseif ($update_running) {
+	$v3200_update .= "<h4>Version 3.2.0</h4>";
+}
+
+// Begin version unordered list
+if (!$setup_running) $v3200_update .= "<ul>";
+
+if (!check_update("prefsScoresheetDelay", $prefix."preferences")) {
+
+	$sql = sprintf("ALTER TABLE `%s` ADD `prefsDisplayScoresheets` CHAR(1) NULL DEFAULT 'N', ADD `prefsScoresheetDelay` VARCHAR(15) NULL DEFAULT NULL COMMENT 'Unix timestamp to display scoresheets to entrants early, ahead of the Results Display date';",$prefix."preferences");
+	$result = $db_conn->rawQuery($sql);
+	if ($db_conn->getLastErrno() === 0) $v3200_update .= "<li>Added the ability to release scoresheets to entrants before official results are published.</li>";
+	else {
+		$v3200_update .= "<li class=\"text-danger\">Early scoresheet release could NOT be enabled. Please contact support.</li>";
+		$error_count++;
+	}
+
+}
+
+if (!table_exists($prefix."style_sets_imported")) {
+
+	$sql = sprintf("
+		CREATE TABLE IF NOT EXISTS `%s` (
+		`id` int(11) NOT NULL AUTO_INCREMENT,
+		`style_set_name` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+		`style_set_long_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+		`style_set_short_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+		`style_set_description` mediumtext COLLATE utf8mb4_unicode_ci,
+		`style_set_display_separator` varchar(5) COLLATE utf8mb4_unicode_ci DEFAULT '',
+		`style_set_system_separator` varchar(5) COLLATE utf8mb4_unicode_ci DEFAULT '-',
+		`style_set_sub_style_method` char(1) COLLATE utf8mb4_unicode_ci DEFAULT '0',
+		`style_set_categories` mediumtext COLLATE utf8mb4_unicode_ci,
+		`style_set_beer_end` varchar(3) COLLATE utf8mb4_unicode_ci DEFAULT '00',
+		`style_set_mead` mediumtext COLLATE utf8mb4_unicode_ci,
+		`style_set_cider` mediumtext COLLATE utf8mb4_unicode_ci,
+		`style_set_category_end` varchar(3) COLLATE utf8mb4_unicode_ci DEFAULT '49',
+		`style_set_no_numbering` tinyint(1) NOT NULL DEFAULT 0,
+		`createdBy` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+		`createdOn` int(11) DEFAULT NULL,
+		PRIMARY KEY (`id`),
+		UNIQUE KEY `style_set_name` (`style_set_name`)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+		", $prefix."style_sets_imported");
+	$result = $db_conn->rawQuery($sql);
+	if ($db_conn->getLastErrno() === 0) $v3200_update .= "<li>Added support for admin-uploaded (imported) style sets.</li>";
+	else {
+		$v3200_update .= "<li class=\"text-danger\">The imported style sets table could NOT be created. Please contact support.</li>";
+		$error_count++;
+	}
+
+}
+
+if ((table_exists($prefix."style_sets_imported", true)) && (!check_update("style_set_overall_categories", $prefix."style_sets_imported"))) {
+
+	$sql = sprintf("ALTER TABLE `%s` ADD `style_set_overall_categories` mediumtext COLLATE utf8mb4_unicode_ci;", $prefix."style_sets_imported");
+	$result = $db_conn->rawQuery($sql);
+	if ($db_conn->getLastErrno() === 0) $v3200_update .= "<li>Added support for a broader \"Overall Category\" grouping on admin-uploaded style sets.</li>";
+	else {
+		$v3200_update .= "<li class=\"text-danger\">The Overall Category column could NOT be added to imported style sets. Please contact support.</li>";
+		$error_count++;
+	}
+
+}
+
+// Add BJCP 2026 Mead Style Updates - mead-only, mirroring the BJCP2025
+// cider-only rollout's shape. "M2","E","Other Fruit Mead" is a
+// collision-free sentinel: that exact group+num+name never existed under
+// any older mead version (old M2E was named "Melomel"), unlike 8 of the
+// 17 new mead style names which are unchanged from BJCP2021's rows and so
+// can't safely be used as a check_new_style() sentinel here.
+if (($section == "setup") || (!check_new_style("M2","E","Other Fruit Mead","BJCP2026"))) include (UPDATE.'styles_bjcp_2026_update.php');
+
+if (!check_update("prefsDisplayTableAwards", $prefix."preferences")) {
+
+	$sql = sprintf("ALTER TABLE `%s` ADD `prefsDisplayTableAwards` tinyint(1) NOT NULL DEFAULT 1;",$prefix."preferences");
+	$result = $db_conn->rawQuery($sql);
+	if ($db_conn->getLastErrno() === 0) $v3200_update .= "<li>Added the ability to suppress individual table/category placement displays while keeping Best of Show results visible (\"Winner Take All\").</li>";
+	else {
+		$v3200_update .= "<li class=\"text-danger\">The \"Winner Take All\" preference could NOT be added. Please contact support.</li>";
+		$error_count++;
+	}
+
+}
+
+if (!check_update("archiveDisplayTableAwards", $prefix."archive")) {
+
+	$sql = sprintf("ALTER TABLE `%s` ADD `archiveDisplayTableAwards` tinyint(1) NULL DEFAULT NULL;",$prefix."archive");
+	$result = $db_conn->rawQuery($sql);
+	if ($db_conn->getLastErrno() === 0) {
+
+		$v3200_update .= "<li>Added the ability to suppress individual table/category placement displays on archived (past winners) pages.</li>";
+
+		// Every archive that exists today only ever displayed individual placements
+		// (this setting didn't exist yet), so backfill every existing row to "enabled"
+		// rather than leave it NULL/unconfigured - matches archiveWinnerMethod's own
+		// unconditional post-add backfill.
+		$update_table = $prefix."archive";
+		$data = array('archiveDisplayTableAwards' => 1);
+		if (!$db_conn->update($update_table, $data)) {
+			$v3200_update .= "<li class=\"text-danger\">Existing archives' Winner Take All setting could NOT be backfilled. Please contact support.</li>";
+			$error_count++;
+		}
+
+	}
+	else {
+		$v3200_update .= "<li class=\"text-danger\">The archived \"Winner Take All\" column could NOT be added. Please contact support.</li>";
+		$error_count++;
+	}
+
+}
+
+if (!check_update("sponsorImageURL", $prefix."sponsors")) {
+
+	$sql = sprintf("ALTER TABLE `%s` ADD `sponsorImageURL` varchar(255) COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL;",$prefix."sponsors");
+	$result = $db_conn->rawQuery($sql);
+	if ($db_conn->getLastErrno() === 0) $v3200_update .= "<li>Added the ability to hotlink a sponsor's logo from an external URL instead of only uploading a file.</li>";
+	else {
+		$v3200_update .= "<li class=\"text-danger\">The sponsor logo hotlink column could NOT be added. Please contact support.</li>";
+		$error_count++;
+	}
+
+}
+
+// Remediation: archiveProEdition and archiveWinnerMethod have always been captured via
+// blank_to_null(), which treats the string "0" as blank (PHP's empty("0") === true) and
+// silently nulls it out - corrupting every archive created while the competition was
+// Amateur Edition (0) or using the "by table" winner method (0), the two most common
+// values for each. Re-runs harmlessly once every affected row is already corrected
+// (WHERE ... IS NULL then matches nothing, so $db_conn->count is 0 and nothing is logged).
+$update_table = $prefix."archive";
+
+$db_conn->where('archiveProEdition', NULL, 'IS');
+if (!$db_conn->update($update_table, array('archiveProEdition' => 0))) {
+	$v3200_update .= "<li class=\"text-danger\">Archive Edition Type correction could NOT be applied. Please contact support.</li>";
+	$error_count++;
+}
+elseif ($db_conn->count > 0) $v3200_update .= sprintf("<li>Corrected %s archive record(s) with a missing Edition Type (defaulted to Amateur).</li>",$db_conn->count);
+
+$db_conn->where('archiveWinnerMethod', NULL, 'IS');
+if (!$db_conn->update($update_table, array('archiveWinnerMethod' => 0))) {
+	$v3200_update .= "<li class=\"text-danger\">Archive Winner Place Distribution Method correction could NOT be applied. Please contact support.</li>";
+	$error_count++;
+}
+elseif ($db_conn->count > 0) $v3200_update .= sprintf("<li>Corrected %s archive record(s) with a missing Winner Place Distribution Method (defaulted to By Table).</li>",$db_conn->count);
+
+// Remediation: every Markdown/TinyMCE-eligible free-text field on the Competition Info
+// admin screen (the two contestRules JSON keys, plus contestAwards/contestBottles/
+// contestBOSAward/contestCircuit/contestVolunteers) could carry stray leading/trailing
+// whitespace saved before trim() was added to their save path - most visibly, Markdown
+// mode (ENABLE_MARKDOWN) misreads 4+ leading spaces on a line as an indented code block,
+// rendering the paragraph wrapped in <pre><code> instead of normally. One specific source
+// (the Packaging and Shipping Rules textarea's opening-tag/PHP-block whitespace leak) is
+// already fixed at the markup level; this pass, and the trim() fix itself, cover both that
+// and any other source (e.g. pasted content) uniformly, for every field in the group.
+// Re-runs harmlessly - an already-trimmed value never differs from its own trim()'d self,
+// so nothing gets logged as corrected the second time through.
+$contest_info_table = $prefix."contest_info";
+$contest_info_trim_flat_columns = array('contestAwards','contestBottles','contestBOSAward','contestCircuit','contestVolunteers');
+$rows_contest_info_trim = $db_conn->get($contest_info_table, null, "id,contestRules,".implode(",",$contest_info_trim_flat_columns));
+$totalRows_contest_info_trim = $db_conn->count;
+$contest_info_trim_fields_corrected = 0;
+$contest_info_trim_rows_corrected = 0;
+
+if ($totalRows_contest_info_trim > 0) {
+
+	foreach ($rows_contest_info_trim as $row_contest_info_trim) {
+
+		$contest_info_trim_row_changed = FALSE;
+		$contest_info_trim_data = array();
+
+		$contest_rules_decoded = json_decode($row_contest_info_trim['contestRules'], true);
+
+		if (is_array($contest_rules_decoded)) {
+
+			foreach (array('competition_rules','competition_packing_shipping') as $contest_rules_json_key) {
+				if ((isset($contest_rules_decoded[$contest_rules_json_key])) && ($contest_rules_decoded[$contest_rules_json_key] != trim($contest_rules_decoded[$contest_rules_json_key]))) {
+					$contest_rules_decoded[$contest_rules_json_key] = trim($contest_rules_decoded[$contest_rules_json_key]);
+					$contest_info_trim_row_changed = TRUE;
+					$contest_info_trim_fields_corrected++;
+				}
+			}
+
+			if ($contest_info_trim_row_changed) $contest_info_trim_data['contestRules'] = json_encode($contest_rules_decoded);
+
+		}
+
+		foreach ($contest_info_trim_flat_columns as $contest_info_trim_column) {
+			if ((isset($row_contest_info_trim[$contest_info_trim_column])) && ($row_contest_info_trim[$contest_info_trim_column] != trim($row_contest_info_trim[$contest_info_trim_column]))) {
+				$contest_info_trim_data[$contest_info_trim_column] = trim($row_contest_info_trim[$contest_info_trim_column]);
+				$contest_info_trim_row_changed = TRUE;
+				$contest_info_trim_fields_corrected++;
+			}
+		}
+
+		if ($contest_info_trim_row_changed) {
+
+			$db_conn->where('id', $row_contest_info_trim['id']);
+			if ($db_conn->update($contest_info_table, $contest_info_trim_data)) $contest_info_trim_rows_corrected++;
+			else {
+				$v3200_update .= "<li class=\"text-danger\">Stray-whitespace correction could NOT be applied to one or more competition text fields. Please contact support.</li>";
+				$error_count++;
+			}
+
+		}
+
+	}
+
+}
+
+if ($contest_info_trim_fields_corrected > 0) $v3200_update .= sprintf("<li>Trimmed stray leading/trailing whitespace from %s Markdown-eligible text field(s) across %s competition record(s) (Rules, Packaging and Shipping Rules, Awards, Bottles, Best of Show Award, Circuit, and/or Volunteers text).</li>",$contest_info_trim_fields_corrected,$contest_info_trim_rows_corrected);
+
+// Remediation: the entry form's pouring-instruction radios used to submit the active
+// UI language's translated label text as the value, so brewPouring's 'pouring'/
+// 'pouring_rouse' keys can hold locale-dependent text (e.g. French "Rapide") instead of
+// a stable key - fixed at the source as of this version, which now submits/stores
+// locale-neutral keys ("fast"/"normal"/"slow", "yes"/"no") and translates only at
+// display time. This pass converts any already-stored legacy translated value back to
+// its canonical key wherever it exactly matches one of the app's supported languages'
+// label text, so existing entries display correctly for every viewer regardless of
+// their own locale, same as newly-submitted entries. Scoped to the live brewing table
+// only - archived competitions carry the same column, but nothing displays pouring
+// instructions for an archived entry, so there's no reader for that data to correct.
+// Re-runs harmlessly - a value already converted to (or submitted as) a canonical key
+// matches neither map and is left alone.
+$pouring_remediation_legacy_pouring = array(
+	// English (en-US / en-GB share identical values for these labels)
+	"Fast" => "fast", "Normal" => "normal", "Slow" => "slow",
+	// Czech
+	"Rychle" => "fast", "Normálně" => "normal", "Pomalu" => "slow",
+	// Spanish (es-419) / Portuguese (pt-BR) share identical text for these three
+	"Rápido" => "fast", "Lento" => "slow",
+	// French
+	"Rapide" => "fast", "Lent" => "slow",
+	// Hungarian
+	"Gyors" => "fast", "Normál" => "normal", "Lassú" => "slow",
+);
+$pouring_remediation_legacy_rouse = array(
+	// English
+	"Yes" => "yes", "No" => "no",
+	// Czech
+	"Ano" => "yes", "Ne" => "no",
+	// Spanish
+	"Si" => "yes",
+	// French
+	"Oui" => "yes", "Non" => "no",
+	// Hungarian
+	"Igen" => "yes", "Nem" => "no",
+	// Portuguese
+	"Sim" => "yes", "Não" => "no",
+);
+
+$pouring_remediation_table = $prefix."brewing";
+$db_conn->where('brewPouring', NULL, 'IS NOT');
+$rows_pouring_remediation = $db_conn->get($pouring_remediation_table, null, "id,brewPouring");
+$totalRows_pouring_remediation = $db_conn->count;
+$pouring_remediation_fields_corrected = 0;
+$pouring_remediation_rows_corrected = 0;
+
+if ($totalRows_pouring_remediation > 0) {
+
+	foreach ($rows_pouring_remediation as $row_pouring_remediation) {
+
+		$pouring_remediation_decoded = json_decode($row_pouring_remediation['brewPouring'], true);
+		if (!is_array($pouring_remediation_decoded)) continue;
+
+		$pouring_remediation_row_changed = FALSE;
+
+		if ((isset($pouring_remediation_decoded['pouring'])) && (isset($pouring_remediation_legacy_pouring[$pouring_remediation_decoded['pouring']]))) {
+			$pouring_remediation_decoded['pouring'] = $pouring_remediation_legacy_pouring[$pouring_remediation_decoded['pouring']];
+			$pouring_remediation_row_changed = TRUE;
+			$pouring_remediation_fields_corrected++;
+		}
+
+		if ((isset($pouring_remediation_decoded['pouring_rouse'])) && (isset($pouring_remediation_legacy_rouse[$pouring_remediation_decoded['pouring_rouse']]))) {
+			$pouring_remediation_decoded['pouring_rouse'] = $pouring_remediation_legacy_rouse[$pouring_remediation_decoded['pouring_rouse']];
+			$pouring_remediation_row_changed = TRUE;
+			$pouring_remediation_fields_corrected++;
+		}
+
+		if ($pouring_remediation_row_changed) {
+
+			$db_conn->where('id', $row_pouring_remediation['id']);
+			if ($db_conn->update($pouring_remediation_table, array('brewPouring' => json_encode($pouring_remediation_decoded)))) $pouring_remediation_rows_corrected++;
+			else {
+				$v3200_update .= "<li class=\"text-danger\">Pouring instruction language correction could NOT be applied to one or more entries. Please contact support.</li>";
+				$error_count++;
+			}
+
+		}
+
+	}
+
+}
+
+if ($pouring_remediation_fields_corrected > 0) $v3200_update .= sprintf("<li>Converted %s translated pouring-instruction value(s) back to their locale-neutral form across %s entry record(s), so they display correctly regardless of viewer language.</li>",$pouring_remediation_fields_corrected,$pouring_remediation_rows_corrected);
+
+if (!$setup_running) $v3200_update .= "</ul>";
+
+$this_update_version_block = $versions['3.2.0.0'];
+if (($pre_update_version_index < $this_update_version_block) || ($error_count > $error_count_before_v3200)) $output_run_update .= $v3200_update;
 
 /**
  * ---------------------------------------------------------------------------------------------------

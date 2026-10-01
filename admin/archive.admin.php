@@ -71,7 +71,7 @@ foreach ($style_sets as $style_set) {
 	   <a class="btn btn-default" href="<?php echo $base_url; ?>index.php?section=admin&amp;go=archive"><span class="fa fa-arrow-circle-left"></span> <?php echo $label_admin_archives; ?></a>
     </div><!-- ./button group -->
 </div>
-<form data-toggle="validator" role="form" id="formfield" class="form-horizontal" action="<?php echo $base_url; ?>includes/process.inc.php?action=archive&go=<?php echo $action; if ($action == "edit") echo "&filter=".$row_archive['archiveSuffix']."&id=".$id; ?>" method="post" name="form1">
+<form data-toggle="validator" role="form" id="formfield" class="form-horizontal hide-loader-form-submit" action="<?php echo $base_url; ?>includes/process.inc.php?action=archive&go=<?php echo $action; if ($action == "edit") echo "&filter=".$row_archive['archiveSuffix']."&id=".$id; ?>" method="post" name="form1" novalidate>
 <input type="hidden" name="user_session_token" value ="<?php if (isset($_SESSION['user_session_token'])) echo htmlspecialchars($_SESSION['user_session_token'], ENT_QUOTES, 'UTF-8'); ?>">
 <input type="hidden" name="action" value="add_form" />
 <div class="bcoem-admin-element hidden-print">
@@ -178,6 +178,22 @@ foreach ($style_sets as $style_set) {
             </label>
         </div>
         <span id="helpBlock" class="help-block"><?php if ($results_data) echo $archive_text_019; else echo $archive_text_022; ?></span>
+    </div>
+</div><!-- ./Form Group -->
+
+<div class="form-group"><!-- Form Group Radio INLINE -->
+    <label for="archiveDisplayTableAwards" class="col-lg-2 col-md-3 col-sm-4 col-xs-12 control-label"><?php echo $label_admin_table_awards_display; ?></label>
+    <div class="col-lg-6 col-md-6 col-sm-8 col-xs-12">
+        <div class="input-group">
+            <!-- Input Here -->
+            <label class="radio-inline">
+                <input type="radio" name="archiveDisplayTableAwards" value="1" id="archiveDisplayTableAwards_0"  <?php if (($row_archive['archiveDisplayTableAwards'] == "1") || (empty($row_archive['archiveDisplayTableAwards']))) echo "CHECKED"; if (!$results_data) echo " DISABLED"; ?> /> <?php echo $label_admin_enable; ?>
+            </label>
+            <label class="radio-inline">
+                <input type="radio" name="archiveDisplayTableAwards" value="0" id="archiveDisplayTableAwards_1" <?php if ($row_archive['archiveDisplayTableAwards'] == "0") echo "CHECKED"; if (!$results_data) echo " DISABLED"; ?>/> <?php echo $label_admin_disable; ?>
+            </label>
+        </div>
+        <span id="helpBlock" class="help-block"><?php if ($results_data) echo $archive_text_024; else echo $archive_text_022; ?></span>
     </div>
 </div><!-- ./Form Group -->
 
@@ -355,6 +371,7 @@ foreach ($style_sets as $style_set) {
     <td class="hidden-xs hidden-sm">
         <?php 
         echo yes_no($row_archive['archiveDisplayWinners'],$base_url,1);
+        if ($row_archive['archiveDisplayTableAwards'] == 0) echo " <small>(BOS Only)</small>";
         if (($row_archive['archiveDisplayWinners'] == "Y") && ($_SESSION['prefsProEdition'] == 0)) {
         ?>
         &nbsp;<a target="_blank" data-toggle="tooltip" data-placement="top" title="Download a CSV of this archive's winner data." href="<?php echo $base_url; ?>includes/output.inc.php?section=export-entries&amp;go=csv&amp;filter=<?php echo h($row_archive['archiveSuffix']); ?>&amp;tb=circuit&amp;sort=<?php echo h($row_archive['archiveSuffix']); ?>" target="_blank"><span class="fa fa-lg fa-file-excel"></span></a>

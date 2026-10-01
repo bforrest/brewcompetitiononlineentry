@@ -107,6 +107,7 @@ if ($setup_free_access == TRUE) {
 			`archiveStyleSet` varchar(25) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`archiveScoresheet` char(1) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`archiveSuffix` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`archiveDisplayTableAwards` tinyint(1) NULL DEFAULT NULL,
 			PRIMARY KEY (`id`)
 			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci COLLATE utf8mb4_unicode_ci;
 			", $archive_db_table);
@@ -674,7 +675,10 @@ if ($setup_free_access == TRUE) {
 			`prefsSponsorLogoSize` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`prefsCompLogoSize` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`prefsDisplayWinners` char(1) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`prefsDisplayTableAwards` tinyint(1) NOT NULL DEFAULT 1,
 			`prefsWinnerDelay` int(11) DEFAULT NULL COMMENT 'Hours after last judging date beginning time to delay displaying winners',
+			`prefsDisplayScoresheets` char(1) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`prefsScoresheetDelay` varchar(15) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Unix timestamp to display scoresheets to entrants early, ahead of the Results Display date',
 			`prefsWinnerMethod` int(11) DEFAULT NULL COMMENT 'Method comp uses to choose winners: 0=by table; 1=by category; 2=by sub-category',
 			`prefsDisplaySpecial` char(1) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`prefsBOSMead` char(1) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -758,7 +762,10 @@ if ($setup_free_access == TRUE) {
 			'prefsSponsorLogoSize' => '250',
 			'prefsCompLogoSize' => '300',
 			'prefsDisplayWinners' => 'Y',
+			'prefsDisplayTableAwards' => 1,
 			'prefsWinnerDelay' => '1616974200',
+			'prefsDisplayScoresheets' => 'N',
+			'prefsScoresheetDelay' => NULL,
 			'prefsWinnerMethod' => '0',
 			'prefsDisplaySpecial' => 'J',
 			'prefsBOSMead' => 'N',
@@ -875,6 +882,7 @@ if ($setup_free_access == TRUE) {
 			`sponsorName` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`sponsorURL` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`sponsorImage` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`sponsorImageURL` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
 			`sponsorText` mediumtext COLLATE utf8mb4_unicode_ci,
 			`sponsorLocation` mediumtext COLLATE utf8mb4_unicode_ci,
 			`sponsorLevel` mediumtext COLLATE utf8mb4_unicode_ci,
@@ -961,6 +969,41 @@ if ($setup_free_access == TRUE) {
 			$output .= "<li class=\"list-group-item\"><span class=\"fa fa-lg fa-times text-danger\"></span> The <strong>Styles</strong> table was NOT installed successfully.</li>";
 		}
 		else $output .= "<li class=\"list-group-item\"><span class=\"fa fa-lg fa-check text-success\"></span> <strong>Styles</strong> data installed successfully.</li>";
+
+		// -------------------
+		// Imported Style Sets Table
+		// -------------------
+
+		$sql = sprintf("
+			CREATE TABLE IF NOT EXISTS `%s` (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`style_set_name` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+			`style_set_long_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`style_set_short_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`style_set_description` mediumtext COLLATE utf8mb4_unicode_ci,
+			`style_set_display_separator` varchar(5) COLLATE utf8mb4_unicode_ci DEFAULT '',
+			`style_set_system_separator` varchar(5) COLLATE utf8mb4_unicode_ci DEFAULT '-',
+			`style_set_sub_style_method` char(1) COLLATE utf8mb4_unicode_ci DEFAULT '0',
+			`style_set_categories` mediumtext COLLATE utf8mb4_unicode_ci,
+			`style_set_beer_end` varchar(3) COLLATE utf8mb4_unicode_ci DEFAULT '00',
+			`style_set_mead` mediumtext COLLATE utf8mb4_unicode_ci,
+			`style_set_cider` mediumtext COLLATE utf8mb4_unicode_ci,
+			`style_set_category_end` varchar(3) COLLATE utf8mb4_unicode_ci DEFAULT '49',
+			`style_set_no_numbering` tinyint(1) NOT NULL DEFAULT 0,
+			`style_set_overall_categories` mediumtext COLLATE utf8mb4_unicode_ci,
+			`createdBy` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+			`createdOn` int(11) DEFAULT NULL,
+			PRIMARY KEY (`id`),
+			UNIQUE KEY `style_set_name` (`style_set_name`)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+			", $prefix."style_sets_imported");
+		$db_conn->rawQuery($sql);
+		if (!check_setup($prefix."style_sets_imported",$database)) {
+			$error_output[] = $db_conn->getLastError();
+			$errors = TRUE;
+			$output .= "<li class=\"list-group-item\"><span class=\"fa fa-lg fa-times text-danger\"></span> The <strong>Imported Style Sets</strong> table was NOT installed successfully.</li>";
+		}
+		else $output .= "<li class=\"list-group-item\"><span class=\"fa fa-lg fa-check text-success\"></span> The <strong>Imported Style Sets</strong> table was installed successfully.</li>";
 
 		/**
 		 * Add BJCP 2015 styles to the table. 
@@ -1197,7 +1240,7 @@ if ($setup_free_access == TRUE) {
 		  array('id' => '200','brewStyleGroup' => '34','brewStyleNum' => 'A','brewStyle' => 'Clone Beer','brewStyleCategory' => 'Specialty Beer','brewStyleVersion' => 'BJCP2015','brewStyleOG' => NULL,'brewStyleOGMax' => NULL,'brewStyleFG' => NULL,'brewStyleFGMax' => NULL,'brewStyleABV' => NULL,'brewStyleABVMax' => NULL,'brewStyleIBU' => NULL,'brewStyleIBUMax' => NULL,'brewStyleSRM' => NULL,'brewStyleSRMMax' => NULL,'brewStyleType' => '1','brewStyleInfo' => 'Based on declared clone beer.','brewStyleLink' => 'https://www.bjcp.org/bjcp-style-guidelines/','brewStyleActive' => 'Y','brewStyleOwn' => 'bcoe','brewStyleReqSpec' => '1','brewStyleStrength' => '0','brewStyleCarb' => '0','brewStyleSweet' => '0','brewStyleTags' => 'specialty-beer','brewStyleComEx' => NULL,'brewStyleEntry' => 'The entrant must specify the name of the commercial beer being cloned, specifications (vital statistics) for the beer, and either a brief sensory description or a list of ingredients used in making the beer. Without this information, judges who are unfamiliar with the beer will have no basis for comparison.'),
 		  array('id' => '201','brewStyleGroup' => '34','brewStyleNum' => 'B','brewStyle' => 'Mixed-Style Beer','brewStyleCategory' => 'Specialty Beer','brewStyleVersion' => 'BJCP2015','brewStyleOG' => NULL,'brewStyleOGMax' => NULL,'brewStyleFG' => NULL,'brewStyleFGMax' => NULL,'brewStyleABV' => NULL,'brewStyleABVMax' => NULL,'brewStyleIBU' => NULL,'brewStyleIBUMax' => NULL,'brewStyleSRM' => NULL,'brewStyleSRMMax' => NULL,'brewStyleType' => '1','brewStyleInfo' => 'Based on the declared base styles. As with all Specialty-Type Beers, the resulting combination of beer styles needs to be harmonious and balanced, and be pleasant to drink.','brewStyleLink' => 'https://www.bjcp.org/bjcp-style-guidelines/','brewStyleActive' => 'Y','brewStyleOwn' => 'bcoe','brewStyleReqSpec' => '1','brewStyleStrength' => '0','brewStyleCarb' => '0','brewStyleSweet' => '0','brewStyleTags' => 'specialty-beer','brewStyleComEx' => NULL,'brewStyleEntry' => 'The entrant must specify the styles being mixed. The entrant may provide an additional description of the sensory profile of the beer or the vital statistics of the resulting beer.'),
 		  array('id' => '202','brewStyleGroup' => '34','brewStyleNum' => 'C','brewStyle' => 'Experimental Beer','brewStyleCategory' => 'Specialty Beer','brewStyleVersion' => 'BJCP2015','brewStyleOG' => NULL,'brewStyleOGMax' => NULL,'brewStyleFG' => NULL,'brewStyleFGMax' => NULL,'brewStyleABV' => NULL,'brewStyleABVMax' => NULL,'brewStyleIBU' => NULL,'brewStyleIBUMax' => NULL,'brewStyleSRM' => NULL,'brewStyleSRMMax' => NULL,'brewStyleType' => '1','brewStyleInfo' => 'This style is the ultimate in creativity, since it cannot represent a well-known commercial beer (otherwise it would be a clone beer) and cannot fit into any other existing Specialty-Type style (including those within this major category).','brewStyleLink' => 'https://www.bjcp.org/bjcp-style-guidelines/','brewStyleActive' => 'Y','brewStyleOwn' => 'bcoe','brewStyleReqSpec' => '1','brewStyleStrength' => '0','brewStyleCarb' => '0','brewStyleSweet' => '0','brewStyleTags' => 'specialty-beer','brewStyleComEx' => NULL,'brewStyleEntry' => ' The entrant must specify the special nature of the experimental beer, including the special ingredients or processes that make it not fit elsewhere in the guidelines. The entrant must provide vital statistics for the beer, and either a brief sensory description or a list of ingredients used in making the beer. Without this information, judges will have no basis for comparison.'),
-		  array('id' => '203','brewStyleGroup' => 'M1','brewStyleNum' => 'A','brewStyle' => 'Dry Mead','brewStyleCategory' => 'Traditional Mead','brewStyleVersion' => 'BJCP2015','brewStyleOG' => NULL,'brewStyleOGMax' => NULL,'brewStyleFG' => NULL,'brewStyleFGMax' => NULL,'brewStyleABV' => NULL,'brewStyleABVMax' => NULL,'brewStyleIBU' => 'N/A','brewStyleIBUMax' => 'N/A','brewStyleSRM' => 'N/A','brewStyleSRMMax' => 'N/A','brewStyleType' => '3','brewStyleInfo' => 'Similar in balance, body, finish and flavor intensity to a dry white wine, with a pleasant mixture of subtle honey character, soft fruity esters, and clean alcohol. Complexity, harmony, and balance of sensory elements are most desirable, with no inconsistencies in color, aroma, flavor or aftertaste. The proper balance of sweetness, acidity, alcohol, and honey character is the essential final measure of any mead.','brewStyleLink' => 'https://www.bjcp.org/bjcp-style-guidelines/','brewStyleActive' => 'Y','brewStyleOwn' => 'bcoe','brewStyleReqSpec' => '0','brewStyleStrength' => '1','brewStyleCarb' => '1','brewStyleSweet' => '0','brewStyleTags' => NULL,'brewStyleComEx' => 'White Winter Dry Mead, Sky River Dry Mead, Intermiel Bouquet Printanier.','brewStyleEntry' => 'Entry Instructions: Entrants must specify carbonation level and strength. Sweetness is assumed to be DRY in this category. Entrants may specify honey varieties.'),
+		  array('id' => '203','brewStyleGroup' => 'M1','brewStyleNum' => 'A','brewStyle' => 'Dry Mead','brewStyleCategory' => 'Traditional Mead','brewStyleVersion' => 'BJCP2015','brewStyleOG' => NULL,'brewStyleOGMax' => NULL,'brewStyleFG' => NULL,'brewStyleFGMax' => NULL,'brewStyleABV' => NULL,'brewStyleABVMax' => NULL,'brewStyleIBU' => 'N/A','brewStyleIBUMax' => 'N/A','brewStyleSRM' => 'N/A','brewStyleSRMMax' => 'N/A','brewStyleType' => '3','brewStyleInfo' => 'Similar in balance, body, finish and flavor intensity to a dry white wine, with a pleasant mixture of subtle honey character, soft fruity esters, and clean alcohol. Complexity, harmony, and balance of sensory elements are most desirable, with no inconsistencies in color, aroma, flavor or aftertaste. The proper balance of sweetness, acidity, alcohol, and honey character is the essential final measure of any mead.','brewStyleLink' => 'https://www.bjcp.org/bjcp-style-guidelines/','brewStyleActive' => 'Y','brewStyleOwn' => 'bcoe','brewStyleReqSpec' => '0','brewStyleStrength' => '1','brewStyleCarb' => '1','brewStyleSweet' => '0','brewStyleTags' => NULL,'brewStyleComEx' => 'White Winter Dry Mead, Sky River Dry Mead, Intermiel Bouquet Printanier.','brewStyleEntry' => 'Entrants must specify carbonation level and strength. Sweetness is assumed to be DRY in this category. Entrants may specify honey varieties.'),
 		  array('id' => '204','brewStyleGroup' => 'M1','brewStyleNum' => 'B','brewStyle' => 'Semi-Sweet Mead','brewStyleCategory' => 'Traditional Mead','brewStyleVersion' => 'BJCP2015','brewStyleOG' => NULL,'brewStyleOGMax' => NULL,'brewStyleFG' => NULL,'brewStyleFGMax' => NULL,'brewStyleABV' => NULL,'brewStyleABVMax' => NULL,'brewStyleIBU' => 'N/A','brewStyleIBUMax' => 'N/A','brewStyleSRM' => 'N/A','brewStyleSRMMax' => 'N/A','brewStyleType' => '3','brewStyleInfo' => 'Similar in balance, body, finish and flavor intensity to a semisweet (or medium-dry) white wine, with a pleasant mixture of honey character, light sweetness, soft fruity esters, and clean alcohol. Complexity, harmony, and balance of sensory elements are most desirable, with no inconsistencies in color, aroma, flavor or aftertaste. The proper balance of sweetness, acidity, alcohol, and honey character is the essential final measure of any mead.','brewStyleLink' => 'https://www.bjcp.org/bjcp-style-guidelines/','brewStyleActive' => 'Y','brewStyleOwn' => 'bcoe','brewStyleReqSpec' => '0','brewStyleStrength' => '1','brewStyleCarb' => '1','brewStyleSweet' => '0','brewStyleTags' => NULL,'brewStyleComEx' => 'Lurgashall English Mead, Redstone Traditional Mountain Honey Wine, Sky River Semi-Sweet Mead, Intermiel Verge d&rsquo;Or and Melilot.','brewStyleEntry' => 'Entrants must specify carbonation level and strength. Sweetness is assumed to be SEMI-SWEET in this category. Entrants MAY specify honey varieties.'),
 		  array('id' => '205','brewStyleGroup' => 'M1','brewStyleNum' => 'C','brewStyle' => 'Sweet Mead','brewStyleCategory' => 'Traditional Mead','brewStyleVersion' => 'BJCP2015','brewStyleOG' => NULL,'brewStyleOGMax' => NULL,'brewStyleFG' => NULL,'brewStyleFGMax' => NULL,'brewStyleABV' => NULL,'brewStyleABVMax' => NULL,'brewStyleIBU' => 'N/A','brewStyleIBUMax' => 'N/A','brewStyleSRM' => 'N/A','brewStyleSRMMax' => 'N/A','brewStyleType' => '3','brewStyleInfo' => 'Similar in balance, body, finish and flavor intensity to a well-made dessert wine (such as Sauternes), with a pleasant mixture of honey character, residual sweetness, soft fruity esters, and clean alcohol. Complexity, harmony, and balance of sensory elements are most desirable, with no inconsistencies in color, aroma, flavor or aftertaste. The proper balance of sweetness, acidity, alcohol, and honey character is the essential final measure of any mead.','brewStyleLink' => 'https://www.bjcp.org/bjcp-style-guidelines/','brewStyleActive' => 'Y','brewStyleOwn' => 'bcoe','brewStyleReqSpec' => '0','brewStyleStrength' => '1','brewStyleCarb' => '1','brewStyleSweet' => '0','brewStyleTags' => NULL,'brewStyleComEx' => 'Moonlight Sensual, Lurgashall Christmas Mead, Chaucer&rsquo;s Mead, Rabbit&rsquo;s Foot Sweet Wildflower Honey Mead, Intermiel Benoite.','brewStyleEntry' => 'Entrants MUST specify carbonation level and strength. Sweetness is assumed to be SWEET in this category. Entrants MAY specify honey varieties.'),
 		  array('id' => '206','brewStyleGroup' => 'M2','brewStyleNum' => 'A','brewStyle' => 'Cyser','brewStyleCategory' => 'Fruit Mead','brewStyleVersion' => 'BJCP2015','brewStyleOG' => NULL,'brewStyleOGMax' => NULL,'brewStyleFG' => NULL,'brewStyleFGMax' => NULL,'brewStyleABV' => NULL,'brewStyleABVMax' => NULL,'brewStyleIBU' => 'N/A','brewStyleIBUMax' => 'N/A','brewStyleSRM' => 'N/A','brewStyleSRMMax' => 'N/A','brewStyleType' => '3','brewStyleInfo' => 'In well-made examples of the style, the fruit is both distinctive and well-incorporated into the honey-sweet-acid-tannin-alcohol balance of the mead. Some of the best strong examples have the taste and aroma of an aged Calvados (apple brandy from northern France), while subtle, dry versions can taste similar to many fine white wines. There should be an appealing blend of the fruit and honey character but not necessarily an even balance. Generally a good tannin-sweetness balance is desired, though very dry and very sweet examples do exist.','brewStyleLink' => 'https://www.bjcp.org/bjcp-style-guidelines/','brewStyleActive' => 'Y','brewStyleOwn' => 'bcoe','brewStyleReqSpec' => '0','brewStyleStrength' => '1','brewStyleCarb' => '1','brewStyleSweet' => '1','brewStyleTags' => NULL,'brewStyleComEx' => 'Moonlight Blossom, White Winter Cyser, Rabbit&rsquo;s Foot Apple Cyser.','brewStyleEntry' => 'Entrants must specify carbonation level, strength, and sweetness. Entrants may specify honey varieties. Entrants may specify the varieties of apple used; if specified, a varietal character will be expected. Products with a relatively low proportion of honey are better entered as a Specialty Cider. A spiced cyser should be entered as a Fruit and Spice Mead. A cyser with other fruit should be entered as a Melomel. A cyser with additional ingredients should be entered as an Experimental mead.'),

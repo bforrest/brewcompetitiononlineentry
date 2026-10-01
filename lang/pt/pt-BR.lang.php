@@ -2255,6 +2255,18 @@ $contact_text_014 = "A exibição dos contatos da competição foi desativada pe
 $brewer_text_058 = "Os administradores estão organizando as atribuições de mesas no momento. Entre em contato com um responsável da competição para alterar sua disponibilidade para a sessão ou para desistir de sua função de juiz/assistente.";
 
 /**
+ * ------------------------------------------
+ * Version 3.2.0 Additions
+ * ------------------------------------------
+ */
+
+$default_page_text_024 = "As folhas de pontuação estarão disponíveis para visualização ou download a partir de";
+$default_page_text_025 = "As folhas de pontuação já estão disponíveis para visualização ou download.";
+$label_scoresheets_available = "Folhas de Pontuação Disponíveis para Download";
+$label_mead_info_missing = "Faltando %s - não era obrigatório no momento do envio";
+$label_mead_info_not_recorded = "Não informado pelo participante";
+
+/**
  * ----------------------------------------------------------------------------------
  * END TRANSLATIONS
  * ----------------------------------------------------------------------------------

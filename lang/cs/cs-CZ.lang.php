@@ -2188,6 +2188,18 @@ $contact_text_014 = "Správci stránek zakázali zveřejňování kontaktních �
 $brewer_text_058 = "Administrátoři právě organizují přiřazení stolů. Pro změnu dostupnosti na dané session nebo odstoupení z role rozhodčího/pomocníka se prosím obraťte na pořadatele soutěže.";
 
 /**
+ * ------------------------------------------
+ * Version 3.2.0 Additions
+ * ------------------------------------------
+ */
+
+$default_page_text_024 = "Degustační listy budou k dispozici k prohlížení nebo stažení počínaje";
+$default_page_text_025 = "Degustační listy jsou nyní k dispozici k prohlížení nebo stažení.";
+$label_scoresheets_available = "Degustační listy k dispozici ke stažení";
+$label_mead_info_missing = "Chybí %s - při odeslání nebylo povinné";
+$label_mead_info_not_recorded = "Nezaznamenáno přihlašovatelem";
+
+/**
  * ----------------------------------------------------------------------------------
  * END TRANSLATIONS
  * ----------------------------------------------------------------------------------

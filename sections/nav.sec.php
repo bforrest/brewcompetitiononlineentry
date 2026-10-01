@@ -106,7 +106,10 @@ if ($logged_in)  {
 			$show_entries = TRUE;
 		}
 
-		else {
+		// Not suppressed for an admin (userLevel <= 1) - an admin also has no
+		// brewery profile, but needs to see this page exactly as an entrant
+		// would (e.g. to verify entry-limit configuration), not as a judge.
+		elseif ((!isset($_SESSION['userLevel'])) || ($_SESSION['userLevel'] > 1)) {
 			$show_entries = FALSE;
 		}
 
@@ -176,6 +179,7 @@ if (($logged_in) && ($admin_user) && ($go != "error_page")) { ?>
                     <li><a href="<?php echo $base_url; ?>index.php?section=admin&amp;go=sponsors">Manage Sponsors</a></li>
                     <li><a href="<?php echo $base_url; ?>index.php?section=admin&amp;go=styles">Manage Styles Accepted</a></li>
                     <li><a href="<?php echo $base_url; ?>index.php?section=admin&amp;go=style_types">Manage Style Types</a></li>
+                    <li><a href="<?php echo $base_url; ?>index.php?section=admin&amp;go=styles_import">Import or Export a Style Set</a></li>
 					<li><a href="<?php echo $base_url; ?>index.php?section=admin&amp;go=upload">Upload Logo Images</a></li>
                 </ul>
             </li>

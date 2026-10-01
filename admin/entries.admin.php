@@ -98,6 +98,7 @@ if ($totalRows_log > 0) {
 		$entry_paid_display = "";
 		$entry_received_display = "";
 		$entry_box_num_display = "";
+		$entry_dropoff_display = "";
 		$entry_actions = "";
 		$entry_unconfirmed_row = "";
 		$entry_allergen_row = "";
@@ -118,6 +119,11 @@ if ($totalRows_log > 0) {
 
 		$entry_confirmed = FALSE;
 		if ($row_log['brewConfirmed'] == 1) $entry_confirmed = TRUE;
+
+		// Data-completeness flag, not a judging-eligibility one - e.g. an entry submitted
+		// before BJCP2026 made mead Sweetness required. Shared with pub/brewer_entries.pub.php,
+		// eval/scoresheet.eval.php, and pub/eval_scoresheet.pub.php via one helper function.
+		$missing_mead_info = entry_missing_required_mead_info($row_log, $_SESSION['prefsStyleSet']);
 
 		$entry_allergens = FALSE;
 		if ((isset($row_log['brewPossAllergens'])) && (!empty($row_log['brewPossAllergens']))) $entry_allergens = TRUE;
@@ -181,7 +187,7 @@ if ($totalRows_log > 0) {
 		// Required Info
 		$brewInfo = "";
 		if (!empty($row_log['brewInfo'])) {
-			if ((($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2025")) && ($row_log['brewCategorySort'] == "02") && ($row_log['brewSubCategory'] == "A")) $brewInfo .= "<li><strong>".$label_regional_variation.":</strong> ".str_replace("^", " | ", $row_log['brewInfo'])."</li>";
+			if ((($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2025") || ($_SESSION['prefsStyleSet'] == "BJCP2026")) && ($row_log['brewCategorySort'] == "02") && ($row_log['brewSubCategory'] == "A")) $brewInfo .= "<li><strong>".$label_regional_variation.":</strong> ".str_replace("^", " | ", $row_log['brewInfo'])."</li>";
 			else $brewInfo .= "<li><strong>".$label_required_info.":</strong> ".str_replace("^", " | ", $row_log['brewInfo'])."</li>";
 		}
 
@@ -194,8 +200,8 @@ if ($totalRows_log > 0) {
 
 		// Required Info for Cider / Mead (Strength, Carb, Sweetness)
 		$cider_mead_req_info = "";
-		if (!empty($row_log['brewMead1'])) $cider_mead_req_info .= "<li><strong>".$label_carbonation.":</strong> ".h($row_log['brewMead1'])."</li>";
-		if (!empty($row_log['brewMead2'])) $cider_mead_req_info .= "<li><strong>".$label_sweetness.":</strong> ".h($row_log['brewMead2'])."</li>";
+		if (!empty($row_log['brewMead1'])) $cider_mead_req_info .= "<li><strong>".$label_carbonation.":</strong> ".h(translate_mead_req_value($row_log['brewMead1']))."</li>";
+		if (!empty($row_log['brewMead2'])) $cider_mead_req_info .= "<li><strong>".$label_sweetness.":</strong> ".h(translate_mead_req_value($row_log['brewMead2']))."</li>";
 
 		if (!empty($row_log['brewSweetnessLevel'])) {
 
@@ -214,7 +220,7 @@ if ($totalRows_log > 0) {
 
 		}
 
-		if (!empty($row_log['brewMead3'])) $cider_mead_req_info .= "<li><strong>".$label_strength.":</strong> ".h($row_log['brewMead3'])."</li>";
+		if (!empty($row_log['brewMead3'])) $cider_mead_req_info .= "<li><strong>".$label_strength.":</strong> ".h(translate_mead_strength_value($row_log['brewMead3']))."</li>";
 
 		if (!empty($cider_mead_req_info)) $required_info .= $cider_mead_req_info;
 
@@ -250,9 +256,9 @@ if ($totalRows_log > 0) {
 
 		if ((!empty($row_log['brewPouring'])) && ((!empty($row_log['brewStyleType'])) && ($row_log['brewStyleType'] == 1))) {
 			$pouring_arr = json_decode($row_log['brewPouring'],true);
-			$required_info .= "<li><strong>".$label_pouring.":</strong> ".h($pouring_arr['pouring'])."</li>";
+			$required_info .= "<li><strong>".$label_pouring.":</strong> ".h(translate_pouring_value($pouring_arr['pouring']))."</li>";
 			if ((isset($pouring_arr['pouring_notes'])) && (!empty($pouring_arr['pouring_notes']))) $required_info .= "<li><strong>".$label_pouring_notes.":</strong> ".$pouring_arr['pouring_notes']."</li>";
-			if ((isset($pouring_arr['pouring_rouse'])) && (!empty($pouring_arr['pouring_rouse']))) $required_info .= "<li><strong>".$label_rouse_yeast.":</strong> ".h($pouring_arr['pouring_rouse'])."</li>";
+			if ((isset($pouring_arr['pouring_rouse'])) && (!empty($pouring_arr['pouring_rouse']))) $required_info .= "<li><strong>".$label_rouse_yeast.":</strong> ".h(translate_pouring_rouse_value($pouring_arr['pouring_rouse']))."</li>";
 		}
 
 		// Allergens
@@ -300,7 +306,12 @@ if ($totalRows_log > 0) {
 
 			else $entry_style_display .= "<span class=\"text-danger\"><strong>Style NOT Specified</strong></span>";
 			if ((!empty($row_log['brewCategorySort'])) && ($filter == "default") && ($bid == "default") && ($dbTable == "default")) $entry_style_display .= "</a>";
-		
+
+		}
+
+		if (!empty($missing_mead_info)) {
+			$missing_mead_labels = mead_missing_label_list($missing_mead_info);
+			$entry_style_display .= " <span class=\"label label-danger\" data-toggle=\"tooltip\" data-placement=\"top\" title=\"Missing required ".h($missing_mead_labels)." - most likely submitted before this style required it.\">Missing ".h($missing_mead_labels)."</span>";
 		}
 
 		// Brewer Info
@@ -328,7 +339,7 @@ if ($totalRows_log > 0) {
 
 			if ($co_brewer) {
 				$entry_brewer_display .= "<br>Co-Brewer: ";
-				$entry_brewer_display .= $row_log['brewCoBrewer'];
+				$entry_brewer_display .= "<span style=\"white-space: normal; word-break: break-word;\">".$row_log['brewCoBrewer']."</span>";
 			}
 
 			$entry_brewer_display .= "</small>";
@@ -415,7 +426,10 @@ if ($totalRows_log > 0) {
 		if (($action != "print") && ($dbTable == "default")) {
 			$entry_box_num_display .= "<div class=\"form-group\" id=\"box-num-ajax-".$saving_random_num."-brewBoxNum-form-group\">";
 			$entry_box_num_display .= "<span class=\"hidden visible-print-inline\">".$row_log['brewBoxNum']."</span>";
-			$entry_box_num_display .= "<span class=\"visible-sm-inline visible-xs-inline\">Box: </span><input class=\"form-control input-sm hidden-print\" id=\"box-num-ajax-".$saving_random_num."\" name=\"brewBoxNum".$row_log['id']."\" type=\"text\" size=\"5\" maxlength=\"10\" value=\"".$row_log['brewBoxNum']."\" onblur=\"save_column('".$ajax_url."','brewBoxNum','brewing','".$row_log['id']."','".$row_log['brewBrewerID']."','default','default','default','box-num-ajax-".$saving_random_num."','html')\"/>";
+			// brewBoxNum is sterilize()+purify()'d at save time - safe in the plain-text
+			// <span> above with no further escaping, but needs h() here since it's landing
+			// inside a value="..." attribute, which purify() alone doesn't guarantee is safe.
+			$entry_box_num_display .= "<span class=\"visible-sm-inline visible-xs-inline\">Box: </span><input class=\"form-control input-sm hidden-print\" id=\"box-num-ajax-".$saving_random_num."\" name=\"brewBoxNum".$row_log['id']."\" type=\"text\" size=\"5\" maxlength=\"10\" value=\"".h($row_log['brewBoxNum'])."\" onblur=\"save_column('".$ajax_url."','brewBoxNum','brewing','".$row_log['id']."','".$row_log['brewBrewerID']."','default','default','default','box-num-ajax-".$saving_random_num."','html')\"/>";
 			$entry_box_num_display .= "</div>";
 			$entry_box_num_display .= "<div>";
 			$entry_box_num_display .= "<span id=\"box-num-ajax-".$saving_random_num."-brewBoxNum-status\"></span>";
@@ -423,6 +437,11 @@ if ($totalRows_log > 0) {
 			$entry_box_num_display .= "</div>";
 		}
 		else $entry_box_num_display = $row_log['brewBoxNum'];
+
+		// Drop-off location - see issue #907. brewerDropOff is nullable and 0 is a real,
+		// meaningful value ("shipping"), so this can't use empty()/isset() alone - only
+		// call dropoff_location() when a value was actually recorded.
+		if (($row_log['brewerDropOff'] !== null) && ($row_log['brewerDropOff'] !== "")) $entry_dropoff_display = dropoff_location($row_log['brewerDropOff']);
 
 		// Notes to Staff
 		if (($action != "print") && ($dbTable == "default")) {
@@ -463,7 +482,7 @@ if ($totalRows_log > 0) {
 			$entry_actions .= "<span class=\"fa fa-lg fa-pencil\"></span>";
 			$entry_actions .= "</a> ";
 			$entry_actions .= "<a class=\"hide-loader\" href=\"".$base_url."includes/process.inc.php?section=".$section."&amp;go=".$go."&amp;filter=".$filter."&amp;dbTable=".$brewing_db_table."&amp;action=delete&amp;id=".$row_log['id']."\" data-toggle=\"tooltip\" title=\"Delete &ldquo;".$entry_name."&rdquo;\" data-confirm=\"Are you sure you want to delete the entry called &ldquo;".$entry_name."?&rdquo; This cannot be undone.\"><span class=\"fa fa-lg fa-trash-o\"></a> ";
-			$entry_actions .= "<a data-fancybox data-type=\"iframe\" class=\"modal-window-link hide-loader\" href=\"".$base_url."includes/output.inc.php?section=entry-form-multi&amp;action=print&amp;id=".$row_log['id']."&amp;bid=".$row_log['uid']."&amp;filter=admin\" data-toggle=\"tooltip\" data-placement=\"top\" title=\"Print the Entry Forms for &ldquo;".$entry_name."&rdquo;\"><span class=\"fa fa-lg fa-print <?php echo $hidden_sm; ?>\"></a> ";
+			$entry_actions .= "<a data-fancybox data-type=\"iframe\" class=\"modal-window-link hide-loader\" href=\"".$base_url."includes/output.inc.php?section=entry-form-multi&amp;action=print&amp;id=".$row_log['id']."&amp;bid=".$row_log['uid']."&amp;filter=admin\" data-toggle=\"tooltip\" data-placement=\"top\" title=\"Print the Entry Forms for &ldquo;".$entry_name."&rdquo;\"><span class=\"fa fa-lg fa-print ".$hidden_sm."\"></a> ";
 			$entry_actions .= "<a class=\"hide-loader\" href=\"mailto:".h($row_log['brewerEmail'])."\" data-toggle=\"tooltip\" data-placement=\"top\" title=\"Email the entry&rsquo;s owner, ".h($row_log['brewerFirstName'])." ".h($row_log['brewerLastName']).", at ".h($row_log['brewerEmail'])."\"><span class=\"fa fa-lg fa-envelope\"></span></a> ";
 		}
 
@@ -542,10 +561,10 @@ if ($totalRows_log > 0) {
 		$tbody_rows .= sprintf("%06s",$row_log['id']);
 		$tbody_rows .= "</td>";
 		$tbody_rows .= "\n\t<td nowrap=\"nowrap\">".$entry_judging_num_display."</td>";
-		$tbody_rows .= "\n\t<td class=\"<?php echo $hidden_md; ?>\">";
+		$tbody_rows .= "\n\t<td class=\"".$hidden_md."\">";
 		$tbody_rows .= $entry_name;
 		if (!empty($required_info)) {
-			$tbody_rows .= " <a class=\"hide-loader hidden-print\" role=\"button\" data-toggle=\"collapse\" data-target=\"#collapseEntryInfo".$row_log['id']."\" aria-expanded=\"false\" aria-controls=\"collapseEntryInfo".$row_log['id']."\"><span class=\"fa fa-lg fa-info-circle <?php echo $hidden_sm; ?>\"></span></a> ";
+			$tbody_rows .= " <a class=\"hide-loader hidden-print\" role=\"button\" data-toggle=\"collapse\" data-target=\"#collapseEntryInfo".$row_log['id']."\" aria-expanded=\"false\" aria-controls=\"collapseEntryInfo".$row_log['id']."\"><span class=\"fa fa-lg fa-info-circle ".$hidden_sm."\"></span></a> ";
 			$tbody_rows .= "<div class=\"visible-xs visible-sm hidden-print\" style=\"margin: 5px 0 5px 0\"><button class=\"btn btn-primary btn-block btn-xs\" type=\"button\" data-toggle=\"collapse\" data-target=\"#collapseEntryInfo".$row_log['id']."\" aria-expanded=\"false\" aria-controls=\"collapseEntryInfo".$row_log['id']."\">Entry Info <span class=\"fa fa-lg fa-info-circle\"></span></button></div>";
 			
 			$tbody_rows .= "<div class=\"collapse small alert alert-info\" style=\"margin-top:5px;margin-bottom:5px;\" id=\"collapseEntryInfo".$row_log['id']."\">";
@@ -570,7 +589,7 @@ if ($totalRows_log > 0) {
 		$tbody_rows .= $entry_style_display;
 	    $tbody_rows .= $entry_unconfirmed_display;
 		$tbody_rows .= $entry_allergens_display;
-
+		
 	    $tbody_rows .= "<section class=\"visible-sm visible-xs hidden-print\">";
 		$tbody_rows .= "<div style=\"margin: 5px 0 5px 0\"><button class=\"btn btn-default btn-block btn-xs\" type=\"button\" data-toggle=\"collapse\" data-target=\"#collapseAdminMenu".$row_log['id']."\" aria-expanded=\"false\" aria-controls=\"collapseAdminMenu".$row_log['id']."\">Admin Info <span class=\"fa fa-lg fa-info-circle\"></span></button></div>";
 
@@ -580,22 +599,24 @@ if ($totalRows_log > 0) {
 	    $tbody_rows .= "<p><strong>".$label_received.":</strong> ".yes_no($row_log['brewReceived'],$base_url)."</p>";
 	    if (!empty($row_log['brewAdminNotes'])) $tbody_rows .= "<p><strong>".$label_admin." ".$label_notes.":</strong> ".$row_log['brewAdminNotes']."</p>";
 	    if (!empty($row_log['brewStaffNotes'])) $tbody_rows .= "<p><strong>".$label_staff." ".$label_notes.":</strong> ".$row_log['brewStaffNotes']."</p>";
+	    if (!empty($entry_dropoff_display)) $tbody_rows .= "<p><strong>".$label_drop_off.":</strong> ".$entry_dropoff_display."</p>";
 	    if (!empty($row_log['brewBoxNum'])) $tbody_rows .= "<p><strong>".$label_box."/".$label_location.":</strong> ".$row_log['brewBoxNum']."</p>";
 	    $tbody_rows .= "<p><strong>Actions:</strong> ".$entry_actions."</p>";
 	    $tbody_rows .= "</div>";
 	    $tbody_rows .= "</section>";
 
-		if ($row_log['brewerProAm'] >= 1) $tbody_rows .= "<p><span class=\"label label-info hidden-print <?php echo $hidden_sm; ?>\">NOT PRO-AM ELIGIBLE</span><span class=\"label label-info visible-xs visible-sm\">NO PRO-AM</span></p>";
+		if ($row_log['brewerProAm'] >= 1) $tbody_rows .= "<p><span class=\"label label-info hidden-print ".$hidden_sm."\">NOT PRO-AM ELIGIBLE</span><span class=\"label label-info visible-xs visible-sm\">NO PRO-AM</span></p>";
 		$tbody_rows .= "</td>";
-		$tbody_rows .= "\n\t<td nowrap=\"nowrap\" class=\"<?php echo $hidden_sm; ?>\">".$entry_brewer_display."</td>";
-		if ($pro_edition == 0) $tbody_rows .= "<td class=\"<?php echo $hidden_md; ?> hidden-print\">".h($row_log['brewerClubs'])."</td>";
-		$tbody_rows .= "\n\t<td class=\"<?php echo $hidden_md; ?> hidden-print\">".$entry_updated_display."</td>";
-		$tbody_rows .= "\n\t<td class=\"<?php echo $hidden_sm; ?>\">".$entry_paid_display."</td>";
-		$tbody_rows .= "\n\t<td class=\"<?php echo $hidden_sm; ?>\">".$entry_received_display."</td>";
-		$tbody_rows .= "\n\t<td class=\"<?php echo $hidden_md; ?> \">".$entry_admin_notes_display."</td>";
-		$tbody_rows .= "\n\t<td class=\"<?php echo $hidden_md; ?> \">".$entry_staff_notes_display."</td>";
-		$tbody_rows .= "\n\t<td class=\"<?php echo $hidden_sm; ?>\">".$entry_box_num_display."</td>";
-		if ($action != "print") $tbody_rows .= "<td class=\"<?php echo $hidden_sm; ?>\" nowrap>".$entry_actions."</td>";
+		$tbody_rows .= "\n\t<td nowrap=\"nowrap\" class=\"".$hidden_sm."\">".$entry_brewer_display."</td>";
+		if ($pro_edition == 0) $tbody_rows .= "<td class=\"".$hidden_md." hidden-print\">".h($row_log['brewerClubs'])."</td>";
+		$tbody_rows .= "\n\t<td class=\"".$hidden_md." hidden-print\">".$entry_updated_display."</td>";
+		$tbody_rows .= "\n\t<td class=\"".$hidden_sm."\">".$entry_dropoff_display."</td>";
+		$tbody_rows .= "\n\t<td class=\"".$hidden_sm."\">".$entry_paid_display."</td>";
+		$tbody_rows .= "\n\t<td class=\"".$hidden_sm."\">".$entry_received_display."</td>";
+		$tbody_rows .= "\n\t<td class=\"".$hidden_md." \">".$entry_admin_notes_display."</td>";
+		$tbody_rows .= "\n\t<td class=\"".$hidden_md." \">".$entry_staff_notes_display."</td>";
+		$tbody_rows .= "\n\t<td class=\"".$hidden_sm."\">".$entry_box_num_display."</td>";
+		if ($action != "print") $tbody_rows .= "<td class=\"".$hidden_sm."\" nowrap>".$entry_actions."</td>";
 		$tbody_rows .= "\n</tr>";
 
 		// Build all brewer email array
@@ -684,6 +705,7 @@ if ($action != "print") { ?>
 				null,
 				<?php if ($pro_edition == 0) { ?>null,<?php } ?>
 				null,
+				null,
 				{ "orderDataType": "dom-checkbox" },
 				{ "orderDataType": "dom-checkbox" },
 				null,
@@ -711,6 +733,7 @@ if ($action != "print") { ?>
 			<?php if ($psort == "brewer_name") { ?>"aaSorting": [[4,'asc']],<?php } ?>
 
 			"aoColumns": [
+				null,
 				null,
 				null,
 				null,
@@ -1009,6 +1032,7 @@ $(document).ready(function () {
         <th class="<?php echo $hidden_md; ?> hidden-print">Club</th>
         <?php } ?>
         <th class="<?php echo $hidden_md; ?> hidden-print">Updated</th>
+		<th class="<?php echo $hidden_sm; ?>"><?php echo $label_drop_off; ?></th>
         <th class="<?php echo $hidden_sm; ?>" width="3%">P<span class="hidden-md">aid?</span></th>
         <th class="<?php echo $hidden_sm; ?>" width="3%">R<span class="hidden-md">ec'd?</span></th>
         <th class="<?php echo $hidden_md; ?> ">Admin Notes <?php if (($action != "print") &&  ($dbTable == "default")) { ?><a href="#" tabindex="0" role="button" data-toggle="popover" data-trigger="hover" data-placement="auto top" data-container="body" data-html="true" title="Admin Notes" data-content="Catch-all for any information Admins may need for individual entries such as &quot;received damaged,&quot; &quot;maybe mis-categorized,&quot; etc. 255 character limit."><span class="<?php echo $hidden_md; ?> hidden-print fa fa-question-circle"></span></a><?php } ?></th>

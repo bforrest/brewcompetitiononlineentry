@@ -2268,6 +2268,18 @@ $contact_text_014 = "L'affichage des coordonnées des responsables de la compét
 $brewer_text_058 = "Les administrateurs sont en train d'organiser les affectations de tables. Veuillez contacter un responsable du concours pour modifier votre disponibilité pour la session ou vous retirer de votre rôle de juge/assistant.";
 
 /**
+ * ------------------------------------------
+ * Version 3.2.0 Additions
+ * ------------------------------------------
+ */
+
+$default_page_text_024 = "Les fiches de dégustation seront disponibles pour consultation ou téléchargement à partir du";
+$default_page_text_025 = "Les fiches de dégustation sont désormais disponibles pour consultation ou téléchargement.";
+$label_scoresheets_available = "Fiches de notation disponibles au téléchargement";
+$label_mead_info_missing = "%s manquant - non requis lors de la soumission";
+$label_mead_info_not_recorded = "Non renseigné par le participant";
+
+/**
  * ----------------------------------------------------------------------------------
  * END TRANSLATIONS
  * ----------------------------------------------------------------------------------

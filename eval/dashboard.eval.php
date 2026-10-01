@@ -16,6 +16,8 @@
  */
 
 include(LIB.'output.lib.php');
+require_once (LIB.'practice_session.lib.php');
+$practice_table_id = practice_session_exists($db_conn, $prefix);
 
 $judging_open = FALSE;
 $queued = FALSE;
@@ -463,8 +465,11 @@ if ($totalRows_table_assignments > 0) {
 			$table_assignment_data = "";
 			$table_assignment_post = "";
 
-			if (((isset($_SESSION['jPrefsTablePlanning'])) && ($_SESSION['jPrefsTablePlanning'] == 0)) || (!isset($_SESSION['jPrefsTablePlanning']))) {
-				
+			// The practice table is a deliberate exception to the Planning-Mode gate below -
+			// it only ever exists during Table Planning Mode, so hiding its entries/evaluations
+			// until Competition Mode (which deletes it) would mean they're never visible at all.
+			if (((isset($_SESSION['jPrefsTablePlanning'])) && ($_SESSION['jPrefsTablePlanning'] == 0)) || (!isset($_SESSION['jPrefsTablePlanning'])) || (($practice_table_id) && ($tbl_id == $practice_table_id))) {
+
 				$table_assignment_pre .= "<table id=\"table-".$random."\" class=\"table table-condensed table-striped table-bordered table-responsive\">";
 				$table_assignment_pre .= "<thead>";
 				$table_assignment_pre .= "<tr>";
@@ -647,19 +652,29 @@ if ($totalRows_table_assignments > 0) {
 								
 								if (!empty($row_entries['brewInfo'])) {
 									$additional_info++;
-									if ((($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2025")) && ($row_entries['brewCategorySort'] == "02") && ($row_entries['brewSubCategory'] == "A")) $info_display .= "<strong>".$label_regional_variation; 
+									if ((($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2025") || ($_SESSION['prefsStyleSet'] == "BJCP2026")) && ($row_entries['brewCategorySort'] == "02") && ($row_entries['brewSubCategory'] == "A")) $info_display .= "<strong>".$label_regional_variation;
 									else $info_display .= "<strong>".$label_required_info;
 									$info_display .= ":</strong> ".$row_entries['brewInfo'];
 								}
 
+								$missing_mead_info_dash = entry_missing_required_mead_info($row_entries, $_SESSION['prefsStyleSet']);
+
 								if (!empty($row_entries['brewMead1'])) {
 									$additional_info++;
-									$carb_display .= "<strong>".$label_carbonation.":</strong> ".$row_entries['brewMead1'];
+									$carb_display .= "<strong>".$label_carbonation.":</strong> ".h(translate_mead_req_value($row_entries['brewMead1']));
+								}
+								elseif (in_array("carb",$missing_mead_info_dash)) {
+									$additional_info++;
+									$carb_display .= "<strong>".$label_carbonation.":</strong> <em>".$label_mead_info_not_recorded."</em>";
 								}
 
 								if (!empty($row_entries['brewMead2'])) {
 									$additional_info++;
-									$sweetness_display .= "<strong>".$label_sweetness.":</strong> ".$row_entries['brewMead2'];
+									$sweetness_display .= "<strong>".$label_sweetness.":</strong> ".h(translate_mead_req_value($row_entries['brewMead2']));
+								}
+								elseif (in_array("sweet",$missing_mead_info_dash)) {
+									$additional_info++;
+									$sweetness_display .= "<strong>".$label_sweetness.":</strong> <em>".$label_mead_info_not_recorded."</em>";
 								}
 
 								if (!empty($row_entries['brewSweetnessLevel'])) {
@@ -682,7 +697,11 @@ if ($totalRows_table_assignments > 0) {
 
 								if (!empty($row_entries['brewMead3'])) {
 									$additional_info++;
-									$strength_display .= "<strong>".$label_strength.":</strong> ".$row_entries['brewMead3'];
+									$strength_display .= "<strong>".$label_strength.":</strong> ".h(translate_mead_strength_value($row_entries['brewMead3']));
+								}
+								elseif (in_array("strength",$missing_mead_info_dash)) {
+									$additional_info++;
+									$strength_display .= "<strong>".$label_strength.":</strong> <em>".$label_mead_info_not_recorded."</em>";
 								}
 
 								if (!empty($row_entries['brewPossAllergens'])) {
@@ -697,9 +716,9 @@ if ($totalRows_table_assignments > 0) {
 
 								if (!empty($row_entries['brewPouring'])) {
 									$pouring_arr = json_decode($row_entries['brewPouring'],true);
-									$pouring_display .= "<li><strong>".$label_pouring.":</strong> ".$pouring_arr['pouring']."</li>";
+									$pouring_display .= "<li><strong>".$label_pouring.":</strong> ".h(translate_pouring_value($pouring_arr['pouring']))."</li>";
 									if ((isset($pouring_arr['pouring_notes'])) && (!empty($pouring_arr['pouring_notes']))) $pouring_display .= "<li><strong>".$label_pouring_notes.":</strong> ".$pouring_arr['pouring_notes']."</li>";
-									if ((isset($pouring_arr['pouring_rouse'])) && (!empty($pouring_arr['pouring_rouse']))) $pouring_display .= "<li><strong>".$label_rouse_yeast.":</strong> ".$pouring_arr['pouring_rouse']."</li>";
+									if ((isset($pouring_arr['pouring_rouse'])) && (!empty($pouring_arr['pouring_rouse']))) $pouring_display .= "<li><strong>".$label_rouse_yeast.":</strong> ".h(translate_pouring_rouse_value($pouring_arr['pouring_rouse']))."</li>";
 									unset($pouring_arr);
 								}
 
@@ -813,9 +832,13 @@ if ($totalRows_table_assignments > 0) {
 				
 				foreach ($table_places as $key => $value) {
 					foreach ($value as $k => $v) {
-						$places_table_flag_arr[] = $v;
-						$table_places_display_ul .= "<li id=\"place-display-".$k."\">".$k." - <span id=\"place-display-num-".$k."\">".display_place($v,1)."</span></li>";	
-					}	
+						// Honorable Mention (value "5") is excluded from the duplicate-place
+						// check below - see issue #1537. Unlike numbered places 1-4, more than
+						// one HM per table is expected, not a scoring mistake. Still shown in
+						// the places-awarded list either way.
+						if ($v != "5") $places_table_flag_arr[] = $v;
+						$table_places_display_ul .= "<li id=\"place-display-".$k."\">".$k." - <span id=\"place-display-num-".$k."\">".display_place($v,1)."</span></li>";
+					}
 				}
 
 				if (($_SESSION['prefsWinnerMethod'] == "0") && (count(array_unique($places_table_flag_arr)) < count($places_table_flag_arr))) {
@@ -881,7 +904,7 @@ if ($totalRows_table_assignments > 0) {
 
 				if ($table_entries_count == $table_scored_entries_count) {
 					$table_assignment_stats .= "<div class=\"alert alert-success\">";
-					if ((isset($_SESSION['jPrefsTablePlanning'])) && ($_SESSION['jPrefsTablePlanning'] == 1)) {
+					if ((isset($_SESSION['jPrefsTablePlanning'])) && ($_SESSION['jPrefsTablePlanning'] == 1) && (!(($practice_table_id) && ($tbl_id == $practice_table_id)))) {
 						$table_assignment_stats .= "<i class=\"fa fa-lg fa-info-circle\"></i> <strong>Tables Planning Mode enabled.</strong> Tables Competition Mode must be enabled view or entry evaluations at this table.";
 					}
 					else $table_assignment_stats .= sprintf("<i class=\"fa fa-lg fa-check-circle\"></i> <strong>%s</strong>",$evaluation_info_037);
@@ -1402,6 +1425,65 @@ if (!empty($on_the_fly_display)) $left_side .= $on_the_fly_display;
     </div>
   </div>
 </div>
+
+<?php if (($admin) && ($_SESSION['userLevel'] == 0)) {
+
+	// Picked once per page, not per row - prefsDisplaySpecial is a competition-wide
+	// setting, not a per-evaluation value. GitHub #1756, abridged version's modal.
+	$label_reassign_number = ($_SESSION['prefsDisplaySpecial'] == "J") ? $label_judging_number : $label_entry_number;
+	$reassign_context_template = "Reassigning {judge}&rsquo;s evaluation of ".$label_reassign_number." #{number}.";
+
+?>
+<!-- Modal: Reassign Evaluation to a Different Entry -->
+<div class="modal fade" id="eval-reassign-modal" tabindex="-1" role="dialog" aria-labelledby="eval-reassign-modal-label" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="get" action="<?php echo $base_url; ?>includes/process.inc.php">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title" id="eval-reassign-modal-label">Reassign Evaluation</h4>
+        </div>
+        <div class="modal-body">
+          <p id="eval-reassign-context" data-template="<?php echo $reassign_context_template; ?>"></p>
+          <p class="text-muted small">This is only available before this entry's consensus score has been recorded/imported to the judging_scores table.</p>
+          <input type="hidden" name="section" value="evaluation">
+          <input type="hidden" name="go" value="default">
+          <input type="hidden" name="action" value="evaluation_reassign">
+          <input type="hidden" name="filter" value="<?php echo h($filter); ?>">
+          <input type="hidden" id="eval-reassign-id" name="id" value="">
+          <div class="form-group">
+            <label for="eval-reassign-target">Correct <?php echo $label_reassign_number; ?></label>
+            <input type="text" id="eval-reassign-target" name="target_entry_number" class="form-control" pattern=".{6,6}" maxlength="6" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal"><?php echo $label_cancel; ?></button>
+          <button type="submit" class="btn btn-success">Reassign</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+	$('#eval-reassign-modal').on('show.bs.modal', function (event) {
+		var trigger = $(event.relatedTarget);
+		$('#eval-reassign-id').val(trigger.data('eval-id'));
+		$('#eval-reassign-target').val('');
+		var context = $('#eval-reassign-context');
+		context.text(
+			context.data('template')
+				.replace('{judge}', trigger.data('judge-name'))
+				.replace('{number}', trigger.data('entry-number'))
+		);
+	});
+	$('#eval-reassign-modal').on('shown.bs.modal', function () {
+		$('#eval-reassign-target').focus();
+	});
+});
+</script>
+<?php } ?>
 
 <!-- Modal: Next Session Open -->
 <div class="modal fade" id="next-session-open-modal" tabindex="-1" role="dialog" aria-labelledby="next-session-open-modal-label">

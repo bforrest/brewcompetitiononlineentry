@@ -185,6 +185,13 @@ if ($action == "add") {
         else $chosen_style_set = "BJCP2021";
     }
 
+    elseif ($_SESSION['prefsStyleSet'] == "BJCP2026") {
+        $first_character = mb_substr($row_entry_info['brewCategorySort'], 0, 1);
+        if ($first_character == "M") $chosen_style_set = "BJCP2026";
+        elseif ($first_character == "C") $chosen_style_set = "BJCP2025";
+        else $chosen_style_set = "BJCP2021";
+    }
+
     else $chosen_style_set = $_SESSION['prefsStyleSet'];
 
     // A custom style is tagged with the literal active style set at creation time
@@ -421,24 +428,33 @@ if ($entry_found) {
     $entry_info_html .= "</div>";
   }
 
-  if (!empty($row_entry_info['brewMead1'])) {
+  // Missing = required by this entry's CURRENT style but never recorded by the entrant (e.g.
+  // an entry submitted before BJCP2026 made mead Sweetness required) - shown as an explicit
+  // "Not recorded by entrant" notice instead of silently omitting the row, so a judge can't
+  // mistake it for the entrant simply having left the row's own write-up incomplete.
+  $missing_mead_info = entry_missing_required_mead_info($row_entry_info, $_SESSION['prefsStyleSet']);
+
+  if ((!empty($row_entry_info['brewMead1'])) || (in_array("carb",$missing_mead_info))) {
     $entry_info_html .= "<div class=\"row bcoem-admin-element\">";
     $entry_info_html .= "<div class=\"col col-lg-3 col-md-4 col-sm-4 col-xs-12\"><strong>".$label_carbonation."</strong></div>";
-    $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\">".$row_entry_info['brewMead1']."</div>";
+    if (!empty($row_entry_info['brewMead1'])) $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\">".h(translate_mead_req_value($row_entry_info['brewMead1']))."</div>";
+    else $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\"><span class=\"text-danger\"><i class=\"fa fa-exclamation-triangle\"></i> ".$label_mead_info_not_recorded."</span></div>";
     $entry_info_html .= "</div>";
   }
 
-  if (!empty($row_entry_info['brewMead3'])) {
+  if ((!empty($row_entry_info['brewMead3'])) || (in_array("strength",$missing_mead_info))) {
     $entry_info_html .= "<div class=\"row bcoem-admin-element\">";
     $entry_info_html .= "<div class=\"col col-lg-3 col-md-4 col-sm-4 col-xs-12\"><strong>".$label_strength."</strong></div>";
-    $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\">".$row_entry_info['brewMead3']."</div>";
+    if (!empty($row_entry_info['brewMead3'])) $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\">".h(translate_mead_strength_value($row_entry_info['brewMead3']))."</div>";
+    else $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\"><span class=\"text-danger\"><i class=\"fa fa-exclamation-triangle\"></i> ".$label_mead_info_not_recorded."</span></div>";
     $entry_info_html .= "</div>";
   }
 
-  if (!empty($row_entry_info['brewMead2'])) {
+  if ((!empty($row_entry_info['brewMead2'])) || (in_array("sweet",$missing_mead_info))) {
     $entry_info_html .= "<div class=\"row bcoem-admin-element\">";
     $entry_info_html .= "<div class=\"col col-lg-3 col-md-4 col-sm-4 col-xs-12\"><strong>".$label_sweetness."</strong></div>";
-    $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\">".$row_entry_info['brewMead2']."</div>";
+    if (!empty($row_entry_info['brewMead2'])) $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\">".h(translate_mead_req_value($row_entry_info['brewMead2']))."</div>";
+    else $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\"><span class=\"text-danger\"><i class=\"fa fa-exclamation-triangle\"></i> ".$label_mead_info_not_recorded."</span></div>";
     $entry_info_html .= "</div>";
   }
 
@@ -503,7 +519,7 @@ if ($entry_found) {
 
     $entry_info_html .= "<div class=\"row bcoem-admin-element\">";
     $entry_info_html .= "<div class=\"col col-lg-3 col-md-4 col-sm-4 col-xs-12\"><strong>".$label_pouring."</strong></div>";
-    $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\">".$pouring_arr['pouring']."</div>";
+    $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\">".h(translate_pouring_value($pouring_arr['pouring']))."</div>";
     $entry_info_html .= "</div>";
 
     if ((isset($pouring_arr['pouring_notes'])) && (!empty($pouring_arr['pouring_notes'])))  {
@@ -515,7 +531,7 @@ if ($entry_found) {
 
     $entry_info_html .= "<div class=\"row bcoem-admin-element\">";
     $entry_info_html .= "<div class=\"col col-lg-3 col-md-4 col-sm-4 col-xs-12\"><strong>".$label_rouse_yeast."</strong></div>";
-    $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\">".$pouring_arr['pouring_rouse']."</div>";
+    $entry_info_html .= "<div class=\"col col-lg-9 col-md-8 col-sm-8 col-xs-12\">".h(translate_pouring_rouse_value($pouring_arr['pouring_rouse']))."</div>";
     $entry_info_html .= "</div>";
 
   }

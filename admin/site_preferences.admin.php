@@ -5,6 +5,8 @@ if ((!isset($_SESSION['loginUsername'])) || ((isset($_SESSION['loginUsername']))
     else { header("Location: ../../403.php"); exit(); }
 }
 
+require_once (LIB.'styles_import.lib.php');
+
 $style_set_dropdown = "";
 $style_set_description = "";
 $entry_limit_by_style = "";
@@ -72,6 +74,7 @@ if (($action == "default") || ($action == "entries")) {
         $cols = array("id","brewStyleGroup","brewStyleNum","brewStyle","brewStyleVersion","brewStyleOwn");
         $db_conn->returnType = 'array';
         if ($style_set['style_set_name'] == "BJCP2025") $db_conn->where ("((brewStyleVersion = ? AND brewStyleType= ?) OR (brewStyleVersion= ? AND brewStyleType != ?)) AND (brewStyleOwn != ?)", array("BJCP2025","2","BJCP2021","2","custom"));
+        elseif ($style_set['style_set_name'] == "BJCP2026") $db_conn->where ("((brewStyleVersion = ? AND brewStyleType= ?) OR (brewStyleVersion= ? AND brewStyleType= ?) OR (brewStyleVersion= ? AND brewStyleType NOT IN (?,?))) AND (brewStyleOwn != ?)", array("BJCP2026","3","BJCP2025","2","BJCP2021","2","3","custom"));
         elseif ($style_set['style_set_name'] == "AABC2025") $db_conn->where ("((brewStyleVersion = ? AND brewStyleType= ?) OR (brewStyleVersion= ? AND brewStyleType != ?)) AND (brewStyleOwn != ?)", array("AABC2025","2","AABC2022","2","custom"));
         else $db_conn->where ("brewStyleVersion = ? AND brewStyleOwn != ?", array($style_set['style_set_name'],"custom"));
         $row_styles_all = $db_conn->get($styles_db_table, null, $cols);
@@ -84,11 +87,23 @@ if (($action == "default") || ($action == "entries")) {
             foreach ($row_styles_all as $row_styles_all) {
 
                 if (isset($row_styles_all['id'])) {
+                    // Broader "Overall Category" grouping (optional - currently
+                    // only set by admin-uploaded style sets, e.g. GABF's
+                    // "Lager Beer Styles" spanning many numbered categories).
+                    // When present, it prepends the existing group/num + style
+                    // name display (e.g. "Hybrid/Mixed Lagers or Ales - 001A
+                    // American-Style Wheat Beer") rather than replacing it -
+                    // the existing no_numbering-driven style_set_categories
+                    // prepend used by BA/BA2026 is untouched for sets that
+                    // don't define an Overall Category.
+                    $overall_category = $style_set['style_set_overall_categories'][$row_styles_all['brewStyleGroup']] ?? '';
+
                     $all_exceptions_USCLEx .= "<div class=\"checkbox\"><label><input name=\"prefsUSCLEx[]\" type=\"checkbox\" class=\"chkbox\" value=\"".$row_styles_all['id']."\">";
+                    if ($overall_category !== '') $all_exceptions_USCLEx .= h($overall_category)." - ";
                     if (empty($style_set['style_set_no_numbering'])) $all_exceptions_USCLEx .= style_number_const($row_styles_all['brewStyleGroup'],$row_styles_all['brewStyleNum'],$style_set['style_set_display_separator'],$method);
-                    if (!empty($style_set['style_set_no_numbering'])) $all_exceptions_USCLEx .= h($style_set['style_set_categories'][$row_styles_all['brewStyleGroup']])." - ".h($row_styles_all['brewStyle'])."</label></div>\n";
+                    if (($overall_category === '') && (!empty($style_set['style_set_no_numbering']))) $all_exceptions_USCLEx .= h($style_set['style_set_categories'][$row_styles_all['brewStyleGroup']])." - ".h($row_styles_all['brewStyle'])."</label></div>\n";
                     else $all_exceptions_USCLEx .= " ".h($row_styles_all['brewStyle'])."</label></div>\n";
-                }   
+                }
                 
             } 
         
@@ -112,14 +127,14 @@ if (($action == "default") || ($action == "entries")) {
             $current_entry_limits_by_style .= "<label for=\"styleLimitsEdit\" class=\"col-lg-2 col-md-3 col-sm-4 col-xs-12 control-label\">Entry Limits per ".$style_set['style_set_name']." Style</label>\n";
             $current_entry_limits_by_style .= "<div class=\"col-lg-9 col-md-9 col-sm-8 col-xs-12\">\n";
 
-            foreach ($style_set['style_set_categories'] as $key => $value) {
+            foreach (style_group_limit_rollup($style_set) as $key => $value) {
 
                 $limit_value = "";
                 if ((isset($style_limits[$key])) && (!empty($style_limits[$key]))) $limit_value = $style_limits[$key];
 
                 $current_entry_limits_by_style .= "
                     <div class=\"form-group small\">
-                        <div for=\"".$style_set['style_set_name']."-".$key."\" class=\"col-sm-3 col-md-2\">".$key." - ".$value."</div>
+                        <div for=\"".$style_set['style_set_name']."-".$key."\" class=\"col-sm-3 col-md-2\">".$value."</div>
                         <div class=\"col-sm-9 col-md-5\">
                         <input type=\"number\" min=\"0\" pattern=\" 0+\.[0-9]*[1-9][0-9]*$\" onkeypress=\"return event.charCode >= 48 && event.charCode <= 57\" oninput=\"validity.valid||(value='');\" name=\"styleEntryLimitCurrent-".$style_set['style_set_name']."-".$key."\" class=\"form-control input-sm current-style-limit\" id=\"".$style_set['style_set_name']."-".$key."\" value=\"".$limit_value."\" placeholder=\"\">
                         </div>
@@ -137,11 +152,11 @@ if (($action == "default") || ($action == "entries")) {
         $entry_limit_by_style .= "<label for=\"styleLimitsEdit\" class=\"col-lg-2 col-md-3 col-sm-4 col-xs-12 control-label\">Entry Limits per ".$style_set['style_set_name']." Style</label>\n";
         $entry_limit_by_style .= "<div class=\"col-lg-9 col-md-9 col-sm-8 col-xs-12\">\n";
 
-        foreach ($style_set['style_set_categories'] as $key => $value) {
+        foreach (style_group_limit_rollup($style_set) as $key => $value) {
 
             $entry_limit_by_style .= "
                 <div class=\"form-group small\">
-                    <div for=\"".$style_set['style_set_name']."-".$key."\" class=\"col-sm-3 col-md-2\">".$key." - ".$value."</div>
+                    <div for=\"".$style_set['style_set_name']."-".$key."\" class=\"col-sm-3 col-md-2\">".$value."</div>
                     <div class=\"col-sm-9 col-md-5\">
                     <input type=\"number\" min=\"0\" pattern=\" 0+\.[0-9]*[1-9][0-9]*$\" onkeypress=\"return event.charCode >= 48 && event.charCode <= 57\" oninput=\"validity.valid||(value='');\" name=\"styleEntryLimit-".$style_set['style_set_name']."-".$key."\" class=\"form-control input-sm current-style-limit\" id=\"".$style_set['style_set_name']."-".$key."\" placeholder=\"\">
                     </div>
@@ -224,6 +239,18 @@ if (($section == "admin") && ($go == "preferences")) {
         $styles_selected = array();
         $styles_selected = json_decode($_SESSION['prefsSelectedStyles'],true);
 
+        // Broader "Overall Category" grouping (optional - currently only set
+        // by admin-uploaded style sets, e.g. GABF's "Lager Beer Styles"
+        // spanning many numbered categories). Active set only, since this
+        // block (unlike $all_exceptions below) isn't per-style-set.
+        $active_overall_categories = array();
+        foreach ($style_sets as $style_set_data) {
+            if ((!empty($style_set_data)) && ($style_set_data['style_set_name'] === $_SESSION['prefsStyleSet'])) {
+                if (!empty($style_set_data['style_set_overall_categories'])) $active_overall_categories = $style_set_data['style_set_overall_categories'];
+                break;
+            }
+        }
+
         if ($row_styles) {
 
             // Generate the default sub-style exception list (current settings)
@@ -243,7 +270,9 @@ if (($section == "admin") && ($go == "preferences")) {
 
                     if ($row_styles['id'] != "") {
                         $style_number = style_number_const($row_styles['brewStyleGroup'],$row_styles['brewStyleNum'],$_SESSION['style_set_display_separator'],0);
-                        $prefsUSCLEx .= "<div class=\"checkbox\"><label><input name=\"prefsUSCLEx[]\" type=\"checkbox\" value=\"".$row_styles['id']."\" ".$checked.">".$style_number." ".h($row_styles['brewStyle'])."</label></div>\n";
+                        $overall_category_prefix = "";
+                        if (isset($active_overall_categories[$row_styles['brewStyleGroup']])) $overall_category_prefix = h($active_overall_categories[$row_styles['brewStyleGroup']])." - ";
+                        $prefsUSCLEx .= "<div class=\"checkbox\"><label><input name=\"prefsUSCLEx[]\" type=\"checkbox\" value=\"".$row_styles['id']."\" ".$checked.">".$overall_category_prefix.$style_number." ".h($row_styles['brewStyle'])."</label></div>\n";
                     }
 
                 }
@@ -680,6 +709,7 @@ $(document).ready(function(){
         if (entries_present > 0) {
            if ((current_style_set == "BJCP2015") && ($("#prefsStyleSet").val() == "BJCP2021")) $('#style-set-change-bjcp-2021').modal('show');
            else if ((current_style_set == "BJCP2021") && ($("#prefsStyleSet").val() == "BJCP2025")) $('#style-set-change-bjcp-2025').modal('show');
+           else if (((current_style_set == "BJCP2021") || (current_style_set == "BJCP2025")) && ($("#prefsStyleSet").val() == "BJCP2026")) $('#style-set-change-bjcp-2026').modal('show');
            else {
                 if (current_style_set != $("#prefsStyleSet").val()) $('#style-set-change').modal('show');
            } 
@@ -827,7 +857,7 @@ $(document).ready(function(){
       </div>
       <div class="modal-body">
         <p>There are currently entries logged into the database from participants using <?php echo $_SESSION['style_set_short_name']; ?> styles.</p>
-        <p><strong class="text-primary">Changing the style set here may result in incorrect style classifications or "unrecognized style" messages for participant entries, necessitating editing of individual entries to align the entered style with a style defined in the your chosen style set.</strong></p>
+        <p class="text-primary">Changing the style set here may result in incorrect style classifications or "unrecognized style" messages for participant entries, <strong>necessitating manual editing of individual entries to assign an analogous style in your chosen style set.</strong></p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-danger" data-dismiss="modal">I Understand</button>
@@ -875,9 +905,29 @@ $(document).ready(function(){
     </div>
   </div>
 </div>
+<div class="modal fade" id="style-set-change-bjcp-2026" tabindex="-1" role="dialog" aria-labelledby="style-set-change-bjcp-2026-label">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="style-set-change-bjcp-2026-label">Caution! Entries Present</h4>
+      </div>
+      <div class="modal-body">
+        <p>Choosing this option incorporates the 2026 update of mead styles only. Beer and cider remain the same as defined in the 2021 and 2025 updates, respectively.</p>
+        <p>There are currently entries logged into the database from participants using previous BJCP mead styles.</p>
+        <p><strong>Mead entries</strong> that are currently in the database will be converted to the 2026 update.</p>
+        <p>Additionally, preferred and non-preferred mead styles will be updated to 2026 for all judges. All defined tables incorporating mead styles will be updated as well.</p>
+        <p><strong class="text-primary">This cannot be undone.</strong></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" data-dismiss="modal">I Understand</button>
+      </div>
+    </div>
+  </div>
+</div>
 <?php } ?>
 <style>h4 { margin-top: 25px; }</style>
-<form data-toggle="validator" role="form" class="form-horizontal" method="post" action="<?php echo $base_url; ?>includes/process.inc.php?section=<?php if ($section == "step3") echo "setup"; else echo $section; ?>&amp;action=edit&amp;go=<?php echo $action; ?>&amp;dbTable=<?php echo $preferences_db_table; ?>&amp;id=1" name="form1">
+<form data-toggle="validator" role="form" class="form-horizontal hide-loader-form-submit" method="post" action="<?php echo $base_url; ?>includes/process.inc.php?section=<?php if ($section == "step3") echo "setup"; else echo $section; ?>&amp;action=edit&amp;go=<?php echo $action; ?>&amp;dbTable=<?php echo $preferences_db_table; ?>&amp;id=1" name="form1" novalidate>
 <input type="hidden" name="user_session_token" value ="<?php if (isset($_SESSION['user_session_token'])) echo htmlspecialchars($_SESSION['user_session_token'], ENT_QUOTES, 'UTF-8'); ?>">
 <input type="hidden" name="prefsRecordLimit" value="9999" />
 
@@ -945,14 +995,6 @@ $(document).ready(function(){
     </div>
 </div>
 <div class="form-group">
-    <label for="prefsWinnerDelay" class="col-lg-2 col-md-3 col-sm-4 col-xs-12 control-label">Results Display Date/Time</label>
-    <div class="col-lg-6 col-md-4 col-sm-8 col-xs-12">
-            <input class="form-control date-time-picker-system" id="prefsWinnerDelay" name="prefsWinnerDelay" type="text" value="<?php if ($section == "step3") { $date = new DateTime(); $date->modify('+2 months'); echo $date->format('Y-m-d H'); } elseif (!empty($row_prefs['prefsWinnerDelay'])) echo getTimeZoneDateTime($row_prefs['prefsTimeZone'], $row_prefs['prefsWinnerDelay'], $row_prefs['prefsDateFormat'],  $row_prefs['prefsTimeFormat'], "system", "date-time-system"); ?>" placeholder="<?php if (strpos($section, "step") === FALSE) echo $current_date." ".$current_time; ?>" required>
-        <div class="help-block">Date and time when the system will display winners if Results Display is enabled.</div>
-        <div class="help-block with-errors"></div>
-    </div>
-</div>
-<div class="form-group">
     <label for="prefsWinnerMethod" class="col-lg-2 col-md-3 col-sm-4 col-xs-12 control-label">Winner Place Distribution Method</label>
     <div class="col-lg-6 col-md-6 col-sm-8 col-xs-12">
         <div class="input-group">            
@@ -965,6 +1007,39 @@ $(document).ready(function(){
         <div class="help-block">How the competition will award places for winning entries.</div>
     </div>
 </div>
+<div class="form-group">
+    <label for="prefsDisplayTableAwards" class="col-lg-2 col-md-3 col-sm-4 col-xs-12 control-label">Individual Table/Category Awards Display</label>
+    <div class="col-lg-6 col-md-6 col-sm-8 col-xs-12">
+        <div class="input-group">
+            <label class="radio-inline">
+                <input type="radio" name="prefsDisplayTableAwards" value="1" id="prefsDisplayTableAwards_0"  <?php if ($row_prefs['prefsDisplayTableAwards'] == "1") echo "CHECKED"; elseif ($section == "step3") echo "CHECKED"; ?> /> Enable
+            </label>
+            <label class="radio-inline">
+                <input type="radio" name="prefsDisplayTableAwards" value="0" id="prefsDisplayTableAwards_1" <?php if ($row_prefs['prefsDisplayTableAwards'] == "0") echo "CHECKED"; ?>/> Disable
+            </label>
+        </div>
+        <div class="help-block">Indicate whether individual placing entries  will be displayed with Best of Show once results are published. Disabling this hides individual placements everywhere they would normally show (results, user accounts, etc.), while Best of Show results remain fully visible. Useful for "Winner Takes All" competitions.</div>
+    </div>
+</div>
+<div class="form-group">
+    <label for="prefsWinnerDelay" class="col-lg-2 col-md-3 col-sm-4 col-xs-12 control-label">Results Display Date/Time</label>
+    <div class="col-lg-6 col-md-4 col-sm-8 col-xs-12">
+            <input class="form-control date-time-picker-system" id="prefsWinnerDelay" name="prefsWinnerDelay" type="text" value="<?php if ($section == "step3") { $date = new DateTime(); $date->modify('+2 months'); echo $date->format('Y-m-d H'); } elseif (!empty($row_prefs['prefsWinnerDelay'])) echo getTimeZoneDateTime($row_prefs['prefsTimeZone'], $row_prefs['prefsWinnerDelay'], $row_prefs['prefsDateFormat'],  $row_prefs['prefsTimeFormat'], "system", "date-time-system"); ?>" placeholder="<?php if (strpos($section, "step") === FALSE) echo $current_date." ".$current_time; ?>" required>
+        <div class="help-block">Date and time when the system will display winners if Results Display is enabled.</div>
+        <div class="help-block with-errors"></div>
+    </div>
+</div>
+<?php if (strpos($section, "step") === FALSE) { ?>
+<div class="form-group">
+    <label for="prefsScoresheetDelay" class="col-lg-2 col-md-3 col-sm-4 col-xs-12 control-label">Scoresheet Early-Release Date/Time</label>
+    <div class="col-lg-6 col-md-4 col-sm-8 col-xs-12">
+            <input class="form-control date-time-picker-system" id="prefsScoresheetDelay" name="prefsScoresheetDelay" type="text" value="<?php if (!empty($row_prefs['prefsScoresheetDelay'])) echo getTimeZoneDateTime($row_prefs['prefsTimeZone'], $row_prefs['prefsScoresheetDelay'], $row_prefs['prefsDateFormat'],  $row_prefs['prefsTimeFormat'], "system", "date-time-system"); ?>" placeholder="<?php echo $current_date." ".$current_time; ?>">
+        <div class="help-block">Date and time when entrants can begin viewing their own scoresheets, independent of (and typically before) the Results Display date/time. If left blank, scoresheets release with results on the Results Display date/time specified above.</div>
+        <div class="help-block with-errors"></div>
+    </div>
+</div>
+<?php } ?>
+
 <!-- Modal -->
 <div class="modal fade" id="scoresheetModal" tabindex="-1" role="dialog" aria-labelledby="scoresheetModalLabel">
     <div class="modal-dialog" role="document">

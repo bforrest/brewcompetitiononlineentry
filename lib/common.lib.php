@@ -230,6 +230,58 @@ function in_string($haystack,$needle) {
 	return false;
 }
 
+/**
+ * Translate a stored mead/cider required-info value (brewMead1/brewMead2)
+ * into its display-label decode. Unknown values pass through unchanged,
+ * so legacy data and other style sets are unaffected.
+ * Maps are defined in constants_post_lang.inc.php (after language load).
+ */
+function translate_mead_req_value($value) {
+
+	global $mead_carb_translations, $mead_sweetness_translations;
+
+	if (isset($mead_sweetness_translations[$value])) return $mead_sweetness_translations[$value];
+	if (isset($mead_carb_translations[$value])) return $mead_carb_translations[$value];
+	return $value;
+
+}
+
+/**
+ * Translate a stored mead strength value (brewMead3:
+ * Hydromel/Standard/Sack). Unknown values pass through unchanged.
+ */
+function translate_mead_strength_value($value) {
+
+	global $mead_strength_translations;
+
+	if (isset($mead_strength_translations[$value])) return $mead_strength_translations[$value];
+	return $value;
+
+}
+
+/**
+ * Translate a stored pouring-instruction value (brewPouring) into its
+ * display-label decode. Unknown/legacy values (old translated-label
+ * literals) pass through unchanged for backward compatibility.
+ */
+function translate_pouring_value($value) {
+
+	global $pouring_translations;
+
+	if (isset($pouring_translations[$value])) return $pouring_translations[$value];
+	return $value;
+
+}
+
+function translate_pouring_rouse_value($value) {
+
+	global $pouring_rouse_translations;
+
+	if (isset($pouring_rouse_translations[$value])) return $pouring_rouse_translations[$value];
+	return $value;
+
+}
+
 function designations($judge_array,$display) {
 	if (trim($judge_array) === "") return "";
 	$return = "";
@@ -238,6 +290,55 @@ function designations($judge_array,$display) {
 		 if ($rank2 != $display) $return .= "<br />".$rank2."";
 	}
 	return $return;
+}
+
+/**
+ * Adds one participant (by brewer.uid) to the judge pool - {prefix}staff.
+ * staff_judge=1, the flag admin/judging_locations.admin.php's Assign Judges
+ * screen (action=assign&go=judging&filter=judges) reads to decide who's
+ * available to assign to real judging tables. Creates the staff row if none
+ * exists yet (mirroring the insert/update-if-stray-row-exists pattern
+ * includes/process/process_users_register.inc.php already uses at
+ * registration time), or flips just that one column if a row already exists,
+ * leaving any existing staff_steward/staff_staff/staff_organizer/
+ * staff_judge_bos value alone. Registration already grants pool membership
+ * natively; this is for the two paths that didn't - self-edit and admin-edit
+ * (includes/process/process_brewer.inc.php) - so saying Yes to judging there
+ * doesn't require a separate manual admin step to reach the pool.
+ */
+function assign_judge_to_pool($db_conn, $prefix, $uid) {
+
+	$errors = FALSE;
+	$error_output = array();
+
+	$db_conn->where('uid', $uid);
+	$row_staff = $db_conn->getOne($prefix."staff", "id,staff_judge");
+
+	if (empty($row_staff)) {
+
+		$data = array(
+			'uid' => $uid,
+			'staff_judge' => 1,
+			'staff_judge_bos' => 0,
+			'staff_steward' => 0,
+			'staff_organizer' => 0,
+			'staff_staff' => 0
+		);
+		$result = $db_conn->insert($prefix."staff", $data);
+		if (!$result) { $error_output[] = $db_conn->getLastError(); $errors = TRUE; }
+
+	}
+
+	elseif ($row_staff['staff_judge'] != 1) {
+
+		$db_conn->where('uid', $uid);
+		$result = $db_conn->update($prefix."staff", array('staff_judge' => 1));
+		if (!$result) { $error_output[] = $db_conn->getLastError(); $errors = TRUE; }
+
+	}
+
+	return array('success' => !$errors, 'errors' => $error_output);
+
 }
 
 function build_action_link($icon,$base_url,$section,$go,$action,$filter,$id,$dbTable,$alt_title,$method=0,$tooltip_text="default") {
@@ -425,6 +526,7 @@ function purge_entries($type, $interval) {
 
 		$params_check = array();
 		if ($_SESSION['prefsStyleSet'] == "BJCP2025") $query_check = "SELECT a.id, a.brewUpdated, a.brewInfo, a.brewCategorySort, a.brewSubCategory FROM ".$prefix."brewing"." as a, ".$styles_db_table." as b WHERE a.brewCategorySort=b.brewStyleGroup AND a.brewSubCategory=b.brewStyleNum AND b.brewStyleReqSpec=1 AND (a.brewInfo IS NULL OR a.brewInfo='') AND (b.brewStyleVersion = 'BJCP2021' OR b.brewStyleVersion = 'BJCP2025')";
+		elseif ($_SESSION['prefsStyleSet'] == "BJCP2026") $query_check = "SELECT a.id, a.brewUpdated, a.brewInfo, a.brewCategorySort, a.brewSubCategory FROM ".$prefix."brewing"." as a, ".$styles_db_table." as b WHERE a.brewCategorySort=b.brewStyleGroup AND a.brewSubCategory=b.brewStyleNum AND b.brewStyleReqSpec=1 AND (a.brewInfo IS NULL OR a.brewInfo='') AND (b.brewStyleVersion = 'BJCP2021' OR b.brewStyleVersion = 'BJCP2025' OR b.brewStyleVersion = 'BJCP2026')";
 		elseif ($_SESSION['prefsStyleSet'] == "AABC2025") $query_check = "SELECT a.id, a.brewUpdated, a.brewInfo, a.brewCategorySort, a.brewSubCategory FROM ".$prefix."brewing"." as a, ".$styles_db_table." as b WHERE a.brewCategorySort=b.brewStyleGroup AND a.brewSubCategory=b.brewStyleNum AND b.brewStyleReqSpec=1 AND (a.brewInfo IS NULL OR a.brewInfo='') AND (b.brewStyleVersion = 'AABC2022' OR b.brewStyleVersion = 'AABC2025')";
 		else { $query_check = "SELECT a.id, a.brewUpdated, a.brewInfo, a.brewCategorySort, a.brewSubCategory FROM ".$prefix."brewing"." as a, ".$styles_db_table." as b WHERE a.brewCategorySort=b.brewStyleGroup AND a.brewSubCategory=b.brewStyleNum AND b.brewStyleReqSpec=1 AND (a.brewInfo IS NULL OR a.brewInfo='') AND b.brewStyleVersion = ?"; $params_check[] = $_SESSION['prefsStyleSet']; }
 		if ($interval > 0) $query_check .=" AND a.brewUpdated < DATE_SUB( NOW(), INTERVAL 1 DAY)";
@@ -1538,6 +1640,14 @@ function style_convert($number,$type,$base_url="",$archive="") {
 		else $db_conn->where('brewStyleVersion', 'BJCP2021');
 		$row_style = $db_conn->getOne($styles_db_table, "brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleOwn");
 	}
+	elseif ($style_set == "BJCP2026") {
+		$first_character = mb_substr($number, 0, 1);
+		$db_conn->where('brewStyleGroup', $number);
+		if ($first_character == "M") $db_conn->where('brewStyleVersion', 'BJCP2026');
+		elseif ($first_character == "C") $db_conn->where('brewStyleVersion', 'BJCP2025');
+		else $db_conn->where('brewStyleVersion', 'BJCP2021');
+		$row_style = $db_conn->getOne($styles_db_table, "brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleOwn");
+	}
 	elseif ($style_set == "AABC2025") {
 		$query_style = "SELECT brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleOwn FROM ".$styles_db_table." WHERE brewStyleGroup=? AND ((brewStyleVersion='AABC2025' AND brewStyleType='2') OR (brewStyleVersion='AABC2022' AND brewStyleType !='2') OR brewStyleOwn='custom')";
 		$row_style = $db_conn->rawQueryOne($query_style, array($number));
@@ -1566,7 +1676,7 @@ function style_convert($number,$type,$base_url="",$archive="") {
 
 		if ($row_style) {
 
-			if ($row_style['brewStyleOwn'] != "bcoe") $custom = TRUE;
+			if ($row_style['brewStyleOwn'] == "custom") $custom = TRUE;
 
 			// if numeric make two-digit by adding leading zero just in case
 			if (is_numeric($number)) $number = sprintf('%02d', $number); 
@@ -1908,13 +2018,14 @@ function style_convert($number,$type,$base_url="",$archive="") {
 				if ($row_style['brewStyle'] == "Soured Fruit Beer") $style_name = "Wild Specialty Beer";
 				else $style_name = $row_style['brewStyle'];
 
-				if ($row_style['brewStyleOwn'] == "bcoe") {
+				if ($row_style['brewStyleOwn'] == "custom") $style_convert .= "<li class='list-inline-item me-3'><strong>".$label_custom_style.":</strong> ".$row_style['brewStyle']."</li>";
+
+				else {
+					// 'bcoe' and 'imported' both render with real group/num identifiers
 					if (style_set_no_numbering($style_set)) $style_convert .= "<li class='list-inline-item me-3'>".$style_name."</li>";
 					elseif ($style_set == "AABC") $style_convert .= "<li class='list-inline-item me-3'><strong>".ltrim($row_style['brewStyleGroup'],"0").".".ltrim($row_style['brewStyleNum'],"0").":</strong> ".$style_name."</li>";
 					else $style_convert .= "<li class='list-inline-item me-3'><strong>".ltrim($row_style['brewStyleGroup'],"0").$row_style['brewStyleNum'].":</strong> ".$style_name."</li>";
 				}
-
-				else $style_convert .= "<li class='list-inline-item me-3'><strong>".$label_custom_style.":</strong> ".$row_style['brewStyle']."</li>";
 
 			}
 				
@@ -1951,6 +2062,13 @@ function style_convert($number,$type,$base_url="",$archive="") {
 		if ($number[2] == "BJCP2025") {
 			$first_character = mb_substr($number[0], 0, 1);
 			if ($first_character == "C") $query_style = "SELECT brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleStrength,brewStyleCarb,brewStyleSweet FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (brewStyleVersion='BJCP2025' OR brewStyleOwn='custom')";
+			else $query_style = "SELECT brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleStrength,brewStyleCarb,brewStyleSweet FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (brewStyleVersion='BJCP2021' OR brewStyleOwn='custom')";
+			$row_style = $db_conn->rawQueryOne($query_style, array($number[0], $number[1]));
+		}
+		elseif ($number[2] == "BJCP2026") {
+			$first_character = mb_substr($number[0], 0, 1);
+			if ($first_character == "M") $query_style = "SELECT brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleStrength,brewStyleCarb,brewStyleSweet FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (brewStyleVersion='BJCP2026' OR brewStyleOwn='custom')";
+			elseif ($first_character == "C") $query_style = "SELECT brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleStrength,brewStyleCarb,brewStyleSweet FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (brewStyleVersion='BJCP2025' OR brewStyleOwn='custom')";
 			else $query_style = "SELECT brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleStrength,brewStyleCarb,brewStyleSweet FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (brewStyleVersion='BJCP2021' OR brewStyleOwn='custom')";
 			$row_style = $db_conn->rawQueryOne($query_style, array($number[0], $number[1]));
 		}
@@ -2488,13 +2606,15 @@ function bjcp_rank($rank,$method) {
 			case "Certified": 
 			case "Certified Cider Guide":
 			case "Mead Judge":
-			case "Cider Judge": 
+			case "Cider Judge":
+			case "Distinguished Certified":
 			$return = "Level 3:"; 
 			break;
 			
 			case "National":
 			case "Certified Cicerone":
 			case "Certified Pommelier":
+			case "Distinguished National":
 			$return = "Level 4:"; 
 			break;
 			
@@ -2959,6 +3079,13 @@ function winner_check($id,$judging_scores_db_table,$judging_tables_db_table,$bre
 				    else $chosen_style_set = "BJCP2021";
 				}
 
+				elseif ($_SESSION['prefsStyleSet'] == "BJCP2026") {
+				    $first_character = mb_substr($row_entry['brewCategorySort'], 0, 1);
+				    if ($first_character == "M") $chosen_style_set = "BJCP2026";
+				    elseif ($first_character == "C") $chosen_style_set = "BJCP2025";
+				    else $chosen_style_set = "BJCP2021";
+				}
+
 				else $chosen_style_set = $_SESSION['prefsStyleSet'];
 
 				$query_style = "SELECT brewStyle FROM ".$styles_db_table." WHERE (brewStyleVersion=? OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
@@ -3068,6 +3195,12 @@ function check_special_ingredients($style,$style_version) {
 		if ($first_character == "C") $chosen_style_version = "BJCP2025";
 		else $chosen_style_version = $style_version;
 	}
+	elseif ($style_version == "BJCP2026") {
+		$first_character = mb_substr($style, 0, 1);
+		if ($first_character == "M") $chosen_style_version = "BJCP2026";
+		elseif ($first_character == "C") $chosen_style_version = "BJCP2025";
+		else $chosen_style_version = "BJCP2021";
+	}
 	else $chosen_style_version = $style_version;
 
 	// AABC2025 ships only its 16 cider styles; beer/mead styles for that set remain under
@@ -3118,6 +3251,85 @@ function entries_no_special($user_id) {
 	
 	if ($totalRows_entry_check > 0)	return TRUE;
 	else return FALSE;
+}
+
+/**
+ * Given a brewing row (needs brewCategorySort, brewSubCategory, brewMead1/2/3),
+ * returns an array of the missing-but-required mead field KEYS for this entry's
+ * CURRENT style (e.g. array("sweet")), or an empty array if nothing's missing.
+ * Returns stable, language-independent keys ("carb"/"sweet"/"strength"), not
+ * display text - callers map these to $label_carbonation/$label_sweetness/
+ * $label_strength (already translated in every lang/*.lang.php file) themselves,
+ * since this function has no language context of its own.
+ * Shared by the Admin Dashboard alert, Admin Entries list, brewer's My Account page,
+ * and the judge scoresheet - one detection function, not duplicated per surface.
+ * Purely a data-completeness check - never used to exclude an entry from judging.
+ */
+function entry_missing_required_mead_info($row_brew, $style_set) {
+
+	require_once(LIB.'process.lib.php');
+
+	if ((empty($row_brew['brewCategorySort'])) || (empty($row_brew['brewSubCategory']))) return array();
+
+	$style = $row_brew['brewCategorySort']."-".$row_brew['brewSubCategory'];
+	$missing = array();
+
+	if ((check_carb($style,$style_set)) && (empty($row_brew['brewMead1']))) $missing[] = "carb";
+	if ((check_sweetness($style,$style_set)) && (empty($row_brew['brewMead2']))) $missing[] = "sweet";
+	if ((check_mead_strength($style,$style_set)) && (empty($row_brew['brewMead3']))) $missing[] = "strength";
+
+	return $missing;
+
+}
+
+/**
+ * Maps entry_missing_required_mead_info()'s stable keys ("carb"/"sweet"/"strength")
+ * to their translated display labels, using the already-translated $label_carbonation/
+ * $label_sweetness/$label_strength globals every lang/*.lang.php file defines. Returns
+ * a "/"-joined string ready to drop into a "Missing %s" message, in the same order
+ * entry_missing_required_mead_info() returns them.
+ */
+function mead_missing_label_list($missing_keys) {
+
+	global $label_carbonation, $label_sweetness, $label_strength;
+
+	$labels = array();
+
+	foreach ($missing_keys as $missing_key) {
+		if ($missing_key == "carb") $labels[] = $label_carbonation;
+		elseif ($missing_key == "sweet") $labels[] = $label_sweetness;
+		elseif ($missing_key == "strength") $labels[] = $label_strength;
+	}
+
+	return implode("/",$labels);
+
+}
+
+/**
+ * Aggregate count of DISTINCT entries with at least one missing-but-required mead
+ * field (e.g. an entry submitted before BJCP2026 made mead Sweetness required),
+ * for the Admin Dashboard alert. Same naive per-entry scan as entries_no_special()
+ * above - not optimized for very large entry counts, but consistent with this
+ * file's existing convention for this kind of check.
+ */
+function count_entries_missing_required_mead_info() {
+
+	require(CONFIG.'config.php');
+	$db_conn = new MysqliDb($connection);
+
+	$rows_entry_check = $db_conn->get($prefix."brewing", null, "brewCategorySort, brewSubCategory, brewMead1, brewMead2, brewMead3");
+	$totalRows_entry_check = $db_conn->count;
+
+	$count = 0;
+
+	if ($totalRows_entry_check > 0) {
+		foreach ($rows_entry_check as $row_entry_check) {
+			if (!empty(entry_missing_required_mead_info($row_entry_check, $_SESSION['prefsStyleSet']))) $count += 1;
+		}
+	}
+
+	return $count;
+
 }
 
 function data_integrity_check() {
@@ -3357,17 +3569,21 @@ function winner_method($type,$output_type) {
 }
 
 
-function table_exists($table_name) {
+function table_exists($table_name, $bypass_cache = false) {
 	// Cached per request/table name - this function is called very heavily (once per
 	// style per judging table on the results/winners pages, among others) and table
 	// existence never changes within a request except immediately before a DROP TABLE,
-	// which always checks-then-drops rather than re-checking afterward.
+	// which always checks-then-drops rather than re-checking afterward - or right after
+	// a CREATE TABLE run earlier in the same request (e.g. run_update.php creating
+	// {prefix}style_sets_imported and then re-checking it later in the same pass to
+	// decide whether to ALTER it) - pass $bypass_cache=true there so the stale
+	// "didn't exist yet" result isn't reused after the table's just been created.
 	static $cache = array();
 
 	require(CONFIG.'config.php');
 
 	$cache_key = $database.'|'.$table_name;
-	if (isset($cache[$cache_key])) return $cache[$cache_key];
+	if ((!$bypass_cache) && (isset($cache[$cache_key]))) return $cache[$cache_key];
 
 	$db_conn = new MysqliDb($connection);
 	// Queries information_schema rather than SHOW TABLES - some MySQL/MariaDB
@@ -3949,6 +4165,13 @@ function limit_subcategory($style,$pref_num,$pref_exception_sub_num,$pref_except
 	    else $chosen_style_set = "BJCP2021";
 	}
 
+	elseif ($_SESSION['prefsStyleSet'] == "BJCP2026") {
+	    $first_character = mb_substr($style_break[0], 0, 1);
+	    if ($first_character == "M") $chosen_style_set = "BJCP2026";
+	    elseif ($first_character == "C") $chosen_style_set = "BJCP2025";
+	    else $chosen_style_set = "BJCP2021";
+	}
+
 	else $chosen_style_set = $_SESSION['prefsStyleSet'];
 
 	$query_style = "SELECT id FROM ".$styles_db_table." WHERE (brewStyleVersion=? OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
@@ -4109,6 +4332,10 @@ function styles_active($method,$archive="") {
 			$query_styles = "SELECT DISTINCT brewStyleGroup FROM ".$styles_db_table." WHERE ((brewStyleVersion='BJCP2025' AND brewStyleType='2') OR (brewStyleVersion='BJCP2021' AND brewStyleType !='2') OR brewStyleOwn='custom')";
 			$bind_params = array();
 		}
+		elseif ($style_set == "BJCP2026") {
+			$query_styles = "SELECT DISTINCT brewStyleGroup FROM ".$styles_db_table." WHERE ((brewStyleVersion='BJCP2026' AND brewStyleType='3') OR (brewStyleVersion='BJCP2025' AND brewStyleType='2') OR (brewStyleVersion='BJCP2021' AND brewStyleType NOT IN ('2','3')) OR brewStyleOwn='custom')";
+			$bind_params = array();
+		}
 		elseif ($style_set == "AABC2025") {
 			$query_styles = "SELECT DISTINCT brewStyleGroup FROM ".$styles_db_table." WHERE ((brewStyleVersion='AABC2025' AND brewStyleType='2') OR (brewStyleVersion='AABC2022' AND brewStyleType !='2') OR brewStyleOwn='custom')";
 			$bind_params = array();
@@ -4152,6 +4379,10 @@ function styles_active($method,$archive="") {
 		*/
 		if ($style_set == "BJCP2025") {
 			$query_styles = "SELECT brewStyleGroup,brewStyleNum,brewStyle FROM ".$styles_db_table." WHERE ((brewStyleVersion='BJCP2025' AND brewStyleType='2') OR (brewStyleVersion='BJCP2021' AND brewStyleType !='2') OR brewStyleOwn='custom')";
+			$bind_params = array();
+		}
+		elseif ($style_set == "BJCP2026") {
+			$query_styles = "SELECT brewStyleGroup,brewStyleNum,brewStyle FROM ".$styles_db_table." WHERE ((brewStyleVersion='BJCP2026' AND brewStyleType='3') OR (brewStyleVersion='BJCP2025' AND brewStyleType='2') OR (brewStyleVersion='BJCP2021' AND brewStyleType NOT IN ('2','3')) OR brewStyleOwn='custom')";
 			$bind_params = array();
 		}
 		elseif ($style_set == "AABC2025") {
@@ -4496,7 +4727,7 @@ function style_number_const($style_category_number,$style_sub,$style_set_display
 		case 0:
 			if (isset($_SESSION['prefsStyleSet'])) {
 				if ($_SESSION['style_set_no_numbering']) return "";
-				elseif (($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2025")) return ltrim($style_category_number,"0").$style_set_display_separator.ltrim($style_sub,"0");
+				elseif (($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2025") || ($_SESSION['prefsStyleSet'] == "BJCP2026")) return ltrim($style_category_number,"0").$style_set_display_separator.ltrim($style_sub,"0");
 				else return $style_category_number.$style_set_display_separator.$style_sub;
 			}
 			else return "";

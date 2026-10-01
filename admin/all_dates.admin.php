@@ -149,7 +149,7 @@ $eleven_fifty_nine = getTimeZoneDateTime($_SESSION['prefsTimeZone'], $eleven_fif
 
 <p class="lead"><?php echo h($_SESSION['contestName'])." Competition-Related Dates"; ?></p>
 <p>All competition-related dates for various functions are listed below. Useful when resetting the software for another competition instance after archiving or purging or to adjust any function's date/time for the current competition iteration.</p>
-<form data-toggle="validator" role="form" class="form-horizontal" method="post" action="<?php echo $base_url; ?>includes/process.inc.php?action=dates&amp;dbTable=default">
+<form data-toggle="validator" role="form" class="form-horizontal hide-loader-form-submit" method="post" action="<?php echo $base_url; ?>includes/process.inc.php?action=dates&amp;dbTable=default" novalidate>
 <input type="hidden" name="user_session_token" value ="<?php if (isset($_SESSION['user_session_token'])) echo htmlspecialchars($_SESSION['user_session_token'], ENT_QUOTES, 'UTF-8'); ?>">
 <h3>Entry-Related</h3>
 <div class="form-group"><!-- Form Group REQUIRED Text Input -->
@@ -427,6 +427,14 @@ if ($non_judging_count == 0) echo "<p>No non-judging sessions have been defined.
     <div class="col-lg-6 col-md-4 col-sm-8 col-xs-12">
             <input class="form-control date-time-picker-system" id="prefsWinnerDelay" name="prefsWinnerDelay" type="text" value="<?php if ((isset($_SESSION['prefsWinnerDelay'])) && ($_SESSION['prefsWinnerDelay'] > 0)) echo getTimeZoneDateTime($_SESSION['prefsTimeZone'], $_SESSION['prefsWinnerDelay'], $_SESSION['prefsDateFormat'],  $_SESSION['prefsTimeFormat'], "system", "date-time-system"); ?>" placeholder="<?php echo $current_date." ".$current_time; ?>" >
         <span id="helpBlock" class="help-block">Date and time when the system will display winners. If a date and time are specified, winner display will be enabled. If the date and time are removed or blank, winner display will be disabled.</span>
+        <div class="help-block with-errors"></div>
+    </div>
+</div>
+<div class="form-group"><!-- Form Group NOT REQUIRED Text Input -->
+    <label for="prefsScoresheetDelay" class="col-lg-2 col-md-3 col-sm-4 col-xs-12 control-label">Scoresheet Early-Release Date and Time</label>
+    <div class="col-lg-6 col-md-4 col-sm-8 col-xs-12">
+            <input class="form-control date-time-picker-system" id="prefsScoresheetDelay" name="prefsScoresheetDelay" type="text" value="<?php if ((isset($_SESSION['prefsScoresheetDelay'])) && ($_SESSION['prefsScoresheetDelay'] > 0)) echo getTimeZoneDateTime($_SESSION['prefsTimeZone'], $_SESSION['prefsScoresheetDelay'], $_SESSION['prefsDateFormat'],  $_SESSION['prefsTimeFormat'], "system", "date-time-system"); ?>" placeholder="<?php echo $current_date." ".$current_time; ?>" >
+        <span id="helpBlock" class="help-block">Date and time when entrants can begin viewing their own scoresheets, independent of (and typically before) the Results Display date above. If a date and time are specified, entrants will see their scoresheets once that time passes, even if results/winners have not yet been displayed. If the date and time are removed or blank, scoresheets remain gated by the Results Display date only.</span>
         <div class="help-block with-errors"></div>
     </div>
 </div>

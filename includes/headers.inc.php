@@ -605,8 +605,12 @@ switch($section) {
 				break;
 
 				case "hero_images":
-				if (isset($lang['admin_hero_images_title'])) $header_output .= ": ".$lang['admin_hero_images_title']; 
+				if (isset($lang['admin_hero_images_title'])) $header_output .= ": ".$lang['admin_hero_images_title'];
 				else  $header_output .= ": Banner Image Preferences";
+				break;
+
+				case "styles_import":
+				$header_output .= ": Import or Export a Style Set";
 				break;
 
 			}
@@ -666,6 +670,12 @@ switch($section) {
 		elseif ($msg == "36") $output = sprintf("<strong>%s</strong>",$header_text_115);
 		elseif ($msg == "37") $output = sprintf("<strong>%s</strong> %s","Please Note!", "Since your style set has changed, by default, all styles have been marked as active. Review and update below the styles your competition will and will not accept.");
 		elseif ($msg == "38") $output = sprintf("<strong>%s</strong>",$header_text_119); // Account unlocked (success)
+		elseif ($msg == "39") $output = sprintf("<strong>%s</strong> %s","Success!", "The style set was imported.");
+		elseif ($msg == "40") $output = sprintf("<strong>%s</strong> %s","Session Expired.", "Your validated upload has expired. Please upload the file again.");
+		elseif ($msg == "41") $output = sprintf("<strong>%s</strong> %s","Error!", "The style set could not be imported. Please review and try again.");
+		elseif ($msg == "42") $output = sprintf("<strong>%s</strong> %s","Success!", "The imported style set was deleted.");
+		elseif ($msg == "45") $output = sprintf("<strong>%s</strong> %s","Success!", "The imported style set was updated.");
+		elseif ($msg == "46") $output = sprintf("<strong>%s</strong> %s","Aborted.", "The staged import was discarded. Nothing was saved.");
 		elseif ($msg == "755") $output = sprintf("<strong>%s</strong> ",$header_text_094,$header_text_095);
 		else $output = "";
 	break;

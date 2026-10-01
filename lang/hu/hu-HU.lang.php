@@ -2250,6 +2250,18 @@ $brewer_text_058 = "Az adminisztrátorok jelenleg az asztalbeosztásokat rendezi
 
 /**
  * ------------------------------------------
+ * Version 3.2.0 Additions
+ * ------------------------------------------
+ */
+
+$default_page_text_024 = "A pontozólapok megtekintése vagy letöltése a következő dátumtól válik elérhetővé:";
+$default_page_text_025 = "A pontozólapok mostantól megtekinthetők vagy letölthetők.";
+$label_scoresheets_available = "Pontozólapok letöltésre elérhetők";
+$label_mead_info_missing = "Hiányzó %s - a nevezéskor még nem volt kötelező";
+$label_mead_info_not_recorded = "A nevező nem adta meg";
+
+/**
+ * ------------------------------------------
  * END TRANSLATIONS
  * ------------------------------------------
  *

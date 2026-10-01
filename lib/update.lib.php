@@ -50,6 +50,11 @@ function check_new_style($style1, $style2, $style3, $version, $mode="none") {
 	}
 	*/
 
+	// brewStyleVersion must be part of this match - group/num/name codes are
+	// routinely reused across versions (e.g. BJCP2021 kept most BJCP2015
+	// codes), so checking only group+num+name treats a newer version's own
+	// row as "already present" the moment an older version's row with the
+	// same code exists, silently skipping the insert. See issue #1759.
 	$db_conn->where('brewStyleGroup', $style1);
 	if ($mode != "ignore_style_num") $db_conn->where('brewStyleNum', $style2);
 	$db_conn->where('brewStyle', $style3);

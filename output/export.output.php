@@ -77,6 +77,7 @@ if ($filter == "default") {
     $winner_method = $_SESSION['prefsWinnerMethod'];
     $style_set = $_SESSION['prefsStyleSet'];
     $pro_edition = $_SESSION['prefsProEdition'];
+    $display_table_awards = $_SESSION['prefsDisplayTableAwards'];
 }
 
 // Or, for archived data
@@ -93,6 +94,7 @@ else {
         $winner_method = $row_archive_prefs['archiveWinnerMethod'];
         $style_set = $row_archive_prefs['archiveStyleSet'];
         $pro_edition = $row_archive_prefs['archiveProEdition'];
+        $display_table_awards = $row_archive_prefs['archiveDisplayTableAwards'];
         $judging_scores_db_table = $prefix."judging_scores_".$filter_clean;
         $brewing_db_table = $prefix."brewing_".$filter_clean;
         $brewer_db_table = $prefix."brewer_".$filter_clean;
@@ -1016,10 +1018,13 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                 $label_avail,
                 $label_judge_preferred,
                 $label_judge_non_preferred,
-                $label_entries
+                $label_entries,
+                $label_judge_comps,
+                $label_waiver,
+                $label_org_notes
             );
 
-            elseif (($filter == "stewards") || ($filter == "avail_stewards")) $a [] = array($label_first_name,$label_last_name,$label_email,$label_avail,$label_entries);
+            elseif (($filter == "stewards") || ($filter == "avail_stewards")) $a [] = array($label_first_name,$label_last_name,$label_email,$label_avail,$label_entries,$label_waiver,$label_org_notes);
 
             elseif ($filter == "staff") $a [] = array($label_first_name,$label_last_name,$label_email,$label_avail,$label_assignment,$label_entries);
 
@@ -1058,14 +1063,20 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                     }
 
                     if (($filter == "judges") || ($filter == "avail_judges")) {
-                        
+
                         $judge_entries = "";
                         if (isset($row_sql['uid'])) $judge_entries = judge_entries($row_sql['uid'],0);
                         if (isset($row_sql['brewerJudgeLocation'])) $judge_avail = judge_steward_availability($row_sql['brewerJudgeLocation'],2,$prefix);
                         if ((!empty($row_sql['brewerJudgeMead'])) && ($row_sql['brewerJudgeMead'] == "Y")) $brewerJudgeMead = $label_bjcp_mead;
                         if ((!empty($row_sql['brewerJudgeCider'])) && ($row_sql['brewerJudgeCider'] == "Y")) $brewerJudgeCider =
                             $label_bjcp_cider;
-                        
+
+                        $judge_waiver = $label_no;
+                        if ((!empty($row_sql['brewerJudgeWaiver'])) && ($row_sql['brewerJudgeWaiver'] == "Y")) $judge_waiver = $label_yes;
+
+                        $judge_notes = "";
+                        if (!empty($row_sql['brewerJudgeNotes'])) $judge_notes = convert_to_entities($row_sql['brewerJudgeNotes']);
+
                         $a [] = array(
                             $brewerFirstName,
                             $brewerLastName,
@@ -1077,7 +1088,10 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                             $judge_avail,
                             style_convert($row_sql['brewerJudgeLikes'],'6',$base_url),
                             style_convert($row_sql['brewerJudgeDislikes'],'6',$base_url),
-                            $judge_entries
+                            $judge_entries,
+                            $row_sql['brewerJudgeExp'],
+                            $judge_waiver,
+                            $judge_notes
                         );
 
                     }
@@ -1085,13 +1099,26 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                     elseif (($filter == "stewards") || ($filter == "avail_stewards")) {
                         $judge_entries = "";
                         if (isset($row_sql['uid'])) $judge_entries = judge_entries($row_sql['uid'],0);
-                        if (isset($row_sql['brewerJudgeLocation'])) $judge_avail = judge_steward_availability($row_sql['brewerJudgeLocation'],2,$prefix);
+                        // Stewards record availability in a separate column/location-type from judges
+                        // (brewerStewardLocation, judgingLocType 2) - see issue #1565. This previously
+                        // read brewerJudgeLocation with method 2 (the judge's own column/type), which
+                        // meant this export's "Available" column never reflected steward availability.
+                        if (isset($row_sql['brewerStewardLocation'])) $judge_avail = judge_steward_availability($row_sql['brewerStewardLocation'],3,$prefix);
+
+                        $judge_waiver = $label_no;
+                        if ((!empty($row_sql['brewerJudgeWaiver'])) && ($row_sql['brewerJudgeWaiver'] == "Y")) $judge_waiver = $label_yes;
+
+                        $judge_notes = "";
+                        if (!empty($row_sql['brewerJudgeNotes'])) $judge_notes = convert_to_entities($row_sql['brewerJudgeNotes']);
+
                         $a [] = array(
                             $brewerFirstName,
                             $brewerLastName,
                             $brewerEmail,
                             $judge_avail,
-                            $judge_entries
+                            $judge_entries,
+                            $judge_waiver,
+                            $judge_notes
                         );
                     }
 
@@ -1100,7 +1127,8 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                         if (isset($row_sql['uid'])) $judge_entries = judge_entries($row_sql['uid'],0);
                         $assignment = $label_no;
                         if ($row_sql['staff_staff'] == 1) $assignment = $label_yes;
-                        if (isset($row_sql['brewerJudgeLocation'])) $judge_avail = judge_steward_availability($row_sql['brewerJudgeLocation'],3,$prefix);
+                        // Staff share the steward location pool (judgingLocType 2) - see issue #1565.
+                        if (isset($row_sql['brewerStewardLocation'])) $judge_avail = judge_steward_availability($row_sql['brewerStewardLocation'],3,$prefix);
                         $a [] = array(
                             $brewerFirstName,
                             $brewerLastName,
@@ -1209,9 +1237,9 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
             if ($section == "export-loc") $loc = "_".str_replace(' ', '_', $row_judging['judgingLocName']);
             else $loc = "";
 
-            if ($_SESSION['prefsProEdition'] == 1) $a[] = array($label_first_name,$label_last_name,$label_organization,$label_ttb,$label_yearly_volume,$label_address,$label_city,$label_state_province,$label_zip,$label_country,$label_phone,$label_email,$label_club,$label_entries,$label_assignment,$label_bjcp_id,$label_bjcp_rank,$label_bjcp_mead."?",$label_bjcp_cider."?",$label_judge_preferred,$label_judge_non_preferred);
-            
-            else $a[] = array($label_first_name,$label_last_name,$label_address,$label_city,$label_state_province,$label_zip,$label_country,$label_phone,$label_email,$label_club,$label_entries,$label_assignment,$label_bjcp_id,$label_bjcp_rank,$label_bjcp_mead."?",$label_bjcp_cider."?",$label_judge_preferred,$label_judge_non_preferred);
+            if ($_SESSION['prefsProEdition'] == 1) $a[] = array($label_first_name,$label_last_name,$label_organization,$label_ttb,$label_yearly_volume,$label_address,$label_city,$label_state_province,$label_zip,$label_country,$label_phone,$label_email,$label_club,$label_entries,$label_assignment,$label_bjcp_id,$label_bjcp_rank,$label_bjcp_mead."?",$label_bjcp_cider."?",$label_judge_preferred,$label_judge_non_preferred,$label_judge_comps,$label_waiver,$label_org_notes);
+
+            else $a[] = array($label_first_name,$label_last_name,$label_address,$label_city,$label_state_province,$label_zip,$label_country,$label_phone,$label_email,$label_club,$label_entries,$label_assignment,$label_bjcp_id,$label_bjcp_rank,$label_bjcp_mead."?",$label_bjcp_cider."?",$label_judge_preferred,$label_judge_non_preferred,$label_judge_comps,$label_waiver,$label_org_notes);
 
             //echo $query_sql;
 
@@ -1244,8 +1272,14 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
 
                 $assignment = implode(", ", $assign);
 
-                if ($row_sql['brewerCountry'] == "United States") $phone = format_phone_us($row_sql['brewerPhone1']); 
+                if ($row_sql['brewerCountry'] == "United States") $phone = format_phone_us($row_sql['brewerPhone1']);
                 else $phone = $row_sql['brewerPhone1'];
+
+                $judge_waiver = $label_no;
+                if ((!empty($row_sql['brewerJudgeWaiver'])) && ($row_sql['brewerJudgeWaiver'] == "Y")) $judge_waiver = $label_yes;
+
+                $judge_notes = "";
+                if (!empty($row_sql['brewerJudgeNotes'])) $judge_notes = convert_to_entities($row_sql['brewerJudgeNotes']);
 
                 if ($_SESSION['prefsProEdition'] == 1) {
 
@@ -1277,7 +1311,10 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                         $row_sql['brewerJudgeID'],
                         str_replace(",",", ",$row_sql['brewerJudgeRank']),
                         style_convert($row_sql['brewerJudgeLikes'],'6',$base_url),
-                        style_convert($row_sql['brewerJudgeDislikes'],'6',$base_url)
+                        style_convert($row_sql['brewerJudgeDislikes'],'6',$base_url),
+                        $row_sql['brewerJudgeExp'],
+                        $judge_waiver,
+                        $judge_notes
                     );
 
                 }
@@ -1300,7 +1337,10 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                     $brewerJudgeMead,
                     $brewerJudgeCider,
                     style_convert($row_sql['brewerJudgeLikes'],'6',$base_url),
-                    style_convert($row_sql['brewerJudgeDislikes'],'6',$base_url)
+                    style_convert($row_sql['brewerJudgeDislikes'],'6',$base_url),
+                    $row_sql['brewerJudgeExp'],
+                    $judge_waiver,
+                    $judge_notes
                 );
 
             }
@@ -1560,7 +1600,7 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                     $filename = (iconv("UTF-8", "ASCII//TRANSLIT//IGNORE", transliterator_transliterate('Any-Latin; Latin-ASCII', $filename)));
 
                     $string = sprintf("%s - %s",$label_winners,html_entity_decode($_SESSION['contestName']));
-                    $string = (iconv("UTF-8", "ASCII//TRANSLIT//IGNORE", transliterator_transliterate('Any-Latin; Latin-ASCII', $string)));                  
+                    $string = (iconv("UTF-8", "ASCII//TRANSLIT//IGNORE", transliterator_transliterate('Any-Latin; Latin-ASCII', $string)));
                     $title_table = new easyTable($pdf,1);
                     $title_table->easyCell($string, 'font-size:22; font-style:B; font-color:#000000;');
                     $title_table->printRow();
@@ -1570,7 +1610,7 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                      * Winners by table/medal category
                      */
 
-                    if ($winner_method == 0) {
+                    if (($winner_method == 0) && ($display_table_awards == 1)) {
 
                         /**
                          * Batch what used to be a get_table_info() call plus a scores.db.php
@@ -1715,7 +1755,7 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                      * Winners by style category
                      */
 
-                    if ($winner_method == 1) {
+                    if (($winner_method == 1) && ($display_table_awards == 1)) {
 
                         /**
                          * Batch what used to be 2-3 queries per active category
@@ -1887,7 +1927,7 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                      * Winners by style sub-category
                      */
 
-                    if ($winner_method == 2) {
+                    if (($winner_method == 2) && ($display_table_awards == 1)) {
 
                         /**
                          * Batch what used to be 2-3 queries per active subcategory
@@ -2255,7 +2295,7 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                      * Winners by table/medal group
                      */
 
-                    if ($winner_method == 0) {
+                    if (($winner_method == 0) && ($display_table_awards == 1)) {
 
                         /**
                          * Batch what used to be a get_table_info() call plus a scores.db.php
@@ -2384,7 +2424,7 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                      * Winners by style category
                      */
 
-                    if ($winner_method == 1) {
+                    if (($winner_method == 1) && ($display_table_awards == 1)) {
 
                         /**
                          * Batch what used to be 2-3 queries per active category
@@ -2530,7 +2570,7 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
                      * Winners by style sub-category
                      */
 
-                    if ($winner_method == 2) {
+                    if (($winner_method == 2) && ($display_table_awards == 1)) {
 
                         /**
                          * Batch what used to be 2-3 queries per active subcategory
@@ -3860,9 +3900,164 @@ if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($en
 
 	} // END if ($section == "export-staff")
 
+	/* -------------- STYLES Exports (Admin-Uploaded Style Sets) -------------- */
+
+	if ($section == "export-styles") {
+
+		// Owner-only, matching admin/styles_import.admin.php's own gate exactly -
+		// the outer ($admin_role) wrapper above this block permits userLevel 0
+		// or 1, looser than this feature's access rule everywhere else.
+		if ((!isset($_SESSION['loginUsername'])) || ($_SESSION['userLevel'] > 0)) {
+			$redirect_go_to = sprintf("Location: %s", "../../403.php");
+			header($redirect_go_to);
+			exit();
+		}
+
+		require_once (LIB.'styles_import.lib.php');
+		require (INCLUDES.'styles.inc.php');
+
+		// $filter carries the style set's own name, same convention as
+		// export-entries&filter=<archiveSuffix> etc. elsewhere in this file.
+		// $style_sets (just loaded) already unifies built-in AND admin-
+		// imported sets into one shape - a single lookup covers both, no
+		// separate {prefix}style_sets_imported query needed for either.
+		$row_set = null;
+		foreach ($style_sets as $set_entry) {
+			if ((!empty($set_entry['style_set_name'])) && ($set_entry['style_set_name'] === $filter)) {
+				$row_set = $set_entry;
+				break;
+			}
+		}
+
+		if (!$row_set) {
+			header("HTTP/1.1 404 Not Found");
+			exit("Style set not found.");
+		}
+
+		$categories = ((!empty($row_set['style_set_categories'])) && (is_array($row_set['style_set_categories']))) ? $row_set['style_set_categories'] : array();
+		$overall_categories = ((!empty($row_set['style_set_overall_categories'])) && (is_array($row_set['style_set_overall_categories']))) ? $row_set['style_set_overall_categories'] : array();
+
+		// Reverse brewStyleType id -> style_type name. A fresh, self-contained
+		// query rather than reusing includes/db/admin_common.db.php's
+		// $rows_style_type - that file's population is gated on a hardcoded
+		// $go allowlist that doesn't include json/csv. Looked up with a blank
+		// fallback, not assumed to resolve - an admin can delete a custom
+		// style type later (admin/style_types.admin.php has no usage check),
+		// which would orphan brewStyleType on existing imported rows.
+		$rows_style_types = $db_conn->get($prefix."style_types");
+		$style_type_names = array();
+		if ($rows_style_types) {
+			foreach ($rows_style_types as $row_style_type) {
+				$style_type_names[$row_style_type['id']] = $row_style_type['styleTypeName'];
+			}
+		}
+
+		// style_set_export_rows() handles the two built-in pairs
+		// (BJCP2025/BJCP2021, AABC2025/AABC2022) whose real rows are split
+		// across both brewStyleVersion values by brewStyleType, excludes
+		// brewStyleOwn='custom' rows that might incidentally share a
+		// brewStyleVersion stamp, and collapses exact-content duplicate
+		// rows (a real data issue found in AABC2022 - see its own comment
+		// in lib/styles_import.lib.php) - shared with the "Styles" count
+		// column on admin/styles_import.admin.php so the two always agree.
+		$rows_export = style_set_export_rows($row_set['style_set_name'], $prefix, $db_conn);
+
+		$export_rows = array();
+		foreach ($rows_export as $row_style) {
+			$group = $row_style['brewStyleGroup'];
+			$export_rows[] = array(
+				'brewStyleGroup' => $group,
+				'brewStyleNum' => $row_style['brewStyleNum'],
+				'brewStyle' => $row_style['brewStyle'],
+				'brewStyleCategory' => isset($categories[$group]) ? $categories[$group] : '',
+				'brewStyleOverallCategory' => isset($overall_categories[$group]) ? $overall_categories[$group] : '',
+				'style_type' => isset($style_type_names[$row_style['brewStyleType']]) ? $style_type_names[$row_style['brewStyleType']] : '',
+				'brewStyleOG' => $row_style['brewStyleOG'],
+				'brewStyleOGMax' => $row_style['brewStyleOGMax'],
+				'brewStyleFG' => $row_style['brewStyleFG'],
+				'brewStyleFGMax' => $row_style['brewStyleFGMax'],
+				'brewStyleABV' => $row_style['brewStyleABV'],
+				'brewStyleABVMax' => $row_style['brewStyleABVMax'],
+				'brewStyleIBU' => $row_style['brewStyleIBU'],
+				'brewStyleIBUMax' => $row_style['brewStyleIBUMax'],
+				'brewStyleSRM' => $row_style['brewStyleSRM'],
+				'brewStyleSRMMax' => $row_style['brewStyleSRMMax'],
+				'brewStyleInfo' => $row_style['brewStyleInfo'],
+				'brewStyleLink' => $row_style['brewStyleLink'],
+				'brewStyleEntry' => $row_style['brewStyleEntry'],
+				'brewStyleReqSpec' => (int)$row_style['brewStyleReqSpec'],
+				'brewStyleStrength' => (int)$row_style['brewStyleStrength'],
+				'brewStyleCarb' => (int)$row_style['brewStyleCarb'],
+				'brewStyleSweet' => (int)$row_style['brewStyleSweet']
+			);
+		}
+
+		$filename = ltrim(filename($row_set['style_set_name'])."_StyleSet","_");
+		$filename = (iconv("UTF-8", "ASCII//TRANSLIT//IGNORE", transliterator_transliterate('Any-Latin; Latin-ASCII', $filename)));
+
+		if ($go == "json") {
+
+			$export_meta = array(
+				'style_set_name' => $row_set['style_set_name'],
+				'style_set_long_name' => $row_set['style_set_long_name'],
+				'style_set_short_name' => $row_set['style_set_short_name'],
+				'style_set_display_separator' => $row_set['style_set_display_separator'],
+				'style_set_sub_style_method' => $row_set['style_set_sub_style_method'],
+				'style_set_beer_end' => $row_set['style_set_beer_end'],
+				'style_set_category_end' => $row_set['style_set_category_end'],
+				'style_set_no_numbering' => !empty($row_set['style_set_no_numbering']),
+				'styles' => $export_rows
+			);
+
+			header("Content-Type: application/json; charset=utf-8");
+			header('Content-Disposition: attachment;filename="'.$filename.'.json"');
+			header('Pragma: no-cache');
+			header('Expires: 0');
+			echo json_encode($export_meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+		} // END if ($go == "json")
+
+		if ($go == "csv") {
+
+			$headers = array('brewStyleGroup', 'brewStyleNum', 'brewStyle', 'brewStyleCategory', 'brewStyleOverallCategory', 'style_type', 'brewStyleOG', 'brewStyleOGMax', 'brewStyleFG', 'brewStyleFGMax', 'brewStyleABV', 'brewStyleABVMax', 'brewStyleIBU', 'brewStyleIBUMax', 'brewStyleSRM', 'brewStyleSRMMax', 'brewStyleInfo', 'brewStyleLink', 'brewStyleEntry', 'brewStyleReqSpec', 'brewStyleStrength', 'brewStyleCarb', 'brewStyleSweet');
+
+			header("Content-Type: text/csv; charset=utf-8");
+			header('Content-Disposition: attachment;filename="'.$filename.'.csv"');
+			header('Pragma: no-cache');
+			header('Expires: 0');
+
+			$fp = fopen('php://output', 'w');
+			fprintf($fp, chr(0xEF).chr(0xBB).chr(0xBF));
+
+			// Meta fields aren't read from the CSV file by the importer (they
+			// come from a companion form at upload time) - emitted here as
+			// comment lines purely so an admin restoring from this file can
+			// copy them into that form. styles_import_parse_csv() skips
+			// leading "#" lines, so this file can even be re-uploaded as-is.
+			fputcsv($fp, array("# BCOE&M Style Set Export - lines starting with # are ignored on import"));
+			fputcsv($fp, array("# style_set_name: ".$row_set['style_set_name']));
+			fputcsv($fp, array("# style_set_long_name: ".$row_set['style_set_long_name']));
+			fputcsv($fp, array("# style_set_short_name: ".$row_set['style_set_short_name']));
+			fputcsv($fp, array("# style_set_display_separator: ".$row_set['style_set_display_separator']));
+			fputcsv($fp, array("# style_set_sub_style_method: ".$row_set['style_set_sub_style_method']." (".($row_set['style_set_sub_style_method'] == "1" ? "Numeric" : "Alpha").")"));
+			fputcsv($fp, array("# style_set_beer_end: ".$row_set['style_set_beer_end']));
+			fputcsv($fp, array("# style_set_category_end: ".$row_set['style_set_category_end']));
+			fputcsv($fp, array("# style_set_no_numbering: ".(!empty($row_set['style_set_no_numbering']) ? "Yes" : "No")));
+
+			fputcsv($fp, $headers);
+			foreach ($export_rows as $export_row) fputcsv($fp, $export_row);
+
+			fclose($fp);
+
+		} // END if ($go == "csv")
+
+		exit();
+
+	} // END if ($section == "export-styles")
+
 } // end if (($admin_role) || ((($judging_past == 0) && ($registration_open == 2) && ($entry_window_open == 2))))
 
-else echo "Not allowed."; 
+else echo "Not allowed.";
 
 if ((isset($_SESSION['loginUsername'])) && ($section == "export-personal-results") && ($id != "default") && (($admin_role) || ($id == $_SESSION['user_id']))) {
 
@@ -3941,13 +4136,17 @@ if ((isset($_SESSION['loginUsername'])) && ($section == "export-personal-results
             }
 
             // Results data
+            // Place also waits for the winner-display delay to pass (or an admin
+            // bypass) - same rule as the "place" line on a judge's own scoresheet
+            // view (eval/scoresheet_head.eval.php). prefsScoresheetDelay only
+            // governs early access to the score itself, never the official placement.
             $results[] = array(
-                $category, 
+                $category,
                 convert_to_entities($row_brewer['brewStyle']),
-                $req_info, 
-                $entry_consensus_score, 
-                $highest_entry_score, 
-                $row_brewer['scorePlace']
+                $req_info,
+                $entry_consensus_score,
+                $highest_entry_score,
+                (($display_table_awards == 1) && ((judging_winner_display($_SESSION['prefsWinnerDelay'])) || ($admin_role))) ? $row_brewer['scorePlace'] : ""
             );
 
             if ($results_count == $totalRows_brewer) {

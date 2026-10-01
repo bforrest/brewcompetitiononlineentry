@@ -2267,6 +2267,18 @@ $contact_text_014 = "Los administradores del sitio han desactivado la visualizac
 $brewer_text_058 = "Los administradores están organizando actualmente las asignaciones de mesas. Comuníquese con un funcionario de la competencia para cambiar su disponibilidad de sesión o retirarse de su función de juez/asistente.";
 
 /**
+ * ------------------------------------------
+ * Version 3.2.0 Additions
+ * ------------------------------------------
+ */
+
+$default_page_text_024 = "Las hojas de puntuación estarán disponibles para ver o descargar a partir del";
+$default_page_text_025 = "Las hojas de puntuación ya están disponibles para ver o descargar.";
+$label_scoresheets_available = "Hojas de Puntuación Disponibles para Descargar";
+$label_mead_info_missing = "Falta %s - no era obligatorio al momento de la inscripción";
+$label_mead_info_not_recorded = "No registrado por el participante";
+
+/**
  * ----------------------------------------------------------------------------------
  * END TRANSLATIONS
  * ----------------------------------------------------------------------------------

@@ -11,9 +11,13 @@ ini_set('display_errors', '0');
 
 require ('../paths.php');
 require (INCLUDES.'url_variables.inc.php');
-require (INCLUDES.'styles.inc.php');
 include (INCLUDES.'scrubber.inc.php');
+// common.lib.php must load before styles.inc.php - the latter's imported-
+// style-sets merge block calls table_exists() (defined in common.lib.php)
+// unconditionally, matching every other function this file already
+// assumes is loaded by its various include sites.
 include (LIB.'common.lib.php');
+require (INCLUDES.'styles.inc.php');
 require (INCLUDES.'db_tables.inc.php');
 include (LIB.'update.lib.php');
 require (DB.'common.db.php');
@@ -199,9 +203,6 @@ if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER
 	// Delete
 	elseif ($action == "delete") include (PROCESS.'process_delete.inc.php');
 
-	// Create a practice judging session
-	//elseif ($action == "practice_session") include (PROCESS.'process_judging_practice_session.inc.php');
-	
 	// Barcode check in
 	elseif ($action == "barcode_check_in") include (PROCESS.'process_barcode_check_in.inc.php');
 
@@ -310,7 +311,16 @@ if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER
 			$result = $db_conn->update($prefix."preferences", array('prefsStyleSet' => 'BJCP2025'));
 
 		}
-		
+
+		if ($_SESSION['prefsStyleSet'] == "BJCP2025") {
+
+			include (INCLUDES.'convert/convert_bjcp_2026.inc.php');
+
+			$db_conn->where('id', '1');
+			$result = $db_conn->update($prefix."preferences", array('prefsStyleSet' => 'BJCP2026'));
+
+		}
+
 		if (session_status() === PHP_SESSION_NONE) {
 			session_name($prefix_session);
 			session_start();
@@ -400,7 +410,16 @@ if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER
 	
 	// Updates to associated entry, acct registration, judge/steward registration, and judging dates
 	elseif (($action == "dates") && ($dbTable == "default")) include (PROCESS.'process_dates.inc.php');
-	
+
+	// Admin-uploaded ("imported") style sets - confirm+insert, whole-set delete, and metadata edit
+	elseif (($action == "styles_import") || ($action == "styles_import_abort") || ($action == "styles_import_delete") || ($action == "styles_import_edit")) include (PROCESS.'process_styles_import.inc.php');
+
+	// Reassign a single judge's evaluation to a different entry (GitHub #1756, abridged/pre-import-only version)
+	elseif ($action == "evaluation_reassign") include (PROCESS.'process_evaluation_reassign.inc.php');
+
+	// Admin-triggered practice judging session (Manage Tables) - create/delete
+	elseif (($action == "practice_session_enable") || ($action == "practice_session_delete")) include (PROCESS.'process_practice_session.inc.php');
+
 	// Update to various DB Tables as called out in process URL
 	else {
 

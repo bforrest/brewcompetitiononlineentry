@@ -19,6 +19,7 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 
 	include (DB.'entries.db.php');
 	include (INCLUDES.'constants.inc.php');
+	require_once (LIB.'styles_import.lib.php');
 
 	$db_conn->where("user_name", $_SESSION['loginUsername']);
 	$row_user = $db_conn->getOne($users_db_table, "id,userLevel");
@@ -247,6 +248,32 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 			$pouring_instructions['pouring_notes'] = $brewPouringNotes;
 		}
 
+		// On edit, if the pouring radios were absent from the POST (the stored
+		// value was saved under a different locale, so none of the current
+		// locale's radio values matched and nothing was pre-selected/submitted),
+		// preserve the existing stored values instead of overwriting with empty.
+		if (($action == "edit") && ((!isset($_POST['brewPouringInst'])) || (!isset($_POST['brewPouringRouse'])))) {
+
+			$db_conn->where("id", $id);
+			$row_existing_pouring = $db_conn->getOne($prefix."brewing", "brewPouring");
+
+			if (!empty($row_existing_pouring['brewPouring'])) {
+
+				$existing_pouring_arr = json_decode($row_existing_pouring['brewPouring'], true);
+
+				if ((!isset($pouring_instructions['pouring'])) && (isset($existing_pouring_arr['pouring'])))
+					$pouring_instructions['pouring'] = $existing_pouring_arr['pouring'];
+
+				if ((!isset($pouring_instructions['pouring_rouse'])) && (isset($existing_pouring_arr['pouring_rouse'])))
+					$pouring_instructions['pouring_rouse'] = $existing_pouring_arr['pouring_rouse'];
+
+				if ((!isset($pouring_instructions['pouring_notes'])) && (isset($existing_pouring_arr['pouring_notes'])))
+					$pouring_instructions['pouring_notes'] = $existing_pouring_arr['pouring_notes'];
+
+			}
+
+		}
+
 		$brewPouring = json_encode($pouring_instructions);
 
 		if (isset($_POST['brewPackaging'])) $brewPackaging = sterilize($_POST['brewPackaging']);
@@ -292,9 +319,66 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 		else $styleFix = $style[0];
 		$styleID = $style[1];
 
+		// $styleFix (and $style[0] itself) assume every style set pads its
+		// group number to exactly 2 digits (true for the built-in BJCP/BA/
+		// AABC sets this file was originally written for) - an admin-
+		// uploaded set like GABF pads to however many digits its own
+		// category range needs (GABF: 3, up to "205"), so an exact-string
+		// match against $style[0] silently finds nothing for those sets.
+		// For a purely numeric group, match by numeric value instead so it
+		// works regardless of padding width; non-numeric groups (BJCP2025's
+		// "C"-prefixed cider codes) keep the exact string match since they
+		// were never zero-padded. Used by the style-name lookup right below,
+		// which resolves the DB's own correctly-padded brewStyleGroup back
+		// into $styleFix for the style-limit flagging further below.
+		if (preg_match("/^[[:digit:]]+$/",$style[0])) { $group_where_clause = "CAST(brewStyleGroup AS UNSIGNED) = ?"; $group_where_param = (int)$style[0]; }
+		else { $group_where_clause = "brewStyleGroup = ?"; $group_where_param = $styleFix; }
+
+		// Style Name
+
+		// Determine if the style chosen is a cider - if so, run a different query
+		if ($_SESSION['prefsStyleSet'] == "BJCP2025") {
+			$first_character = mb_substr($styleFix, 0, 1);
+			if ($first_character == "C") $style_version = "BJCP2025";
+			else $style_version = "BJCP2021";
+		}
+
+		// BJCP2026 is mead-only: mead resolves to BJCP2026's own rows, cider
+		// still resolves to BJCP2025 (2026 didn't touch cider), beer still
+		// resolves to BJCP2021 (2026 didn't touch beer either).
+		elseif ($_SESSION['prefsStyleSet'] == "BJCP2026") {
+			$first_character = mb_substr($styleFix, 0, 1);
+			if ($first_character == "M") $style_version = "BJCP2026";
+			elseif ($first_character == "C") $style_version = "BJCP2025";
+			else $style_version = "BJCP2021";
+		}
+
+		else $style_version = $_SESSION['prefsStyleSet'];
+
+		// AABC2025 ships only its 16 cider styles; beer/mead styles for that set remain under
+		// brewStyleVersion='AABC2022' - the plain (version OR custom) predicate below would match
+		// zero rows for those, same fix pattern already used correctly in
+		// includes/db/styles_special.db.php.
+		// $group_where_clause/$group_where_param computed earlier, right
+		// after $style was parsed - shared with the style-limit flagging
+		// below.
+		if ($_SESSION['prefsStyleSet'] == "AABC2025") $db_conn->where("((brewStyleVersion='AABC2025' AND brewStyleType='2') OR (brewStyleVersion='AABC2022' AND brewStyleType !='2') OR brewStyleOwn='custom') AND ".$group_where_clause." AND brewStyleNum = ?", array($group_where_param, $style[1]));
+		else $db_conn->where("(brewStyleVersion = ? OR brewStyleOwn = ?) AND ".$group_where_clause." AND brewStyleNum = ?", array($style_version, "custom", $group_where_param, $style[1]));
+		$row_style_name = $db_conn->getOne($prefix."styles", "id, brewStyleGroup, brewStyleNum, brewStyle, brewStyleCarb, brewStyleSweet, brewStyleStrength, brewStyleType");
+
+		$styleName = $row_style_name['brewStyle'];
+
+		// Trust the DB's own zero-padding for brewCategorySort/brewStyleGroup
+		// (used below and elsewhere) rather than the 2-digit guess computed
+		// above - that guess is only ever right for 2-digit sets by
+		// coincidence. This is also the key style_set_categories (and so
+		// prefsStyleLimits) is actually stored under for an imported set
+		// like GABF, whose group codes aren't 2-digit-padded.
+		if (!empty($row_style_name['brewStyleGroup'])) $styleFix = $row_style_name['brewStyleGroup'];
+
 		// Array from constants.inc.php
 		// Check to see if there are any style limits
-		// If so, check if the 
+		// If so, check if the
 		if ((is_array($style_limit_entry_count_display)) && (!empty($style_limit_entry_count_display))) {
 
 			// Was $_SESSION['sprefsStyleSet'] (an extra leading "s" - never a real session key)
@@ -309,55 +393,64 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 				else $chosen_style_set = "BJCP2021";
 			}
 
+			elseif ($_SESSION['prefsStyleSet'] == "BJCP2026") {
+				$first_character = mb_substr($style[0], 0, 1);
+				if ($first_character == "M") $chosen_style_set = "BJCP2026";
+				elseif ($first_character == "C") $chosen_style_set = "BJCP2025";
+				else $chosen_style_set = "BJCP2021";
+			}
+
 			else $chosen_style_set = $_SESSION['prefsStyleSet'];
 
 			$all_style_limits = json_decode($_SESSION['prefsStyleLimits'],true);
+
+			// Keyed by $styleFix (the DB's own zero-padded brewStyleGroup,
+			// just resolved above), not the raw, un-padded $style[0] - a
+			// style_set_categories key (what prefsStyleLimits is actually
+			// keyed by) is only ever guaranteed to equal $style[0] for a
+			// 2-digit-padded set; an imported set like GABF pads to a
+			// different width and would otherwise never match here.
+			//
+			// For a style set with style_set_overall_categories (GABF, etc.),
+			// $styleFix is one individual style's own group code, but a
+			// stored limit's key is the representative group code for the
+			// whole rolled-up grouping it belongs to - expand via
+			// style_group_limit_siblings() so an entry counted under any
+			// sibling group is checked against, and can trip, the shared
+			// limit. Unchanged (array($styleFix) only) for every set without
+			// overall categories.
+			$style_limit_siblings = style_group_limit_siblings($_SESSION['prefsStyleSet'], $styleFix);
+			$style_limit_key = null;
+			foreach ($style_limit_siblings as $sibling) {
+				if (isset($all_style_limits[$sibling])) { $style_limit_key = $sibling; break; }
+			}
 
 			// A custom style is tagged with the literal active style set at creation time
 			// (process_styles.inc.php), never with the cider-only BJCP2025 exception applied
 			// above - so a custom (non-cider) style added while BJCP2025 was active never
 			// matches $chosen_style_set here. Admit brewStyleOwn='custom' as a fallback, same
 			// as the already-correct lookup a few hundred lines below in this same file.
-			if ((isset($all_style_limits[$style[0]])) && ($all_style_limits[$style[0]] >= $style_limit_entry_count_display[$style[0]])) {
+			if (($style_limit_key !== null) && ($all_style_limits[$style_limit_key] >= $style_limit_entry_count_display[$style_limit_key])) {
 
 				$update_table_styles = $prefix."styles";
 				$data = array('brewStyleAtLimit' => 1);
-				$db_conn->where ("(brewStyleVersion = ? OR brewStyleOwn = ?) AND brewStyleGroup = ?", array($chosen_style_set, "custom", $style[0]));
+				$db_conn->where ("(brewStyleVersion = ? OR brewStyleOwn = ?)", array($chosen_style_set, "custom"));
+				$db_conn->where ("brewStyleGroup", $style_limit_siblings, 'IN');
 				$result = $db_conn->update ($update_table_styles, $data);
 
 			}
 
-			if ((isset($all_style_limits[$style[0]])) && ($all_style_limits[$style[0]] < $style_limit_entry_count_display[$style[0]])) {
+			if (($style_limit_key !== null) && ($all_style_limits[$style_limit_key] < $style_limit_entry_count_display[$style_limit_key])) {
 
 				$update_table_styles = $prefix."styles";
 				$data = array('brewStyleAtLimit' => 0);
-				$db_conn->where ("(brewStyleVersion = ? OR brewStyleOwn = ?) AND brewStyleGroup = ?", array($chosen_style_set, "custom", $style[0]));
+				$db_conn->where ("(brewStyleVersion = ? OR brewStyleOwn = ?)", array($chosen_style_set, "custom"));
+				$db_conn->where ("brewStyleGroup", $style_limit_siblings, 'IN');
 				$result = $db_conn->update ($update_table_styles, $data);
 
 			}
 
 		}
-
-		// Style Name
-
-		// Determine if the style chosen is a cider - if so, run a different query
-		if ($_SESSION['prefsStyleSet'] == "BJCP2025") {
-			$first_character = mb_substr($styleFix, 0, 1);
-			if ($first_character == "C") $style_version = "BJCP2025";
-			else $style_version = "BJCP2021";
-		}
-
-		else $style_version = $_SESSION['prefsStyleSet'];
-
-		// AABC2025 ships only its 16 cider styles; beer/mead styles for that set remain under
-		// brewStyleVersion='AABC2022' - the plain (version OR custom) predicate below would match
-		// zero rows for those, same fix pattern already used correctly in
-		// includes/db/styles_special.db.php.
-		if ($_SESSION['prefsStyleSet'] == "AABC2025") $db_conn->where("((brewStyleVersion='AABC2025' AND brewStyleType='2') OR (brewStyleVersion='AABC2022' AND brewStyleType !='2') OR brewStyleOwn='custom') AND brewStyleGroup = ? AND brewStyleNum = ?", array($styleFix, $style[1]));
-		else $db_conn->where("(brewStyleVersion = ? OR brewStyleOwn = ?) AND brewStyleGroup = ? AND brewStyleNum = ?", array($style_version, "custom", $styleFix, $style[1]));
-		$row_style_name = $db_conn->getOne($prefix."styles", "id, brewStyleGroup, brewStyleNum, brewStyle, brewStyleCarb, brewStyleSweet, brewStyleStrength, brewStyleType");
-		
-		$styleName = $row_style_name['brewStyle'];
 
 		// Mark as paid if free entry fee
 		if ($_SESSION['contestEntryFee'] == 0) $brewPaid = 1;
@@ -371,8 +464,10 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 			$brewInfoOptional = $purifier->purify(sterilize($_POST['brewInfoOptional']));		
 		}
 
-		// For BJCP 2025/2021, process addtional info
-		if (($_SESSION['prefsStyleSet'] == "BJCP2025") || ($_SESSION['prefsStyleSet'] == "BJCP2021")) {
+		// For BJCP 2025/2021/2026, process addtional info - beer codes/indices
+		// are unchanged across all three (BJCP2026 didn't touch beer), so
+		// this beer-specific field handling still applies under BJCP2026.
+		if (($_SESSION['prefsStyleSet'] == "BJCP2025") || ($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2026")) {
 
 			// If BJCP 2021/5 and 2A, add optional regional variation if present
 			if (($index == "02-A") && (!empty($_POST['regionalVar']))) {
@@ -758,12 +853,19 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 		// Before processing the edit, determine the style of the entry
 		// as stored in the DB
 		$db_conn->where("id", $id);
-		$row_current_style = $db_conn->getOne($prefix."brewing", "brewCategorySort, brewSubCategory");
+		$row_current_style = $db_conn->getOne($prefix."brewing", "brewCategorySort, brewSubCategory, brewMead1, brewMead2, brewMead3");
 
 		// Determine if the style chosen is a cider - if so, run a different query
 		if ($_SESSION['prefsStyleSet'] == "BJCP2025") {
 			$first_character = mb_substr($row_current_style['brewCategorySort'], 0, 1);
 			if ($first_character == "C") $style_version = "BJCP2025";
+			else $style_version = "BJCP2021";
+		}
+
+		elseif ($_SESSION['prefsStyleSet'] == "BJCP2026") {
+			$first_character = mb_substr($row_current_style['brewCategorySort'], 0, 1);
+			if ($first_character == "M") $style_version = "BJCP2026";
+			elseif ($first_character == "C") $style_version = "BJCP2025";
 			else $style_version = "BJCP2021";
 		}
 
@@ -984,11 +1086,20 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 
 		 }
 
-		 // Check if mead/cider entry has carbonation and sweetness, if so, override the $updateGoTo variable with another and redirect
+		 // Check if mead/cider entry has carbonation and sweetness, if so, override the $updateGoTo variable with another and redirect.
+		 // Admin-only grandfather: a field that was ALREADY empty before this edit (e.g. an
+		 // entry submitted before BJCP2026 made mead Sweetness required) doesn't newly block
+		 // an admin's save or flip brewConfirmed - only an admin actively clearing a
+		 // previously-filled value still trips this. A brewer editing their own entry always
+		 // gets the full check (client-side entry.js also keeps it required=true on that
+		 // form, so this path is effectively unreachable for a brewer anyway, but the server
+		 // enforces it independently rather than trusting the client).
 		 if (check_carb($styleBreak,$_SESSION['prefsStyleSet'])) {
 
-			if (empty($brewMead1)) {
-				
+			$brewMead1_grandfathered = (($section == "admin") && (empty($brewMead1)) && (empty($row_current_style['brewMead1'])));
+
+			if ((empty($brewMead1)) && (!$brewMead1_grandfathered)) {
+
 				$update_table = $prefix."brewing";
 				$data = array('brewConfirmed' => '0');
 				$db_conn->where ('id', $id);
@@ -1001,7 +1112,7 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 			}
 
 			if ($section == "admin") {
-				if (empty($brewMead1)) $updateGoTo = $base_url."index.php?section=brew&go=entries&filter=$filter&action=edit&id=$id&view=$styleReturn&msg=1-".$styleReturn;
+				if ((empty($brewMead1)) && (!$brewMead1_grandfathered)) $updateGoTo = $base_url."index.php?section=brew&go=entries&filter=$filter&action=edit&id=$id&view=$styleReturn&msg=1-".$styleReturn;
 				else $updateGoTo = $base_url."index.php?section=admin&go=entries&msg=2";
 			}
 
@@ -1014,8 +1125,10 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 
 		 if (check_sweetness($styleBreak,$_SESSION['prefsStyleSet'])) {
 
-			if (empty($brewMead2)) {
-				
+			$brewMead2_grandfathered = (($section == "admin") && (empty($brewMead2)) && (empty($row_current_style['brewMead2'])));
+
+			if ((empty($brewMead2)) && (!$brewMead2_grandfathered)) {
+
 				$update_table = $prefix."brewing";
 				$data = array('brewConfirmed' => '0');
 				$db_conn->where ('id', $id);
@@ -1028,7 +1141,7 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 			}
 
 			if ($section == "admin") {
-				if (empty($brewMead2)) $updateGoTo = $base_url."index.php?section=brew&go=entries&filter=$filter&action=edit&id=$id&view=$styleReturn&msg=1-".$styleReturn;
+				if ((empty($brewMead2)) && (!$brewMead2_grandfathered)) $updateGoTo = $base_url."index.php?section=brew&go=entries&filter=$filter&action=edit&id=$id&view=$styleReturn&msg=1-".$styleReturn;
 				else $updateGoTo = $base_url."index.php?section=admin&go=entries&msg=2";
 			}
 
@@ -1041,8 +1154,10 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 
 		 if (check_mead_strength($styleBreak,$_SESSION['prefsStyleSet'])) {
 
-			if (empty($brewMead3))  {
-				
+			$brewMead3_grandfathered = (($section == "admin") && (empty($brewMead3)) && (empty($row_current_style['brewMead3'])));
+
+			if ((empty($brewMead3)) && (!$brewMead3_grandfathered))  {
+
 				$update_table = $prefix."brewing";
 				$data = array('brewConfirmed' => '0');
 				$db_conn->where ('id', $id);
@@ -1055,7 +1170,7 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 			}
 
 			if ($section == "admin") {
-				if (empty($brewMead3)) $updateGoTo = $base_url."index.php?section=brew&go=entries&filter=$filter&action=edit&id=$id&view=$styleReturn&msg=1-".$styleReturn;
+				if ((empty($brewMead3)) && (!$brewMead3_grandfathered)) $updateGoTo = $base_url."index.php?section=brew&go=entries&filter=$filter&action=edit&id=$id&view=$styleReturn&msg=1-".$styleReturn;
 				else $updateGoTo = $base_url."index.php?section=admin&go=entries&msg=2";
 			}
 
