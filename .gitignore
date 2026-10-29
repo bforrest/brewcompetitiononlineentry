@@ -36,10 +36,10 @@ cleanup_double_encoding.php
 vendor/
 tools/*
 user_docs/*
-.worktress/
+.worktrees/
 user_temp/*
 !user_temp/.gitkeep
 .claude/
 .phpstan.cache/
 .phpunit.cache/
-.worktrees/
+
