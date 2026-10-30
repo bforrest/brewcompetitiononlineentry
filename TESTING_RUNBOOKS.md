@@ -1,458 +1,369 @@
 # Testing Runbooks
 
-## Quick Start: Run All Tests Locally
+Everything here assumes you are in the repo root of the `testing-baseline` branch
+(or a worktree of it). The app is the stock upstream BCOE&M code; the tests
+characterize `lib/` and drive the real UI.
 
-### One-Liner (All 4 Tiers)
+## One-Time Setup
 
 ```bash
-# Setup
-docker-compose up -d
+# 1. Dev dependencies (PHPUnit, PHPStan). Needs PHP 8.2+ on the host.
+#    No local PHP? Use:
+#    docker run --rm -v "$PWD":/app -w /app composer:2 install --ignore-platform-reqs
+composer install
 
-# Wait for app ready
-until curl -sf http://localhost:8080/index.php > /dev/null; do sleep 1; done
+# 2. App config. site/config.php is gitignored; the Docker stack supplies the
+#    DB settings through environment variables (see docker-compose.yml).
+cp site/config.sample.php site/config.php
 
-# Run all tests
-php vendor/bin/phpunit && \
-cd e2e && npm ci && npm test
+# 3. E2E dependencies and browser
+cd e2e && npm ci && npx playwright install chromium && cd ..
+
+# 4. Start the stack: app on :8080, MariaDB on :3306 (seeded from
+#    sql/bcoem_baseline_3.2.X.sql on first start)
+docker compose up -d --build
 ```
 
-**Expected Duration:** ~4 minutes  
-**Expected Result:** "OK (x tests, y assertions)" from PHPUnit + "passed (z tests)" from Playwright
+- phpMyAdmin is not part of this stack. Use `mysql -h 127.0.0.1 -u bcoem -pbcoem_password bcoem`.
+- The seeded admin login is `user.baseline@brewingcompetitions.com` / `bcoem`.
+
+## Quick Start: Run Everything
+
+Order matters. PHPUnit goes first because the Playwright suite leaves users and
+entries behind, and some Integration tests (e.g. `TotalFeesTest`) assume the
+freshly seeded database. See [Database state](#database-state-and-run-order).
+
+```bash
+# Static analysis + DB-free tests (host)
+vendor/bin/phpstan analyse --memory-limit=1G
+vendor/bin/phpunit --testsuite Unit
+
+# DB-backed tests (inside the web container)
+docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration
+docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Approval
+
+# Reset the DB, then run the browser suite
+docker compose down -v && docker compose up -d
+until curl -sf http://localhost:8080/index.php > /dev/null; do sleep 2; done
+(cd e2e && npm test)
+```
+
+**Expected result (as of the commit that introduced this branch):**
+
+| Check | Result |
+|---|---|
+| PHPStan | `[OK] No errors` |
+| Unit | 242 tests, 5 skipped |
+| Integration | 57 tests |
+| Approval | 47 tests, 1 skipped |
+| Playwright | 18 passed |
+
+PHPUnit prints "OK, but there were issues!" because the legacy library triggers
+known PHP warnings and deprecations; `failOnWarning` is intentionally off (see
+`phpunit.xml`). Only failures and errors matter.
+
+`composer` shortcuts exist for the same commands: `composer stan`,
+`composer test:unit`, `composer test:db`, `composer e2e`, `composer db:reset`.
+
+---
+
+## Database State and Run Order
+
+- Unit tests need no database.
+- Integration and Approval tests use the seeded `baseline_` tables. Integration
+  tests run inside a transaction that is rolled back, so they do not dirty the DB,
+  but they do read whatever is already there.
+- Playwright registers users and creates entries, and **does not clean up**.
+  Afterwards, tests that aggregate over all brewers fail (for example
+  `TotalFeesTest::testAllBrewersSumAcrossMultipleUsers`).
+
+Reset to the seeded state whenever you have run e2e and want to run PHPUnit again:
+
+```bash
+docker compose down -v && docker compose up -d   # same as `composer db:reset`
+```
+
+`down -v` deletes the database volume. That is intended here; the data is a
+disposable fixture.
 
 ---
 
 ## Test Tiers: Individual Runbooks
 
-### Tier 1: Unit Tests Only (30 seconds)
+### Tier 1: Unit Tests (seconds, no Docker)
 
-**Best for:** Quick feedback during development, no Docker needed.
+**Best for:** quick feedback while editing `lib/`.
 
 ```bash
-php vendor/bin/phpunit --testsuite Unit -v
+vendor/bin/phpunit --testsuite Unit
 ```
 
-**Common Failures:**
-- `Class not found`: Missing use statement or wrong namespace — check namespace path matches directory
-- `Call to undefined method`: Method doesn't exist on mock or real object — check class definition
-- `Assertion failed`: Logic error — inspect test setup and implementation
-
-**Debug Tip:**
 ```bash
-# Run single test file
-php vendor/bin/phpunit tests/Unit/Domain/Entry/StyleNumberTest.php -v
+# One file
+vendor/bin/phpunit tests/Unit/StringUtilitiesTest.php
 
-# Run single test method
-php vendor/bin/phpunit tests/Unit/Domain/Entry/StyleNumberTest.php::test_format_returns_combined_string -v
+# One test method
+vendor/bin/phpunit --filter test_style_number_const_method3_default_ltrims_category
 ```
 
----
+Use `--testdox` for a readable list of test names.
 
-### Tier 2: Integration Tests (60 seconds + DB setup)
+**Common failures**
+- `Undefined array key ...` / `Call to undefined function`: the function reads a
+  `$_SESSION` key or a helper that `tests/bootstrap.php` does not define. Set the
+  session key in the test (and `unset` it afterwards), or add a stub to the bootstrap.
+- Assertion mismatch after pulling upstream: upstream changed behavior. Decide
+  whether the new behavior is right, then update the test and say so in the
+  commit message (see "Keeping tests in step with upstream" below).
 
-**Best for:** Verifying database queries and business logic.
+### Tier 2: Integration Tests (about a minute, needs the DB)
 
-**Prerequisites:**
+**Best for:** functions in `lib/` that run real queries through `MysqliDb`.
+
 ```bash
-docker-compose up -d db
+# Inside the container (recommended): it already has the DB settings
+docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration
 
-# Verify DB is ready (wait for ~5 sec startup)
-sleep 5
-
-# Check connectivity
-mysql -h 127.0.0.1 -u bcoem -pbcoem_password bcoem -e "SELECT 1;"
+# One file
+docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit tests/Integration/VerifyTokenTest.php
 ```
 
-**Run:**
-```bash
-# Option A: Tests inside container (reads $GLOBALS['connection'] from docker-compose)
-docker-compose exec -T web vendor/bin/phpunit --testsuite Integration -v
+To run on the host instead, point at the published port:
 
-# Option B: Tests on local PHP (reads environment variables)
-export BCOEM_DB_HOST=127.0.0.1
-export BCOEM_DB_USER=bcoem
-export BCOEM_DB_PASSWORD=bcoem_password
-export BCOEM_DB_NAME=bcoem
-export BCOEM_DB_PORT=3306
-export BCOEM_DB_PREFIX=baseline_
-php vendor/bin/phpunit --testsuite Integration -v
+```bash
+export BCOEM_DB_HOST=127.0.0.1 BCOEM_DB_USER=bcoem BCOEM_DB_PASSWORD=bcoem_password \
+       BCOEM_DB_NAME=bcoem BCOEM_DB_PORT=3306 BCOEM_DB_PREFIX=baseline_
+vendor/bin/phpunit --testsuite Integration
 ```
 
-**Common Failures:**
-- `Connection refused`: DB not running or not ready — check `docker-compose ps db` and `docker-compose logs db`
-- `Unknown column 'xyz'`: Schema mismatch — check migration is applied; verify table structure with `SHOW CREATE TABLE baseline_xyz;`
-- `Test did not execute`: Transaction rollback issue — check test extends `IntegrationTestCase`; verify MySQL supports transactions (InnoDB)
+The host needs PHP with the `mysqli` extension. The values above are also the
+defaults in `tests/Integration/IntegrationTestCase.php`, so on the host you can
+usually skip the exports. `BCOEM_DB_HOST=db` is needed only inside the container,
+where the database is reachable by its compose service name.
 
-**Debug Tip:**
+**Common failures**
+- `Connection refused` / `Unknown MySQL server host`: the stack is not up, or you are
+  using `db` from the host (or `127.0.0.1` from inside the container). Check
+  `docker compose ps` and `docker compose logs db`.
+- `Class "MysqliDb" not found`: `tests/bootstrap.php` must `require_once CONFIG . 'MysqliDb.php'`.
+- Sum/count assertions off by a lot: leftover e2e data. Reset the DB (above).
+- Tests errored because tables are missing: the volume was created before the
+  baseline SQL changed. `docker compose down -v && docker compose up -d`.
+
+### Tier 3: Approval (snapshot) Tests (seconds, needs the DB)
+
+**Best for:** detecting accidental changes in generated HTML/URLs/style output.
+
 ```bash
-# Run single test and keep DB data (don't rollback)
-# 1. Temporarily comment out rollback in tearDown() method
-# 2. Run test
-# 3. Query DB manually: mysql -u bcoem -pbcoem_password bcoem -e "SELECT * FROM baseline_brewing;"
-# 4. Restore rollback
-
-# Or, run in container to see raw SQL
-docker-compose exec web vendor/bin/phpunit tests/Integration/Entry/EntryRepositoryIntegrationTest.php -v
+docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Approval
 ```
 
----
+Snapshots live in `tests/Approval/__snapshots__/`. A missing snapshot is created
+on first run. A mismatch fails the test and prints the diff.
 
-### Tier 3: Approval Tests (20 seconds)
-
-**Best for:** Detecting formatting regressions (URLs, style names, serialization).
-
-```bash
-php vendor/bin/phpunit --testsuite Approval -v
-```
-
-**If Snapshot Mismatch:**
+If the change is intentional, regenerate and review:
 
 ```bash
-# 1. Run test to see diff
-php vendor/bin/phpunit tests/Approval/StyleConvertApprovalTest.php -v
+docker compose exec -T -e BCOEM_DB_HOST=db -e UPDATE_SNAPSHOTS=1 web \
+  vendor/bin/phpunit --testsuite Approval
 
-# 2. Inspect the diff
-cat tests/Approval/__snapshots__/style_convert_type4_rauchbier.snap
-
-# 3. If change is intentional, approve all mismatches in test file
-# Open test file, call $this->approveAll() in setUp or tearDown
-
-# 4. Re-run to confirm
-php vendor/bin/phpunit tests/Approval/StyleConvertApprovalTest.php -v
-
-# 5. Commit updated snapshot files
+git diff tests/Approval/__snapshots__/     # read it before committing
 git add tests/Approval/__snapshots__/
-git commit -m "Update style conversion snapshot after format change"
 ```
 
-**Common Failures:**
-- `File does not exist`: Snapshot not yet created — this is normal for new tests; approve to generate initial snapshot
-- `Expected output differs`: Formatting changed — review diff carefully, verify it's intentional
+`UPDATE_SNAPSHOTS=1` overwrites every snapshot exercised in the run, so always
+review the diff.
 
----
+### Tier 4: E2E Tests (about a minute, needs the full stack)
 
-### Tier 4: E2E Tests (90 seconds + stack)
+**Best for:** the browser happy paths and access-control checks.
 
-**Best for:** End-to-end user journeys; browser interaction.
+| Spec | Covers |
+|---|---|
+| `smoke.spec.ts` | home page, login modal, admin login, entrant registration |
+| `entrant-journey.spec.ts` | register, create/edit an entry, payment page |
+| `admin-journey.spec.ts` | admin sees entries, builds a judging table, records a score |
+| `security-invariants.spec.ts` | anonymous/entrant access limits, PDF path traversal, login behavior |
 
-**Prerequisites:**
 ```bash
-# Start full stack
-docker-compose up -d
+docker compose down -v && docker compose up -d          # clean DB (see above)
+until curl -sf http://localhost:8080/index.php > /dev/null; do sleep 2; done
 
-# Wait for app ready (check logs)
-docker-compose logs --tail 20 web
-
-# Verify with curl
-until curl -sf http://localhost:8080/index.php > /dev/null; do echo "Waiting..."; sleep 2; done
-```
-
-**Run:**
-```bash
 cd e2e
-
-# Headless (default, for CI)
-npm test
-
-# Headed (open browser, watch execution)
-npm run test:headed
-
-# Watch mode (re-run on file change)
-npx playwright test --watch
-
-# Single test file
-npx playwright test entrant-journey.spec.ts
-
-# Single test within file
-npx playwright test -g "register, create, edit, and see an entry via modern routes"
-
-# Debug (pauses before each step)
-npx playwright test --debug
+npm test                                  # headless
+npm run test:headed                       # watch the browser
+npx playwright test smoke.spec.ts         # one file
+npx playwright test -g "fresh entrant"    # one test by name
+npx playwright test --debug               # step through
+npm run report                            # open the HTML report
 ```
 
-**View Results:**
-```bash
-npm run report
-# Opens HTML report at file:///path/to/playwright-report/index.html
-```
+The specs run serially against one shared database (`workers: 1`). The admin
+credentials are hard-coded in `e2e/helpers/auth.ts`, and the base URL defaults to
+`http://localhost:8080` (override with `BASE_URL`). Registration only works
+because `docker/03-e2e-fixtures.sql` pins `prefsCAPTCHA = 0`.
 
-**Common Failures:**
-- `Timeout waiting for selector`: App not ready or selector wrong — check app logs, verify element exists in browser
-- `Navigation failed`: Page crashed or auth failed — check app logs for errors
-- `Page close error`: Test left page in bad state — inspect test for unhandled promises
-
-**Debug Tips:**
-```bash
-# Run headed to watch execution
-npm run test:headed
-
-# Verbose output
-npx playwright test --verbose
-
-# Take screenshots during failure
-# Tests automatically capture screenshots on failure; view in report
-
-# Check app logs
-docker-compose logs web | tail -50
-```
+**Common failures**
+- Login or registration times out and you land back on the login page: a request is
+  not reaching its PHP script. `docker/.htaccess` is bind-mounted over the root
+  `.htaccess` and must stay identical to upstream's apart from the HTTPS redirect.
+- `net::ERR_CONNECTION_REFUSED`: stack not up yet; wait for the `curl` loop.
+- A test passes alone but fails in the full run: it depends on state from an earlier
+  spec or leftover data. Reset the DB and re-run the whole suite.
 
 ---
 
 ## Scenario: Adding a New Test
 
-### Adding a Unit Test
+### Characterization test for a `lib/` function (Unit)
 
-```bash
-# 1. Create test file
-cat > tests/Unit/Domain/Entry/MyNewTest.php << 'EOF'
+```php
 <?php
+// tests/Unit/MyFunctionTest.php
 declare(strict_types=1);
+
+namespace BCOEM\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Bcoem\Domain\Entry\ValueObject\EntryId;
 
-class MyNewTest extends TestCase
+class MyFunctionTest extends TestCase
 {
-    public function test_something(): void
+    public function test_pins_current_behavior(): void
     {
-        $id = new EntryId(123);
-        $this->assertSame(123, $id->value());
+        // tests/bootstrap.php has already loaded lib/common.lib.php
+        $this->assertSame('expected', some_lib_function('input'));
     }
 }
-EOF
-
-# 2. Run it
-php vendor/bin/phpunit tests/Unit/Domain/Entry/MyNewTest.php
-
-# 3. Fix errors and re-run
 ```
 
-### Adding an Integration Test
-
 ```bash
-# 1. Create test file (must extend IntegrationTestCase)
-cat > tests/Integration/MyNewIntegrationTest.php << 'EOF'
-<?php
-declare(strict_types=1);
-
-namespace BCOEM\Tests\Integration;
-
-class MyNewIntegrationTest extends IntegrationTestCase
-{
-    public function test_something(): void
-    {
-        $userId = $this->insertTestUser('test@example.com');
-        $this->assertNotNull($userId['brewerId']);
-    }
-}
-EOF
-
-# 2. Start DB
-docker-compose up -d db
-sleep 5
-
-# 3. Run it
-export BCOEM_DB_HOST=127.0.0.1 BCOEM_DB_USER=bcoem BCOEM_DB_PASSWORD=bcoem_password
-php vendor/bin/phpunit tests/Integration/MyNewIntegrationTest.php
+vendor/bin/phpunit tests/Unit/MyFunctionTest.php
 ```
 
-### Adding an E2E Test
+Write the assertion for what the code does **today**, even if that looks wrong,
+and leave a comment saying so. The point of a characterization test is to make a
+later change show up as a diff.
+
+### Integration test (needs the DB)
+
+Extend `IntegrationTestCase` (`tests/Integration/IntegrationTestCase.php`). It opens
+a transaction in `setUp` and rolls it back afterwards, and provides helpers such as
+`insertTestUser()`, `insert()` and `select()`.
 
 ```bash
-# 1. Create test file
-cat > e2e/tests/my-journey.spec.ts << 'EOF'
+docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit tests/Integration/MyNewIntegrationTest.php
+```
+
+Functions that take a database wrapper want a `MysqliDb`, not the raw `mysqli`
+handle: pass `new \MysqliDb(self::$conn)`.
+
+### E2E test
+
+```typescript
+// e2e/tests/my-journey.spec.ts
 import { test, expect } from '@playwright/test';
+import { registerEntrant } from '../helpers/auth';
 
-test('my user journey', async ({ page }) => {
-  await page.goto('/index.php');
-  await expect(page.locator('h1')).toContainText('Welcome');
+test('entrant sees the entries page', async ({ page }) => {
+  await registerEntrant(page);
+  await page.goto('/index.php?section=list');
+  await expect(page.locator('body')).toContainText(/entries/i);
 });
-EOF
-
-# 2. Start stack
-docker-compose up -d
-until curl -sf http://localhost:8080/index.php > /dev/null; do sleep 1; done
-
-# 3. Run it
-cd e2e && npm test my-journey.spec.ts
 ```
+
+```bash
+cd e2e && npx playwright test my-journey.spec.ts
+```
+
+Helpers: `registerEntrant`, `login`, `loginAsAdmin` in `e2e/helpers/auth.ts`;
+`chooseStyle`, `createEntrantWithEntry` in `e2e/helpers/entries.ts`.
 
 ---
 
 ## Scenario: Debugging a Failing Test
 
-### Unit Test Failure
+### Unit / Integration / Approval
 
 ```bash
-# 1. Run test with verbose output
-php vendor/bin/phpunit tests/Unit/Domain/Entry/StyleNumberTest.php::test_format_returns_combined_string -v
+# Run the one failing test with readable output
+docker compose exec -T -e BCOEM_DB_HOST=db web \
+  vendor/bin/phpunit tests/Integration/BrewerInfoTest.php --testdox
 
-# 2. Add debug output to test
-// In test method:
-$style = new StyleNumber('1', 'A');
-var_dump($style->format());  // Check actual vs expected
+# Inspect the database directly
+mysql -h 127.0.0.1 -u bcoem -pbcoem_password bcoem \
+  -e "SELECT id, user_name, userLevel FROM baseline_users ORDER BY id DESC LIMIT 5;"
 
-# 3. Fix the implementation and re-run
+# PHP errors from the web container
+docker compose logs web --since 5m | grep -E "php:(error|warn)"
 ```
 
-### Integration Test Failure
+To see exactly what the SQL layer received, add a temporary `var_dump` in the test
+or the `lib/` function and re-run; remove it afterwards.
+
+### E2E
 
 ```bash
-# 1. Start DB
-docker-compose up -d db
-sleep 5
-
-# 2. Run test
-export BCOEM_DB_HOST=127.0.0.1 BCOEM_DB_USER=bcoem BCOEM_DB_PASSWORD=bcoem_password
-php vendor/bin/phpunit tests/Integration/Entry/EntryRepositoryIntegrationTest.php::test_insert_entry_and_retrieve_by_id -v
-
-# 3. If failed, query DB to inspect state
-mysql -h 127.0.0.1 -u bcoem -pbcoem_password bcoem << 'EOF'
-SELECT * FROM baseline_brewing LIMIT 5;
-SELECT * FROM baseline_brewer LIMIT 5;
-SELECT * FROM baseline_audit_log ORDER BY id DESC LIMIT 5;
-EOF
-
-# 4. Fix issue and re-run
+cd e2e
+npm run test:headed                         # watch it fail
+npx playwright show-trace test-results/<test-folder>/trace.zip
+docker compose logs web --since 5m | tail -50
 ```
 
-### E2E Test Failure
-
-```bash
-# 1. Start stack
-docker-compose up -d
-
-# 2. Run test with headed browser to watch
-cd e2e && npm run test:headed
-
-# 3. Interact and observe where it fails
-
-# 4. Check app logs
-docker-compose logs web | grep -i error
-
-# 5. Fix the test or app and re-run
-npm test
-```
+Failed runs keep a screenshot, trace and `error-context.md` under
+`e2e/test-results/` (gitignored).
 
 ---
 
-## CI Failure Diagnosis
+## Keeping Tests in Step with Upstream
 
-### "Unit tests failed" in GitHub Actions
-
-```bash
-# 1. Check the CI log for error message
-# In GitHub UI: Actions → workflow run → static-and-unit → see logs
-
-# 2. Reproduce locally
-php vendor/bin/phpunit --testsuite Unit -v
-
-# 3. Once fixed locally, push to trigger CI again
-git push
-```
-
-### "Integration tests failed" in GitHub Actions
+This branch is `upstream/master` plus the test layers, so pulling upstream is the
+normal way to update it:
 
 ```bash
-# 1. Check CI logs (may show connection error, assertion failure, etc.)
-
-# 2. Reproduce locally with Docker stack
-docker-compose up -d db
-export BCOEM_DB_HOST=127.0.0.1 ...
-php vendor/bin/phpunit --testsuite Integration -v
-
-# 3. Fix and push
-git push
+git fetch upstream
+git merge upstream/master          # or rebase
 ```
 
-### "E2E tests failed" in GitHub Actions
+Then, with a fresh DB, run the whole suite. A failure after a merge means one of:
 
-```bash
-# 1. Check CI logs; look for "Timeout waiting for" or "Navigation failed"
+1. **A deliberate upstream behavior change.** Confirm the new behavior is
+   acceptable, update the test, and note it in the commit message. Past examples:
+   `style_number_const` switched to a `style_set_no_numbering` session flag; the
+   currency list grew to 29; `upgrade_legacy_password_hash()` takes a `MysqliDb`.
+2. **A regression.** Report it upstream rather than editing the test to match.
+   One known case: `verify_token()` now uses `getOne()`, so two accounts sharing a
+   reset token both validate (`VerifyTokenTest::testDuplicateTokenReturnsOne`
+   pins this).
+3. **New code PHPStan cannot resolve.** Fix the cause, or regenerate the baseline
+   and review the diff:
+   `vendor/bin/phpstan analyse --memory-limit=1G --generate-baseline=phpstan-baseline.neon`
 
-# 2. Reproduce locally
-docker-compose up -d
-cd e2e && npm run test:headed
-
-# 3. Check if app is responding
-docker-compose logs web | tail -50
-
-# 4. Fix (app, test, or both) and push
-git push
-```
-
-### "Playwright report upload failed"
-
-```bash
-# This usually means test crashed and report couldn't be archived
-# Check CI logs for what crashed the test (timeout, crash, etc.)
-
-# Run locally headed to see the failure in detail
-cd e2e && npm run test:headed
-```
+If upstream changes `.htaccess`, mirror the change into `docker/.htaccess`
+(keeping the HTTPS redirect commented out).
 
 ---
 
-## Performance Profiling
+## CI
 
-### Identify Slow Tests
+`.github/workflows/ci.yml` runs on pushes to `testing-baseline` and `master`, and on
+every pull request, in two jobs:
 
-```bash
-# Run with verbose timing
-php vendor/bin/phpunit --testsuite Integration -v --testdox
+| Job | Steps |
+|---|---|
+| `static-and-unit` | `composer install`, PHPStan, Unit tier |
+| `integration-and-e2e` | copy `site/config.php`, start the stack, Integration and Approval tiers in the container, Playwright from the host, uploads the Playwright report on failure |
 
-# Look for tests that take >5s
-
-# If slow test found, profile with xdebug or add query logging
-# In EntryRepository, add logging to see N+1 queries
-```
-
-### Local Stack Performance Check
-
-```bash
-# Time each tier
-time php vendor/bin/phpunit --testsuite Unit
-time docker-compose exec -T web vendor/bin/phpunit --testsuite Integration
-time docker-compose exec -T web vendor/bin/phpunit --testsuite Approval
-cd e2e && time npm test
-```
-
-**Expected Times (from 2026-07-21):**
-- Unit: ~30s
-- Integration: ~60s
-- Approval: ~20s
-- E2E: ~90s
-- Total: ~3.5 min
+To reproduce a CI failure, follow the matching tier above from a fresh `down -v`.
+CI always starts from a clean database, so a failure that only appears locally
+after e2e is the run-order issue, not a code problem.
 
 ---
 
-## CI Schedule & Gating
+## Resources
 
-### What Blocks Merge?
-
-✓ **Unit tests fail** → PR cannot merge  
-✓ **Integration tests fail** → PR cannot merge  
-✓ **Approval tests fail** → PR cannot merge  
-✓ **E2E tests fail** → PR cannot merge  
-✓ **PHPStan errors** → PR cannot merge  
-
-### Manual Triggers
-
-```bash
-# Re-run CI pipeline for a commit
-git push --force-with-lease
-# (or just `git push` if no force needed)
-
-# CI re-runs automatically on every push
-```
-
----
-
-## Resources & Links
-
-- **Full Testing Overview:** `TESTING.md` (this file's companion)
-- **Test Code:** `tests/` and `e2e/tests/`
-- **CI Workflow:** `.github/workflows/ci.yml`
-- **Docker Setup:** `docker-compose.yml`
-- **PHPUnit Config:** `phpunit.xml`
-- **Playwright Config:** `e2e/playwright.config.ts`
-
+- **Overview:** `TESTING.md`, `TESTING_HEALTH_DASHBOARD.md`
+- **Test code:** `tests/`, `e2e/tests/`, `e2e/helpers/`
+- **Per-tier notes:** `tests/README.md`, `tests/Integration/README.md`, `e2e/README.md`
+- **CI workflow:** `.github/workflows/ci.yml`
+- **Docker:** `docker-compose.yml`, `Dockerfile`, `docker/`
+- **Configs:** `phpunit.xml`, `phpstan.neon`, `e2e/playwright.config.ts`
