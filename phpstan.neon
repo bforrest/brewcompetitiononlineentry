@@ -31,5 +31,21 @@ parameters:
     scanDirectories:
         - classes
 
+    scanFiles:
+        - site/MysqliDb.php
+        - site/dbObject.php
+
     bootstrapFiles:
         - phpstan-bootstrap.php
+
+    ignoreErrors:
+        # Optional/hosted-only/SSO files that don't exist in a stock checkout. Matched
+        # generically so the baseline holds no machine-specific absolute paths.
+        -
+            message: '#^Path in (require|require_once|include|include_once)\(\) ".*" is not a file or it does not exist\.$#'
+            identifier: requireOnce.fileNotFound
+            reportUnmatched: false
+        -
+            message: '#^Path in (require|require_once|include|include_once)\(\) ".*" is not a file or it does not exist\.$#'
+            identifier: include.fileNotFound
+            reportUnmatched: false

@@ -7,6 +7,8 @@ libraries/*
 sso/*
 .sftp-upload-on-change.json
 .github/*
+!.github/workflows/
+!.github/workflows/*
 includes/brewerydb/*
 js_includes/autosave.js
 *.zip
@@ -34,6 +36,17 @@ cleanup_double_encoding.php
 vendor/
 tools/*
 user_docs/*
-!user_docs/.gitkeep
+.worktrees/
 user_temp/*
 !user_temp/.gitkeep
+.claude/
+.phpstan.cache/
+.phpunit.cache/
+
+
+# Playwright output
+e2e/node_modules/
+e2e/playwright-report/
+e2e/test-results/
+test-results/
+classes/htmlpurifier/standalone/HTMLPurifier/DefinitionCache/Serializer/HTML/

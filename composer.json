@@ -3,9 +3,32 @@
     "description": "Brew Competition Online Entry & Management (BCOE&M) - dev tooling only. The application itself has no runtime dependencies managed here.",
     "type": "project",
     "require-dev": {
-        "phpstan/phpstan": "^2.2"
+        "phpstan/phpstan": "^2.2",
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "BCOEM\\Tests\\Approval\\": "tests/Approval/",
+            "BCOEM\\Tests\\Integration\\": "tests/Integration/",
+            "BCOEM\\Tests\\Unit\\": "tests/Unit/"
+        }
     },
     "config": {
-        "sort-packages": true
+        "sort-packages": true,
+        "platform": {
+            "php": "8.2.32"
+        }
+    },
+    "scripts": {
+        "stan": "phpstan analyse --memory-limit=1G",
+        "test": "docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit",
+        "test:unit": "phpunit --testsuite Unit",
+        "test:db": [
+            "docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration",
+            "docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Approval"
+        ],
+        "e2e": "sh -c 'cd e2e && npx playwright test \"$@\"' --",
+        "e2e:install": "sh -c 'cd e2e && npm install && npx playwright install chromium'",
+        "db:reset": "docker compose down -v && docker compose up -d"
     }
 }

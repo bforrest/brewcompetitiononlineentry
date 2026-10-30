@@ -1,0 +1,1 @@
+<form class="form-horizontal" method="post" id="form1" name="form1" action="https://homebrew.example.com/includes/process.inc.php?section=entries&amp;dbTable=brewing&amp;go=edit&amp;action=save&amp;filter=open&amp;id=42">

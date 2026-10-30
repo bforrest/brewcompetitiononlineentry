@@ -1,0 +1,56 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      # Override .htaccess to disable the HTTPS redirect for local dev
+      - ./docker/.htaccess:/var/www/html/.htaccess:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Task 13: site/config.php reads these directly (getenv(...) ?: '<shared-hosting
+      # default>') - Docker is now just another consumer of that single file via real
+      # environment variables, not a bind-mounted override of it (docker/config.php,
+      # retired by this task). A shared-hosting install with none of these set falls
+      # through to config.php's own hardcoded literals, unchanged.
+      DB_HOST: db
+      DB_USER: bcoem
+      DB_PASSWORD: bcoem_password
+      DB_NAME: bcoem
+      DB_PREFIX: baseline_
+      INSTALLATION_ID: docker-local
+      # SERVER_NAME inside the container reflects Apache's own idea of itself
+      # (port 80), not the host port docker-compose maps it to (8080) - see
+      # config.php's own comment on this flag for the full explanation.
+      BASE_URL_USE_HTTP_HOST: "true"
+
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: root_password
+      MARIADB_DATABASE: bcoem
+      MARIADB_USER: bcoem
+      MARIADB_PASSWORD: bcoem_password
+    volumes:
+      - bcoem_db:/var/lib/mysql
+      # Load the baseline schema on first run (only applied when data volume is empty)
+      - ./sql/bcoem_baseline_3.2.X.sql:/docker-entrypoint-initdb.d/01-baseline.sql:ro
+      # Push the baseline's 2023 contest deadlines into the future so registration/entry are open
+      - ./docker/02-open-registration.sql:/docker-entrypoint-initdb.d/02-open-registration.sql:ro
+      # E2E test fixtures: pin prefsCAPTCHA=0 so automated registration works (see file header)
+      - ./docker/03-e2e-fixtures.sql:/docker-entrypoint-initdb.d/03-e2e-fixtures.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    ports:
+      - "3306:3306"
+
+volumes:
+  bcoem_db:
+  

@@ -1,0 +1,9 @@
+1            → Beer
+2            → Cider
+3            → Mead
+Ale          → Beer
+Lager        → Beer
+Mixed        → Beer
+Beer         → Beer
+4            → 4
+Custom       → Custom

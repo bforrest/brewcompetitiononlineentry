@@ -55,12 +55,6 @@ parameters:
 			path: ajax/account_checks.ajax.php
 
 		-
-			message: '#^Instantiated class PasswordHash not found\.$#'
-			identifier: class.notFound
-			count: 2
-			path: includes/process/process_practice_session.inc.php
-
-		-
 			message: '#^Call to static method createDefault\(\) on an unknown class HTMLPurifier_Config\.$#'
 			identifier: class.notFound
 			count: 1
@@ -89,30 +83,6 @@ parameters:
 			identifier: array.duplicateKey
 			count: 1
 			path: includes/constants_post_lang.inc.php
-
-		-
-			message: '#^Path in include\(\) "C\:\\Users\\buy\\OneDrive\\Desktop\\BCOEM\\brewcompetitiononlineentry\\sso\\available_judges\.db\.php" is not a file or it does not exist\.$#'
-			identifier: include.fileNotFound
-			count: 2
-			path: includes/db/brewer.db.php
-
-		-
-			message: '#^Path in include\(\) "C\:\\Users\\buy\\OneDrive\\Desktop\\BCOEM\\brewcompetitiononlineentry\\sso\\available_stewards\.db\.php" is not a file or it does not exist\.$#'
-			identifier: include.fileNotFound
-			count: 2
-			path: includes/db/brewer.db.php
-
-		-
-			message: '#^Path in include\(\) "C\:\\Users\\buy\\OneDrive\\Desktop\\BCOEM\\brewcompetitiononlineentry\\sso\\assigned_judges\.db\.php" is not a file or it does not exist\.$#'
-			identifier: include.fileNotFound
-			count: 1
-			path: includes/db/brewer.db.php
-
-		-
-			message: '#^Path in include\(\) "C\:\\Users\\buy\\OneDrive\\Desktop\\BCOEM\\brewcompetitiononlineentry\\sso\\assigned_stewards\.db\.php" is not a file or it does not exist\.$#'
-			identifier: include.fileNotFound
-			count: 1
-			path: includes/db/brewer.db.php
 
 		-
 			message: '#^Array has 2 duplicate keys with value ''C1\-D'' \("C1\-D", "C1\-D"\)\.$#'
@@ -153,12 +123,6 @@ parameters:
 		-
 			message: '#^Instantiated class InputBeerXML not found\.$#'
 			identifier: class.notFound
-			count: 1
-			path: includes/process/process_beerxml.inc.php
-
-		-
-			message: '#^Path in include\(\) "C\:\\Users\\buy\\OneDrive\\Desktop\\BCOEM\\brewcompetitiononlineentry\\includes\\beerXML/input_beer_xml\.inc\.php" is not a file or it does not exist\.$#'
-			identifier: include.fileNotFound
 			count: 1
 			path: includes/process/process_beerxml.inc.php
 
@@ -313,6 +277,12 @@ parameters:
 			path: includes/process/process_mods.inc.php
 
 		-
+			message: '#^Instantiated class PasswordHash not found\.$#'
+			identifier: class.notFound
+			count: 2
+			path: includes/process/process_practice_session.inc.php
+
+		-
 			message: '#^Call to static method createDefault\(\) on an unknown class HTMLPurifier_Config\.$#'
 			identifier: class.notFound
 			count: 1
@@ -383,6 +353,18 @@ parameters:
 			identifier: class.notFound
 			count: 1
 			path: includes/process/process_styles.inc.php
+
+		-
+			message: '#^Call to static method createDefault\(\) on an unknown class HTMLPurifier_Config\.$#'
+			identifier: class.notFound
+			count: 1
+			path: includes/process/process_styles_import.inc.php
+
+		-
+			message: '#^Instantiated class HTMLPurifier not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: includes/process/process_styles_import.inc.php
 
 		-
 			message: '#^Instantiated class PasswordHash not found\.$#'
@@ -427,28 +409,10 @@ parameters:
 			path: index.legacy.php
 
 		-
-			message: '#^Path in include\(\) "C\:\\Users\\buy\\OneDrive\\Desktop\\BCOEM\\brewcompetitiononlineentry\\sections\\custom_competition_info\.sec\.php" is not a file or it does not exist\.$#'
-			identifier: include.fileNotFound
-			count: 1
-			path: index.legacy.php
-
-		-
-			message: '#^Path in require_once\(\) "C\:\\Users\\buy\\OneDrive\\Desktop\\BCOEM\\brewcompetitiononlineentry\\lib\\hosted\.lib\.php" is not a file or it does not exist\.$#'
-			identifier: requireOnce.fileNotFound
-			count: 1
-			path: index.php
-
-		-
 			message: '#^Instantiated class Parsedown not found\.$#'
 			identifier: class.notFound
 			count: 1
 			path: index.pub.php
-
-		-
-			message: '#^Instantiated class MysqliDb not found\.$#'
-			identifier: class.notFound
-			count: 37
-			path: lib/admin.lib.php
 
 		-
 			message: '#^Array has 2 duplicate keys with value ''Ä'' \(''Ä'', ''Ä''\)\.$#'
@@ -541,34 +505,10 @@ parameters:
 			path: lib/common.lib.php
 
 		-
-			message: '#^Deprecated in PHP 8\.0\: Required parameter \$base_url follows optional parameter \$id\.$#'
-			identifier: parameter.requiredAfterOptional
-			count: 1
-			path: lib/common.lib.php
-
-		-
 			message: '#^Deprecated in PHP 8\.0\: Required parameter \$dbTable follows optional parameter \$method\.$#'
 			identifier: parameter.requiredAfterOptional
 			count: 1
 			path: lib/common.lib.php
-
-		-
-			message: '#^Deprecated in PHP 8\.0\: Required parameter \$sef follows optional parameter \$id\.$#'
-			identifier: parameter.requiredAfterOptional
-			count: 1
-			path: lib/common.lib.php
-
-		-
-			message: '#^Instantiated class MysqliDb not found\.$#'
-			identifier: class.notFound
-			count: 50
-			path: lib/common.lib.php
-
-		-
-			message: '#^Instantiated class MysqliDb not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: lib/date_time.lib.php
 
 		-
 			message: '#^Caught class PHPMailer\\PHPMailer\\Exception not found\.$#'
@@ -577,34 +517,10 @@ parameters:
 			path: lib/email.lib.php
 
 		-
-			message: '#^Instantiated class MysqliDb not found\.$#'
-			identifier: class.notFound
-			count: 15
-			path: lib/output.lib.php
-
-		-
-			message: '#^Instantiated class MysqliDb not found\.$#'
-			identifier: class.notFound
-			count: 7
-			path: lib/process.lib.php
-
-		-
-			message: '#^Instantiated class MysqliDb not found\.$#'
-			identifier: class.notFound
-			count: 4
-			path: lib/update.lib.php
-
-		-
-			message: '#^Instantiated class MysqliDb not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: output/bos_mat.output.php
-
-		-
 			message: '#^Instantiated class qRClas not found\.$#'
 			identifier: class.notFound
 			count: 1
-			path: output/bottle_label.output.php
+			path: lib/output.lib.php
 
 		-
 			message: '#^Instantiated class easyTable not found\.$#'
@@ -623,12 +539,6 @@ parameters:
 			identifier: class.notFound
 			count: 25
 			path: output/labels.output.php
-
-		-
-			message: '#^Instantiated class MysqliDb not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: output/participant_summary.output.php
 
 		-
 			message: '#^Function spritf not found\.$#'
@@ -721,18 +631,6 @@ parameters:
 			path: sections/reg_open.sec.php
 
 		-
-			message: '#^Path in include\(\) "C\:\\Users\\buy\\OneDrive\\Desktop\\BCOEM\\brewcompetitiononlineentry\\includes\\mods_sidebar_bottom\.inc\.php" is not a file or it does not exist\.$#'
-			identifier: include.fileNotFound
-			count: 1
-			path: sections/sidebar.sec.php
-
-		-
-			message: '#^Path in include\(\) "C\:\\Users\\buy\\OneDrive\\Desktop\\BCOEM\\brewcompetitiononlineentry\\includes\\mods_sidebar_top\.inc\.php" is not a file or it does not exist\.$#'
-			identifier: include.fileNotFound
-			count: 1
-			path: sections/sidebar.sec.php
-
-		-
 			message: '#^Call to sprintf contains 1 placeholder, 3 values given\.$#'
 			identifier: argument.sprintf
 			count: 1
@@ -767,12 +665,6 @@ parameters:
 			identifier: argument.sprintf
 			count: 1
 			path: sections/winners_subcategory.sec.php
-
-		-
-			message: '#^Path in require_once\(\) "C\:\\Users\\buy\\OneDrive\\Desktop\\BCOEM\\brewcompetitiononlineentry\\lib\\hosted\.lib\.php" is not a file or it does not exist\.$#'
-			identifier: requireOnce.fileNotFound
-			count: 1
-			path: update.php
 
 		-
 			message: '#^File begins with UTF\-8 BOM character\. This may cause problems when running the code in the web browser\.$#'

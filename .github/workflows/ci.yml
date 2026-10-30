@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [testing-baseline, master]
+  pull_request:
+
+jobs:
+  # Static analysis + the DB-free unit tier run on a bare PHP runner: the
+  # PHPUnit bootstrap stubs out every path/DB dependency, so no database or
+  # site/config.php is needed here.
+  static-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli, mbstring, gd, zip, intl, exif
+          ini-values: memory_limit=1G
+      # The committed vendor/ is a partial tree; remove it so composer builds a
+      # clean, lock-consistent install (avoids stale classmaps / missing srcs).
+      - run: rm -rf vendor && composer install --no-interaction --no-progress
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --no-progress
+      - name: Unit tier
+        run: vendor/bin/phpunit --testsuite Unit
+
+  # DB-dependent tiers + Playwright run against the real Docker stack. The
+  # integration tests reach library code that includes site/config.php, which
+  # (Task 13) reads its DB connection info from the real environment
+  # variables docker-compose.yml sets on the `web` service (and which also
+  # shares the test's transactional connection via $GLOBALS['connection']) —
+  # so these MUST run in the container, not on a bare runner. Playwright
+  # drives the same stack from the host.
+  integration-and-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli, mbstring, gd, zip, intl, exif
+      - name: Build a clean vendor/ on the runner (bind-mounted into container)
+        # The committed vendor/ is a partial tree; remove it and reinstall so
+        # the compose bind-mount (.:/var/www/html) exposes a complete,
+        # lock-consistent vendor (incl. vendor/bin symlinks) in the container.
+        run: rm -rf vendor && composer install --no-interaction --no-progress
+      - name: Create site/config.php (gitignored; the stack reads DB settings from env vars)
+        run: cp site/config.sample.php site/config.php
+      - name: Start the app stack (seeds a fresh InnoDB baseline DB)
+        run: |
+          docker compose up -d --build
+          timeout 180 sh -c 'until curl -sf http://localhost:8080/index.php > /dev/null; do sleep 3; done'
+      - name: Integration + Approval tiers (in container)
+        run: |
+          docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration
+          docker compose exec -T -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Approval
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Playwright e2e (host → stack)
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 14
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
