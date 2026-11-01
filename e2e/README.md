@@ -8,9 +8,10 @@
 > up to the schema the code expects). Differences from the 3.x suite: registration
 > has `user_name2` (no `password-confirm`), selects are bootstrap-select, the
 > login trigger is a `role=button` modal opener, and `process.inc.php` requires a
-> `Referer`. Specs marked `test.fixme` are either **known vulnerabilities in this
-> code** (auth bypass in `logincheck.inc.php`, `handle.php` path traversal, no
-> session regeneration) or blocked on the Bluebonnet-specific schema.
+> `Referer`. The 2.7 code originally failed five security specs (login auth bypass, `handle.php`
+path traversal x3, no session regeneration); those fixes were backported from 3.x
+and the specs now run as plain tests. Remaining `test.fixme` specs are blocked on
+the Bluebonnet-specific schema.
 
 Browser-driven regression tests for the critical entrant and admin journeys,
 plus authorization invariants. These are the Phase 0 safety net the
