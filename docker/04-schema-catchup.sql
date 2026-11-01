@@ -10,17 +10,17 @@
 USE bcoem;
 
 -- 2.6.x / 2.7.0
-ALTER TABLE baseline_users       ADD userAdminObfuscate tinyint(1) NULL DEFAULT NULL;
-ALTER TABLE baseline_preferences ADD prefsScoringCOA    tinyint(1) NULL DEFAULT NULL;
-ALTER TABLE baseline_brewer      ADD brewerMHP          int(11)    NULL DEFAULT NULL;
-ALTER TABLE baseline_brewing     ADD brewPackaging      VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT 'Allow entrants to specify packaging size.';
-ALTER TABLE baseline_contest_info ADD contestWinnerLink VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL;
-ALTER TABLE baseline_brewer CHANGE brewerBreweryTTB brewerBreweryInfo TEXT NULL DEFAULT NULL COMMENT 'Store various info about the organization.';
+ALTER TABLE users       ADD userAdminObfuscate tinyint(1) NULL DEFAULT NULL;
+ALTER TABLE preferences ADD prefsScoringCOA    tinyint(1) NULL DEFAULT NULL;
+ALTER TABLE brewer      ADD brewerMHP          int(11)    NULL DEFAULT NULL;
+ALTER TABLE brewing     ADD brewPackaging      VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT 'Allow entrants to specify packaging size.';
+ALTER TABLE contest_info ADD contestWinnerLink VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL;
+ALTER TABLE brewer CHANGE brewerBreweryTTB brewerBreweryInfo TEXT NULL DEFAULT NULL COMMENT 'Store various info about the organization.';
 
 -- 2.7.1
-ALTER TABLE baseline_brewer
+ALTER TABLE brewer
   CHANGE brewerAHA brewerAHA VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL;
-ALTER TABLE baseline_preferences
+ALTER TABLE preferences
   ADD prefsUserEntryLimitDates MEDIUMTEXT NULL DEFAULT NULL AFTER prefsUSCLExLimit;
-UPDATE baseline_styles SET brewStyleReqSpec = 1
+UPDATE styles SET brewStyleReqSpec = 1
 WHERE brewStyleVersion = 'BJCP2021' AND brewStyleGroup = 'C2' AND brewStyleNum IN ('A','B','D','E');

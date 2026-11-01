@@ -9,7 +9,7 @@
 --
 -- CAPTCHA-off flag
 -- ----------------
--- What:  `prefsCAPTCHA` (tinyint) in `baseline_preferences`. When 1, the
+-- What:  `prefsCAPTCHA` (tinyint) in `preferences`. When 1, the
 --        public registration form (sections/register.sec.php:1035) embeds
 --        Google reCAPTCHA/hCaptcha, and process_users_register.inc.php:31-36
 --        rejects any registration POST lacking a captcha response token
@@ -30,7 +30,7 @@
 
 -- Winners-display-off flag
 -- ------------------------
--- What:  `prefsDisplayWinners` ('Y'/'N') in `baseline_preferences`, plus the
+-- What:  `prefsDisplayWinners` ('Y'/'N') in `preferences`, plus the
 --        `prefsWinnerDelay` timestamp. When 'Y' and the delay has passed
 --        (includes/constants.inc.php:531-536), every logged-in user is put in
 --        "scores mode" ($show_scores = TRUE): the account page shows results
@@ -47,4 +47,11 @@
 
 USE bcoem;
 
-UPDATE baseline_preferences SET prefsCAPTCHA = 0, prefsDisplayWinners = 'N';
+UPDATE preferences SET prefsCAPTCHA = 0, prefsDisplayWinners = 'N';
+
+-- Bluebonnet runs in Central time. site/config.php pins the DB session to
+-- -06:00, and the app stamps brewUpdated from PHP time in the competition's
+-- timezone pref. The baseline ships -7 (Mountain): that 1h skew makes
+-- mods/bbo-delete-unpaids.php see every brand-new entry as >1h old and
+-- logically delete it on the next page load. Keep the pref aligned with config.php.
+UPDATE preferences SET prefsTimeZone = -6;

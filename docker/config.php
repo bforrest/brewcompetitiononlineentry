@@ -107,7 +107,7 @@ $brewing = $connection;
  * $prefix = 'comp1_';
  */
 
-$prefix = 'baseline_';
+$prefix = '';  // Bluebonnet production runs unprefixed (hardcoded `brewing`, `bbo_tables`)
 
 /*
  * ******************************************************************************
@@ -244,9 +244,7 @@ $BBOMaxEntrantEntriesPerTable = 1;
  * ******************************************************************************
  */
 
-/* DOCKER: disabled. The mod needs Bluebonnet's production schema (brewing_bbo_real +
- * `brewing` view, unprefixed barcode_log) which this stock-baseline stack doesn't have. */
-$BBOOneHourUnpaidDelete = 0;
+$BBOOneHourUnpaidDelete = 1;
 
 /*
  * ******************************************************************************

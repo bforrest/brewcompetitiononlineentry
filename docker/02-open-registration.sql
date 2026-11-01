@@ -1,4 +1,4 @@
--- Docker-local convenience patch, applied after sql/bcoem_baseline_3.2.X.sql
+-- Docker-local convenience patch, applied after sql/bcoem_3.2.X.sql
 -- on every fresh volume (docker-entrypoint-initdb.d runs *.sql in name order).
 --
 -- The baseline fixture's contest deadlines are fixed 2023 timestamps, so the
@@ -9,7 +9,7 @@
 
 USE bcoem;
 
-UPDATE baseline_contest_info SET
+UPDATE contest_info SET
   contestRegistrationDeadline = 1893456000, -- 2030-01-01
   contestEntryDeadline        = 1893456000,
   contestJudgeDeadline        = 1893456000,
@@ -29,7 +29,7 @@ WHERE id = 1;
 -- tables simultaneously, which piles up on MariaDB metadata locks and can
 -- stall the entire site for minutes. Stamping the seed row as already
 -- current avoids triggering that path for this fixture.
-UPDATE baseline_bcoem_sys SET
+UPDATE bcoem_sys SET
   version = '2.7.1.0',
   version_date = '2024-10-28'
 WHERE id = 1;

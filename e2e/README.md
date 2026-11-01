@@ -10,8 +10,17 @@
 > login trigger is a `role=button` modal opener, and `process.inc.php` requires a
 > `Referer`. The 2.7 code originally failed five security specs (login auth bypass, `handle.php`
 path traversal x3, no session regeneration); those fixes were backported from 3.x
-and the specs now run as plain tests. Remaining `test.fixme` specs are blocked on
-the Bluebonnet-specific schema.
+and the specs now run as plain tests.
+
+**Bluebonnet schema.** The DB is unprefixed like production (`docker/01-baseline.sh`
+strips the baseline's prefix) with `docker/05-bluebonnet-schema.sql` on top:
+`brewing` is a view over `brewing_bbo_real` (logical deletes), plus `bbo_tables` and
+`barcode_log`. `bbo_tables` is a **synthetic** seed (one table per BJCP category
+group) - the real Bluebonnet table layout isn't in the repo. The competition
+timezone is pinned to Central in `03-e2e-fixtures.sql` to match `config.php`'s
+`SET time_zone = '-06:00'`; otherwise the 1-hour unpaid-delete mod removes every
+new entry immediately. `global-setup.ts` waits for the app to really serve (the
+DB restarts once after first-run init).
 
 Browser-driven regression tests for the critical entrant and admin journeys,
 plus authorization invariants. These are the Phase 0 safety net the

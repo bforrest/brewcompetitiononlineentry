@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  globalSetup: './global-setup.ts',
   fullyParallel: false,          // journeys share one seeded DB; keep ordering deterministic
   workers: 1,
   retries: process.env.CI ? 1 : 0,

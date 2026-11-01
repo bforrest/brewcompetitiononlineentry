@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginAsAdmin } from '../helpers/auth';
+import { fillDateTime } from '../helpers/forms';
 import { createEntrantWithEntry } from '../helpers/entries';
 
 /**
@@ -13,10 +14,7 @@ import { createEntrantWithEntry } from '../helpers/entries';
  */
 
 test.describe.serial('admin journey', () => {
-  // BLOCKED: the add-entry page (sections/brew.sec.php) includes BBOtables.db.php, which
-// reads Bluebonnet's unprefixed `bbo_tables` — not in the stock baseline. Un-fixme once
-// the Bluebonnet schema (empty $prefix, bbo_tables, brewing view) is in docker/.
-test.fixme('admin sees entries, builds a judging table, and records a score', async ({ browser, page }) => {
+  test('admin sees entries, builds a judging table, and records a score', async ({ browser, page }) => {
     const { entryName, styleName } = await createEntrantWithEntry(browser);
 
     await loginAsAdmin(page);
@@ -43,7 +41,7 @@ test.fixme('admin sees entries, builds a judging table, and records a score', as
     if (await addSessionLink.count()) {
       await addSessionLink.click();
       await page.fill('input[name="judgingLocName"]', 'E2E Session');
-      await page.fill('input[name="judgingDate"]', '2029-06-01 09:00 AM');
+      await fillDateTime(page, 'judgingDate', '2029-06-01 09:00 AM');
       await page.fill('input[name="judgingLocation"]', '123 Test Hall');
       // judgingRounds is required but ships empty — leaving it blank makes
       // native validation silently swallow the submit.

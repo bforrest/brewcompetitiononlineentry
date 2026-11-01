@@ -9,10 +9,7 @@ import { chooseStyle } from '../helpers/entries';
  */
 
 test.describe.serial('entrant journey', () => {
-  // BLOCKED: the add-entry page (sections/brew.sec.php) includes BBOtables.db.php, which
-// reads Bluebonnet's unprefixed `bbo_tables` — not in the stock baseline. Un-fixme once
-// the Bluebonnet schema (empty $prefix, bbo_tables, brewing view) is in docker/.
-test.fixme('register, create, edit, and see an entry through to payment (legacy)', async ({ page }) => {
+  test('register, create, edit, and see an entry through to payment (legacy)', async ({ page }) => {
     await registerEntrant(page);
 
     // — My Account entry list, then the Add Entry button —
