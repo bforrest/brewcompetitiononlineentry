@@ -4,7 +4,7 @@ import { ADMIN, login, loginAsAdmin, registerEntrant } from '../helpers/auth';
 /**
  * Authorization invariants from the design spec (Section 5). Invariants that
  * already hold are plain tests and MUST stay green forever. Invariants that
- * current code violates (on this 2.7 branch: the five marked KNOWN VULN) are `test.fixme` — Phase 1 removes the annotation as
+ * current code violates are `test.fixme` — Phase 1 removes the annotation as
  * each security fix lands, turning these into its acceptance tests.
  */
 
@@ -40,26 +40,20 @@ test('pdf download denies an anonymous request', async ({ page }) => {
 // P1-SEC-005: fixed — handle.php now restricts $id to a safe character set
 // (no separators, no "..") and independently confirms the resolved realpath()
 // still falls inside USER_DOCS before reading anything.
-// KNOWN VULN on this 2.7 branch: handle.php does readfile(USER_DOCS."$id.pdf") with an unsanitized $id (upstream P1-SEC-005, fixed in 3.x).
-// Remove the .fixme once fixed; until then it documents the gap.
-test.fixme('pdf download rejects path traversal for a logged-in user', async ({ page }) => {
+test('pdf download rejects path traversal for a logged-in user', async ({ page }) => {
   await registerEntrant(page); // endpoint requires any authenticated session
   const resp = await page.request.get(
     '/handle.php?section=pdf-download&id=' + encodeURIComponent('../../../../etc/passwd'));
   expect([400, 403, 404]).toContain(resp.status());
 });
 
-// KNOWN VULN on this 2.7 branch: handle.php pdf-download does not validate $id (upstream P1-SEC-005).
-// Remove the .fixme once fixed; until then it documents the gap.
-test.fixme('pdf download rejects a bare ".." id', async ({ page }) => {
+test('pdf download rejects a bare ".." id', async ({ page }) => {
   await registerEntrant(page);
   const resp = await page.request.get('/handle.php?section=pdf-download&id=..');
   expect([400, 403, 404]).toContain(resp.status());
 });
 
-// KNOWN VULN on this 2.7 branch: handle.php pdf-download does not validate $id (upstream P1-SEC-005).
-// Remove the .fixme once fixed; until then it documents the gap.
-test.fixme('pdf download rejects backslash traversal', async ({ page }) => {
+test('pdf download rejects backslash traversal', async ({ page }) => {
   await registerEntrant(page);
   const resp = await page.request.get(
     '/handle.php?section=pdf-download&id=' + encodeURIComponent('..\\..\\windows\\win.ini'));
@@ -81,9 +75,7 @@ test('save endpoint rejects an anonymous write', async ({ page }) => {
 // and then unconditionally overwrite it to success — any existing username +
 // ANY password logged in as that user, no injection required. Fixed by
 // parameterizing the lookup and removing the `$check = 1` override.
-// KNOWN VULN on this 2.7 branch: includes/logincheck.inc.php:52 sets `$check = 1` right after CheckPassword() on the section=update path, so ANY password logs in (upstream P1-SEC-002).
-// Remove the .fixme once fixed; until then it documents the gap.
-test.fixme('login rejects a wrong password via the legacy section=update bypass path', async ({ page }) => {
+test('login rejects a wrong password via the legacy section=update bypass path', async ({ page }) => {
   await page.goto('/index.php?section=register&go=entrant');
   // 2.7 names the CSRF field "token" (3.x renamed it user_session_token). The
   // update path is *not* in process.inc.php's token-bypass list, so it is required.
@@ -122,9 +114,7 @@ test('a freshly registered entrant can log out and log back in (new-scheme hash 
 
 // P1-SEC-006: session fixation — the session id must change on login, not
 // just the authentication state within the same session.
-// KNOWN VULN on this 2.7 branch: includes/logincheck.inc.php never calls session_regenerate_id() (upstream P1-SEC-006).
-// Remove the .fixme once fixed; until then it documents the gap.
-test.fixme('login regenerates the session id (prevents fixation)', async ({ page }) => {
+test('login regenerates the session id (prevents fixation)', async ({ page }) => {
   await page.goto('/index.php');
   const cookiesBefore = await page.context().cookies();
   // The app names its session cookie md5(installation_id) — deterministic
