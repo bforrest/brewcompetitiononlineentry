@@ -89,7 +89,10 @@ test('login rejects a wrong password via the legacy section=update bypass path',
       token,
     },
   });
-  expect(resp.url()).toMatch(/msg=11/);
+  // The invariant is "not authenticated": before the fix this redirected to
+  // update.php (logged in). A rejection is msg=11 on 3.x, section=login&msg=1 on 2.7.
+  expect(resp.url()).not.toMatch(/update\.php/);
+  expect(resp.url()).toMatch(/msg=11?(&|$)/);
 });
 
 // P1-SEC-001: the seeded admin's stored hash is legacy-scheme (phpass over
