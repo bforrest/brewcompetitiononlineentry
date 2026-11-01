@@ -3,7 +3,9 @@
 > **Bluebonnet 2.7 branch.** Ported from `testing-baseline` and adapted to the
 > 2.7.x UI. Run the stack on spare ports with
 > `WEB_PORT=8082 DB_PORT=3307 docker compose up -d` and the suite with
-> `BASE_URL=http://localhost:8082 npx playwright test`. The DB is seeded from
+> `DB_PORT=3307 BASE_URL=http://localhost:8082 npx playwright test`
+> (`DB_PORT`/`DB_HOST` are for the specs that talk to MySQL directly - see
+> `helpers/db.ts`). The DB is seeded from
 > `sql/bcoem_baseline_2.7.X.sql` + `docker/02..04` (04 catches the stale baseline
 > up to the schema the code expects). Differences from the 3.x suite: registration
 > has `user_name2` (no `password-confirm`), selects are bootstrap-select, the
@@ -21,6 +23,12 @@ timezone is pinned to Central in `03-e2e-fixtures.sql` to match `config.php`'s
 `SET time_zone = '-06:00'`; otherwise the 1-hour unpaid-delete mod removes every
 new entry immediately. `global-setup.ts` waits for the app to really serve (the
 DB restarts once after first-run init).
+
+`tests/bluebonnet-rules.spec.ts` covers the Bluebonnet-only rules (4 entries per
+table, 1 per entrant per table, 60s spacing, 1-hour unpaid delete) - each from
+both the UI guard and the server check. One `fixme` records a known gap: the
+server accepts an add with no style (only the literal `0-A` placeholder is
+rejected).
 
 Browser-driven regression tests for the critical entrant and admin journeys,
 plus authorization invariants. These are the Phase 0 safety net the
