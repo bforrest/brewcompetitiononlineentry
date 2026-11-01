@@ -1,5 +1,17 @@
 # BCOE&M end-to-end tests (Playwright)
 
+> **Bluebonnet 2.7 branch.** Ported from `testing-baseline` and adapted to the
+> 2.7.x UI. Run the stack on spare ports with
+> `WEB_PORT=8082 DB_PORT=3307 docker compose up -d` and the suite with
+> `BASE_URL=http://localhost:8082 npx playwright test`. The DB is seeded from
+> `sql/bcoem_baseline_2.7.X.sql` + `docker/02..04` (04 catches the stale baseline
+> up to the schema the code expects). Differences from the 3.x suite: registration
+> has `user_name2` (no `password-confirm`), selects are bootstrap-select, the
+> login trigger is a `role=button` modal opener, and `process.inc.php` requires a
+> `Referer`. Specs marked `test.fixme` are either **known vulnerabilities in this
+> code** (auth bypass in `logincheck.inc.php`, `handle.php` path traversal, no
+> session regeneration) or blocked on the Bluebonnet-specific schema.
+
 Browser-driven regression tests for the critical entrant and admin journeys,
 plus authorization invariants. These are the Phase 0 safety net the
 modernization work (see `Docs/superpowers/specs/`) refactors behind.

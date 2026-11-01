@@ -26,8 +26,8 @@ services:
       - ./sql/bcoem_baseline_2.7.X.sql:/docker-entrypoint-initdb.d/01-baseline.sql:ro
       # Push the baseline's 2023 contest deadlines into the future so registration/entry are open
       - ./docker/02-open-registration.sql:/docker-entrypoint-initdb.d/02-open-registration.sql:ro
-      # Bring the 2.7.0.0 baseline up to the 2.7.1.0 schema the code expects
-      - ./docker/04-update-2.7.1.sql:/docker-entrypoint-initdb.d/04-update-2.7.1.sql:ro
+      # Catch the stale 2.7.X baseline up to the schema the code expects
+      - ./docker/04-schema-catchup.sql:/docker-entrypoint-initdb.d/04-schema-catchup.sql:ro
       # E2E test fixtures: pin prefsCAPTCHA=0 so automated registration works (see file header)
       - ./docker/03-e2e-fixtures.sql:/docker-entrypoint-initdb.d/03-e2e-fixtures.sql:ro
     healthcheck:

@@ -9,11 +9,11 @@ test('home page renders the competition site', async ({ page }) => {
 
 test('login modal opens and renders its form fields', async ({ page }) => {
   await page.goto('/index.php');
-  // The 3.0 public UI hosts the login form in a Bootstrap modal behind the
-  // nav "Log In" link — the fields exist in the DOM but are hidden until
-  // opened. exact: true — once judging sessions exist the page also carries
-  // a "Log in to view the location…" tooltip link.
-  await page.getByRole('link', { name: 'Log In', exact: true }).click();
+  // The nav "Log In" trigger is <a href="#" role="button" data-toggle="modal"
+  // data-target="#loginModal">, so it is a *button* to the accessibility tree
+  // (a second plain link goes to the standalone ?section=login page). The
+  // modal's fields exist in the DOM but are hidden until opened.
+  await page.getByRole('button', { name: 'Log In', exact: true }).click();
   await expect(page.locator('input[name="loginUsername"]')).toBeVisible();
   await expect(page.locator('input[name="loginPassword"]')).toBeVisible();
 });
