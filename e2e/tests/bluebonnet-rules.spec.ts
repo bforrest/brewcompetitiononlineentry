@@ -26,6 +26,7 @@ test.describe.serial('bluebonnet entry rules', () => {
   test.afterAll(async () => { await purgeBboTestEntries(); });
 
   test('a table holds at most 4 entries: the form disables its styles and the server refuses a forced add', async ({ browser, page }) => {
+    test.setTimeout(60_000);   // registers five entrants; ~47s on a warm stack
     for (const style of [TABLE_GROUP_26.a, TABLE_GROUP_26.b, TABLE_GROUP_26.c, TABLE_GROUP_26.d]) {
       await entrantWithEntry(browser, style, bboName('fill'));
     }
