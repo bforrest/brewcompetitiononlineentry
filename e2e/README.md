@@ -34,6 +34,8 @@ Browser-driven regression tests for the critical entrant and admin journeys,
 plus authorization invariants. These are the Phase 0 safety net the
 modernization work (see `Docs/superpowers/specs/`) refactors behind.
 
+> Full setup, run and add-a-test guide: [TESTING.md](../TESTING.md).
+
 ## Prerequisites
 
 - Node 20+
@@ -47,7 +49,7 @@ npm install
 npx playwright install chromium
 npx playwright test              # all specs
 npx playwright test --headed     # watch it run
-npx playwright show-report       # open the last HTML report
+npx playwright show-report       # open the last HTML report (run from e2e/)
 ```
 
 - `BASE_URL` overrides the target (default `http://localhost:8080`).
@@ -80,21 +82,14 @@ The seed (`sql/bcoem_baseline_3.0.X.sql` + `docker/02-open-registration.sql` +
 a live, open competition — see the header of `docker/03-e2e-fixtures.sql` for
 what each fixture flag does and why.
 
-## Important: don't share a DB between e2e and the PHPUnit fee tests
+## PHPUnit
 
-The Playwright suite commits real brewing/brewer rows. Some PHPUnit
-integration tests (`TotalFeesTest`) sum fees across all rows, so running them
-against a database an e2e run already touched inflates those sums. CI keeps
-the two in separate jobs/databases; locally, reseed (`down -v && up -d`)
-before running the PHPUnit integration tier after an e2e run.
+There is no PHPUnit suite on this branch (no `phpunit.xml`, `composer.json` or
+`tests/`). The 3-tier suite (Unit/Integration/Approval) was written for the 3.x
+code and lives on `testing-baseline`; it has not been ported to 2.7. See
+[TESTING.md](../TESTING.md#phpunit-suite) for how to run it there.
 
-## Relationship to the PHPUnit suite
-
-The 3-tier PHPUnit characterization suite (Unit/Integration/Approval) runs
-inside the web container:
-
-```bash
-docker compose exec -e BCOEM_DB_HOST=db web vendor/bin/phpunit
-```
-
-Both suites, plus PHPStan, run on every push/PR via `.github/workflows/ci.yml`.
+If you do run it against a database this suite has used, reseed first
+(`docker compose down -v && up -d`). The Playwright suite commits real
+brewing/brewer rows, and the PHPUnit fee tests (`TotalFeesTest`) sum across all
+rows, so they report inflated totals.
