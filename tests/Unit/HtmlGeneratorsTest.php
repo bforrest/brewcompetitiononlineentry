@@ -83,7 +83,6 @@ class HtmlGeneratorsTest extends TestCase
 
     public function test_designations_empty_string_returns_empty(): void
     {
-        $this->markTestSkipped('2.7 bug: designations(\'\') returns \'<br />\' instead of \'\'. Fixed in 3.x; remove this skip when backported.');
         // Empty-string guard added: trim($judge_array) === "" → return "" immediately.
         $result = designations("", "Certified");
         $this->assertSame("", $result);

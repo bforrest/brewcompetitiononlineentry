@@ -328,7 +328,6 @@ class StringUtilitiesTest extends TestCase
 
     public function test_display_array_content_method2_strips_trailing_separator(): void
     {
-        $this->markTestSkipped('2.7 bug: display_array_content() reassigns $b from $a in each of three rtrim() calls, so only the last (\',\') applies and method 2 leaves a trailing \', \'. Fixed in 3.x.');
         // Method "2" adds ", " after each element; trailing ", " is stripped by rtrim.
         $result = display_array_content(['a', 'b'], '2');
         $this->assertSame('a, b', $result);

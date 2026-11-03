@@ -113,7 +113,6 @@ class DateTimeFunctionsTest extends TestCase
 
     public function test_getTimeZoneDateTime_year_only(): void
     {
-        $this->markTestSkipped('Not in 2.7: getTimeZoneDateTime() has no \'year\' return_format (added in 3.x).');
         $result = getTimeZoneDateTime(0.000, $this->ts, 1, 0, "short", "year");
         $this->assertSame("2025", $result);
     }

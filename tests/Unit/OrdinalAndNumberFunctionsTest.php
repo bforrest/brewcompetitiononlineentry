@@ -136,7 +136,6 @@ class OrdinalAndNumberFunctionsTest extends TestCase
 
     public function test_readable_number_100_returns_one_hundred(): void
     {
-        $this->markTestSkipped('2.7 bug: readable_number() uses \'>\' not \'>=\' at its 100 and 1000 boundaries, so exact multiples are mis-rendered (100 gives \' \', 1000 gives \'ten hundred \'). Fixed in 3.x.');
         $this->assertSame('one hundred ', readable_number(100));
     }
 
@@ -148,7 +147,6 @@ class OrdinalAndNumberFunctionsTest extends TestCase
 
     public function test_readable_number_1000_returns_one_thousand(): void
     {
-        $this->markTestSkipped('2.7 bug: readable_number() uses \'>\' not \'>=\' at its 100 and 1000 boundaries, so exact multiples are mis-rendered (100 gives \' \', 1000 gives \'ten hundred \'). Fixed in 3.x.');
         // Fixed: ($a > $p) corrected to ($a >= $p) so 1000 hits the thousands branch.
         $this->assertSame('one thousand', readable_number(1000));
     }

@@ -164,10 +164,10 @@ Two things to know about that seed data:
 
 ```bash
 composer install          # first time only
-vendor/bin/phpunit        # Unit tier: 214 tests, 13 skipped, no database needed
+vendor/bin/phpunit        # Unit tier: 214 tests, 5 skipped, no database needed
 ```
 
-The suite was written for the 3.x code on the `testing-baseline` branch and adapted to 2.7. How it was adapted, which tests are skipped because of 2.7 bugs, and which were deleted is in [tests/README.md](tests/README.md). The 13 skipped tests are backport candidates: remove a skip once the matching fix lands.
+The suite was written for the 3.x code on the `testing-baseline` branch and adapted to 2.7. How it was adapted, which tests are skipped because of 2.7 bugs, and which were deleted is in [tests/README.md](tests/README.md). Four of the bugs the port exposed have been fixed on this branch; see tests/README.md for the rest.
 
 `testing-baseline` also has two database tiers that are **not** on this branch yet:
 

@@ -7,7 +7,7 @@ Approval tiers still need the database prefix and schema work described in
 
 ```bash
 composer install            # first time only
-vendor/bin/phpunit          # 214 tests, 13 skipped, no database needed
+vendor/bin/phpunit          # 214 tests, 5 skipped, no database needed
 ```
 
 `tests/bootstrap.php` defines the path constants and stubs, then loads
@@ -21,15 +21,23 @@ vendor/bin/phpunit          # 214 tests, 13 skipped, no database needed
 | 2.7 has a bug that 3.x fixed | The test keeps the correct expectation and is **skipped** with the reason. Remove the skip when the fix is backported. |
 | The function doesn't exist in 2.7 | The test was **deleted**. |
 
-### Skipped tests (2.7 bugs, each one a backport candidate)
+### Skipped tests
 
-| Function | Bug in 2.7 |
+| Tests | Why |
 | --- | --- |
-| `designations('')` | Returns `'<br />'` instead of `''` |
-| `random_generator()` (3 tests) | Result is not exactly `$digits` long (`rand(1,10)` can add two characters; the letter is optional) |
-| `readable_number()` (2 tests) | `>` instead of `>=` at the 100 and 1000 boundaries: 100 gives `' '`, 1000 gives `'ten hundred '` |
-| `display_array_content()` method 2 | Three `rtrim()` calls each overwrite the last, so a trailing `', '` remains |
-| `getTimeZoneDateTime()` `'year'` format | Not in 2.7 |
+| 5 | Skipped on `testing-baseline` (they need a database, or call functions commented out of the library) |
+
+### Bugs fixed on this branch
+
+Four bugs the ported tests exposed were fixed in `lib/common.lib.php`, and one 3.x
+feature was added to `lib/date_time.lib.php`, using the code from `testing-baseline`
+(bug fixes from commit `ebb35e55`). The matching skips were removed:
+
+- `designations('')` returned `'<br />'`; it now returns `''`.
+- `random_generator()` returned strings of the wrong length; it now builds exactly `$digits` characters with `random_int()`. Method 3 was dropped (no caller uses it; callers use methods 1 and 2).
+- `readable_number()` used `>` instead of `>=`, so 100 and 1000 were mis-rendered.
+- `display_array_content()` ignored all but its last `rtrim()`, leaving a trailing `', '`.
+- `getTimeZoneDateTime()` gained the `'year'` return format (3.x feature; nothing in 2.7 calls it yet). Only that case was added; 3.x's wider rewrite of the function (empty-timestamp guard, no global timezone change) was deliberately not backported.
 
 ### Deleted tests (functions not in 2.7)
 

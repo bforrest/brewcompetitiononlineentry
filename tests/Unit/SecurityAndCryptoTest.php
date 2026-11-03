@@ -94,7 +94,6 @@ class SecurityAndCryptoTest extends TestCase
 
     public function test_random_generator_method_1_is_alphanumeric_not_numeric(): void
     {
-        $this->markTestSkipped('2.7 bug: random_generator() appends rand(1,10) (can be two chars, \'10\') and only sometimes adds a letter, so the result is not exactly $digits long. Fixed in 3.x.');
         $result = random_generator(10, 1);
         $this->assertIsString((string)$result);
         $this->assertSame(10, strlen((string)$result));
@@ -102,7 +101,6 @@ class SecurityAndCryptoTest extends TestCase
 
     public function test_random_generator_method_1_length_is_exactly_digits(): void
     {
-        $this->markTestSkipped('2.7 bug: random_generator() appends rand(1,10) (can be two chars, \'10\') and only sometimes adds a letter, so the result is not exactly $digits long. Fixed in 3.x.');
         $result = random_generator(5, 1);
         $this->assertSame(5, strlen((string)$result));
     }
@@ -115,7 +113,6 @@ class SecurityAndCryptoTest extends TestCase
 
     public function test_random_generator_method_2_length_is_exactly_digits(): void
     {
-        $this->markTestSkipped('2.7 bug: random_generator() appends rand(1,10) (can be two chars, \'10\') and only sometimes adds a letter, so the result is not exactly $digits long. Fixed in 3.x.');
         $result = random_generator(6, 2);
         $this->assertSame(6, strlen((string)$result));
     }
