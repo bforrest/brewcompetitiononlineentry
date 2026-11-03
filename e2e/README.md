@@ -84,10 +84,9 @@ what each fixture flag does and why.
 
 ## PHPUnit
 
-There is no PHPUnit suite on this branch (no `phpunit.xml`, `composer.json` or
-`tests/`). The 3-tier suite (Unit/Integration/Approval) was written for the 3.x
-code and lives on `testing-baseline`; it has not been ported to 2.7. See
-[TESTING.md](../TESTING.md#phpunit-suite) for how to run it there.
+The Unit tier of the PHPUnit suite is ported to this branch (`tests/`); the
+Integration and Approval tiers still live on `testing-baseline`. See
+[TESTING.md](../TESTING.md#phpunit-suite).
 
 If you do run it against a database this suite has used, reseed first
 (`docker compose down -v && up -d`). The Playwright suite commits real

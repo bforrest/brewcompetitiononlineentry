@@ -9,5 +9,8 @@
     "devDependencies": {
         "@playwright/test": "^1.45.0",
         "mysql2": "^3.24.6"
+    },
+    "allowScripts": {
+        "fsevents@2.3.2": true
     }
 }

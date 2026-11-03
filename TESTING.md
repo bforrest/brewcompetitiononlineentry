@@ -7,7 +7,7 @@ There are two test suites in this project, and **they live on different branches
 | Suite | What it tests | Where it lives | Runs against this branch? |
 | --- | --- | --- | --- |
 | **Playwright e2e** | The real app through a browser: registration, entries, admin, security, Bluebonnet rules | `e2e/` on `bluebonnet-testing` | **Yes** |
-| **PHPUnit** | PHP library functions in `lib/common.lib.php` (unit, DB integration, HTML snapshot) | `tests/` on the `testing-baseline` branch | **No, not ported yet** (see [PHPUnit](#phpunit-suite)) |
+| **PHPUnit** | PHP library functions in `lib/common.lib.php` | `tests/` (Unit tier only; database tiers are on `testing-baseline`) | **Unit tier only** (see [PHPUnit](#phpunit-suite)) |
 
 If you only want to know "did I break anything on the 2.7 / Bluebonnet code?", run the Playwright suite. It takes about 2.5 minutes.
 
@@ -160,28 +160,29 @@ Two things to know about that seed data:
 
 ## PHPUnit suite
 
-**Status: not present on this branch.** `bluebonnet-testing` has no `phpunit.xml`, no `composer.json` and no `tests/` directory. The PHPUnit suite was written for the 3.x code and lives on the `testing-baseline` branch. It has three tiers:
-
-| Tier | Folder | Needs a database? | Covers |
-| --- | --- | --- | --- |
-| Unit | `tests/Unit/` | No | Pure functions in `lib/common.lib.php`: conversions, string and date helpers, URL builders, crypto helpers |
-| Integration | `tests/Integration/` | Yes | Fee totals, table info, brewer info, best-brewer points, password migration, token verification. Each test rolls back its transaction |
-| Approval | `tests/Approval/` | Yes | HTML and string output compared with committed snapshots in `tests/Approval/__snapshots__/` |
-
-To run it, check out `testing-baseline` (or use its worktree) and follow that branch's own docs (`tests/README.md`, `tests/Integration/README.md`):
+**Status: the Unit tier is ported; Integration and Approval are not.**
 
 ```bash
-git checkout testing-baseline
-composer install
-vendor/bin/phpunit --testsuite Unit                       # no database needed
-docker compose up -d --build                              # Integration and Approval need the stack
-docker compose exec -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Integration
-docker compose exec -e BCOEM_DB_HOST=db web vendor/bin/phpunit --testsuite Approval
+composer install          # first time only
+vendor/bin/phpunit        # Unit tier: 214 tests, 13 skipped, no database needed
 ```
 
-Two caveats:
+The suite was written for the 3.x code on the `testing-baseline` branch and adapted to 2.7. How it was adapted, which tests are skipped because of 2.7 bugs, and which were deleted is in [tests/README.md](tests/README.md). The 13 skipped tests are backport candidates: remove a skip once the matching fix lands.
 
-- **It has not been verified against the 2.7 code.** The tests call functions in the 3.x `lib/common.lib.php`, and 2.7's version differs. Treat porting the suite to this branch as open work. Expect some Unit tests to apply as-is and some Integration and Approval tests to need changes. Nothing here has been attempted yet.
-- **Don't share a database between PHPUnit and Playwright.** The e2e suite commits real rows, and the fee-total integration tests sum across every row, so they report inflated numbers on a database an e2e run already touched. Reseed (`docker compose down -v && up -d`) between them, or use separate stacks.
+`testing-baseline` also has two database tiers that are **not** on this branch yet:
 
-If you want to start on the port, a reasonable first step is to copy `phpunit.xml`, `composer.json`, `tests/bootstrap.php` and `tests/Unit/` from `testing-baseline`, then run the Unit tier and see which tests fail against the 2.7 functions.
+| Tier | Needs a database? | Covers |
+| --- | --- | --- |
+| Integration | Yes | Fee totals, table info, brewer info, best-brewer points, token verification. Each test rolls back its transaction |
+| Approval | Yes | Output compared with committed snapshots |
+
+A trial run against the Bluebonnet test database failed because those tests hardcode the `baseline_` table prefix (the Bluebonnet DB is unprefixed, and an empty `BCOEM_DB_PREFIX` is treated as unset), and because the 2.7 schema differs from 3.x. Porting them is open work.
+
+**Don't share a database between PHPUnit's database tiers and Playwright.** The e2e suite commits real rows, and the fee-total integration tests sum across every row. Reseed (`docker compose down -v && up -d`) between them, or use separate stacks.
+
+### Adding a unit test
+
+1. Add a method to the matching file in `tests/Unit/`, or create `tests/Unit/<Topic>Test.php` (class `<Topic>Test extends PHPUnit\Framework\TestCase`).
+2. Call the `lib/common.lib.php` function directly. The bootstrap has already loaded it.
+3. If the test exposes a 2.7 bug, write the expectation you want and add `$this->markTestSkipped('2.7 bug: ...')` as the first line, then list it in `tests/README.md`.
+4. Run `vendor/bin/phpunit`.
