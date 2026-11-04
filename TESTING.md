@@ -50,7 +50,7 @@ The two environment variables:
 - `BASE_URL`: where the app is. Defaults to `http://localhost:8080`.
 - `DB_PORT` (and `DB_HOST`): used by specs that talk to MariaDB directly, for example to backdate an entry's timestamp. Defaults to 3306.
 
-Expected result on a healthy checkout: **23 passed, 1 skipped, about 2.5 minutes.** The skipped test is a known gap (see [Known gaps](#known-gaps)).
+Expected result on a healthy checkout: **26 passed, 1 skipped, about 2.5 minutes.** The skipped test is a known gap (see [Known gaps](#known-gaps)).
 
 ### Useful variations
 
@@ -77,6 +77,7 @@ Failures save a screenshot and a trace under `e2e/test-results/` (gitignored). T
 | `entrant-journey.spec.ts` | Register, create an entry, edit it, reach the payment page |
 | `admin-journey.spec.ts` | Entries list, build a judging table, record a score |
 | `security-invariants.spec.ts` | Anonymous and entrant users can't reach admin or account pages, PDF download rejects path traversal, the legacy login bypass is closed, the session id changes on login |
+| `xss-cookies.spec.ts` | Cookie values refilled into the register and contact forms are HTML-escaped (P1-SEC-003) |
 | `bluebonnet-rules.spec.ts` | Bluebonnet-only rules: 4 entries per table, 1 per entrant per table, 60 seconds between entries, unpaid entries deleted after 1 hour |
 
 ### Starting from a clean database
@@ -164,7 +165,7 @@ Two things to know about that seed data:
 
 ```bash
 composer install          # first time only
-vendor/bin/phpunit        # Unit tier: 214 tests, 5 skipped, no database needed
+vendor/bin/phpunit        # Unit tier: 218 tests, 5 skipped, no database needed
 ```
 
 The suite was written for the 3.x code on the `testing-baseline` branch and adapted to 2.7. How it was adapted, which tests are skipped because of 2.7 bugs, and which were deleted is in [tests/README.md](tests/README.md). Four of the bugs the port exposed have been fixed on this branch; see tests/README.md for the rest.

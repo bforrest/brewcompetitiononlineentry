@@ -7,7 +7,7 @@ Approval tiers still need the database prefix and schema work described in
 
 ```bash
 composer install            # first time only
-vendor/bin/phpunit          # 214 tests, 5 skipped, no database needed
+vendor/bin/phpunit          # 218 tests, 5 skipped, no database needed
 ```
 
 `tests/bootstrap.php` defines the path constants and stubs, then loads
@@ -52,3 +52,12 @@ covered by the Playwright security specs.
 Two benign PHP warnings are printed (`get_timezone()` with an invalid offset,
 and `search_array()` when nothing matches). They are the code's behaviour, not
 test failures; `failOnWarning` is intentionally off.
+
+## Source-level guards
+
+`tests/Unit/SourceHardeningTest.php` reads PHP source as text to stop two fixed
+hardening issues coming back: raw `$_COOKIE` values echoed into HTML (register,
+contact and first-run setup forms), and `includes/process.inc.php` forcing
+`display_errors` on. They are coarse by design. The browser-level cookie test is
+`e2e/tests/xss-cookies.spec.ts`; the setup form is only reachable during first-run
+setup, so it is covered by the source guard alone.
