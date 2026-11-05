@@ -79,6 +79,7 @@ Failures save a screenshot and a trace under `e2e/test-results/` (gitignored). T
 | `security-invariants.spec.ts` | Anonymous and entrant users can't reach admin or account pages, PDF download rejects path traversal, the legacy login bypass is closed, the session id changes on login |
 | `xss-cookies.spec.ts` | Cookie values refilled into the register and contact forms are HTML-escaped (P1-SEC-003) |
 | `bluebonnet-rules.spec.ts` | Bluebonnet-only rules: 4 entries per table, 1 per entrant per table, 60 seconds between entries, unpaid entries deleted after 1 hour |
+| `forgot-password-sqli.spec.ts` | The unauthenticated forgot-password lookup survives a single-quote/OR-based injection payload instead of matching an unrelated real account (P1 SQLi migration phase 1) |
 
 ### Starting from a clean database
 
