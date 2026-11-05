@@ -16,7 +16,7 @@ import { query } from '../helpers/db';
  * sections/login.sec.php's confirmed SQLi is covered separately in
  * login-verify-sqli.spec.ts.
  *
- * The other two converted queries in this task - both in
+ * The other three converted queries in this task - two in
  * sections/winners.sec.php, and the nested (eval-row) branch of
  * sections/brewer_entries.sec.php's $query_style - are reachable only after
  * flipping prefsDisplayWinners to 'Y' (resp. $show_scores, which requires
