@@ -66,4 +66,39 @@ class SourceHardeningTest extends TestCase
             'includes/process.inc.php turns display_errors on'
         );
     }
+
+    /**
+     * SQLi migration phase 1, task 3: sections/winners.sec.php's two
+     * mysqli_query() calls (style lookup and style-count) and
+     * sections/brewer_entries.sec.php's eval-row style lookup were
+     * converted to $db_conn->where()/getOne() parameter binding. None of
+     * these three queries are reachable through the current e2e fixtures
+     * without flipping prefsDisplayWinners / closing judging (unsafe against
+     * other sessions sharing this dev stack - see
+     * e2e/tests/sqli-migration-sections-files.spec.ts's header comment), so
+     * this is a source-level regression guard rather than a behavioural
+     * test: it fails if either file goes back to building a query string
+     * with sprintf()/concatenation and a raw mysqli_query() call.
+     */
+    public function test_winners_and_brewer_entries_style_lookups_stay_parameterized(): void
+    {
+        $winners = file_get_contents(ROOT . 'sections/winners.sec.php');
+        $this->assertNotFalse($winners);
+        $this->assertSame(
+            0,
+            preg_match('/mysqli_query\(\$connection,\s*\$query_styl/', $winners),
+            'sections/winners.sec.php has reverted to raw mysqli_query() for its style lookups'
+        );
+        $this->assertStringContainsString("\$db_conn->getOne(\$prefix.\"styles\"", $winners);
+        $this->assertStringContainsString('$db_conn->getOne($brewing_db_table, "COUNT(*) as count")', $winners);
+
+        $brewerEntries = file_get_contents(ROOT . 'sections/brewer_entries.sec.php');
+        $this->assertNotFalse($brewerEntries);
+        $this->assertSame(
+            0,
+            preg_match('/mysqli_query\(\$connection,\s*\$query_style\b/', $brewerEntries),
+            'sections/brewer_entries.sec.php has reverted to raw mysqli_query() for its eval-row style lookup'
+        );
+        $this->assertStringContainsString('$db_conn->getOne($prefix."styles", "id,brewStyleType")', $brewerEntries);
+    }
 }
