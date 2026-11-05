@@ -9,7 +9,9 @@ There are two test suites in this project, and **they live on different branches
 | **Playwright e2e** | The real app through a browser: registration, entries, admin, security, Bluebonnet rules | `e2e/` on `bluebonnet-testing` | **Yes** |
 | **PHPUnit** | PHP library functions in `lib/common.lib.php` | `tests/` (Unit tier only; database tiers are on `testing-baseline`) | **Unit tier only** (see [PHPUnit](#phpunit-suite)) |
 
-If you only want to know "did I break anything on the 2.7 / Bluebonnet code?", run the Playwright suite. It takes about 2.5 minutes.
+If you only want to know "did I break anything on the 2.7 / Bluebonnet code?", run the Playwright suite. It takes about 4.5 minutes.
+
+**SQLi migration, Phase 1: done.** The `forgot_password.inc.php` finding plus the 21 files whose raw SQL was ≥90% similar to upstream's own prepared-statement conversion are fixed, each with a test. Along the way this also fixed a confirmed SQLi in `sections/login.sec.php` and an unrelated, pre-existing privilege-escalation bug. The remaining 380 files (70% or less similar to upstream, 667 raw calls) are tracked as a future phase, not yet broken into tasks — see `docs/superpowers/specs/2026-11-05-sqli-migration-design.md`.
 
 ---
 
@@ -172,7 +174,7 @@ Two things to know about that seed data:
 
 ```bash
 composer install          # first time only
-vendor/bin/phpunit        # Unit tier: 218 tests, 5 skipped, no database needed
+vendor/bin/phpunit        # Unit tier: 223 tests, 5 skipped, no database needed
 ```
 
 The suite was written for the 3.x code on the `testing-baseline` branch and adapted to 2.7. How it was adapted, which tests are skipped because of 2.7 bugs, and which were deleted is in [tests/README.md](tests/README.md). Four of the bugs the port exposed have been fixed on this branch; see tests/README.md for the rest.
