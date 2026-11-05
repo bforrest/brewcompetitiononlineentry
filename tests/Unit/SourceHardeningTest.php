@@ -101,4 +101,36 @@ class SourceHardeningTest extends TestCase
         );
         $this->assertStringContainsString('$db_conn->getOne($prefix."styles", "id,brewStyleType")', $brewerEntries);
     }
+
+    /**
+     * P1 SQLi migration phase 1, task 4: admin/competition_info.admin.php's
+     * step4 "first brewer" / "contest-info row count" lookups were converted
+     * from raw mysqli_query()/sprintf() to $db_conn->getOne(). The step4
+     * branch only runs mid first-time setup (setup.php?section=step4, gated
+     * on bcoem_sys.setup == 0), which is unreachable on the shared e2e stack
+     * (already fully set up, and $setup_free_access is FALSE there) without
+     * disrupting other work - see the task-4 report for a manual, throwaway
+     * Docker-project verification that these two converted queries return
+     * correct real data end to end. This is a source-level regression guard
+     * for ordinary test runs rather than a behavioural test.
+     */
+    public function test_competition_info_step4_lookups_stay_parameterized(): void
+    {
+        $source = file_get_contents(ROOT . 'admin/competition_info.admin.php');
+        $this->assertNotFalse($source);
+
+        $this->assertSame(
+            0,
+            preg_match('/mysqli_query\(\$connection,\s*\$query_(brewer|comp_info)\b/', $source),
+            'admin/competition_info.admin.php has reverted to raw mysqli_query() for its step4 lookups'
+        );
+        $this->assertStringContainsString(
+            '$db_conn->getOne($prefix."brewer", "brewerFirstName,brewerLastName,brewerEmail")',
+            $source
+        );
+        $this->assertStringContainsString(
+            '$db_conn->getOne($prefix."contest_info", "COUNT(*) as \'count\'")',
+            $source
+        );
+    }
 }

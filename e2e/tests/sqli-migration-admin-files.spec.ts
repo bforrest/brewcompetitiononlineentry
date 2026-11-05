@@ -148,15 +148,25 @@ test.describe('sqli migration - admin file group (task 4)', () => {
     }
   });
 
-  test('competition info step4 brewer/contest-info lookups still return data', async ({ page }) => {
-    // admin/competition_info.admin.php's step4 branch (used mid-setup) calls
-    // $db_conn->getOne() for the first brewer row and the contest_info row
-    // count - this exercises both converted queries via the main admin page,
-    // which reaches the same code when $section != "step4" is false... in
-    // practice the settings page (admin&go=contest_info) runs the same file
-    // outside of step4, so assert the ordinary admin path still renders the
-    // competition name field from row_contest_info (the non-step4 branch of
-    // the same conversion).
+  // NOTE: this does NOT exercise admin/competition_info.admin.php's converted
+  // queries. Those live inside `if ($section == "step4")` (lines ~11-38),
+  // which only runs mid first-time setup (setup.php?section=step4, gated on
+  // bcoem_sys.setup == 0 in includes/db/setup.db.php) - unreachable here,
+  // since this shared stack is already fully set up (bcoem_sys.setup == 1,
+  // which redirects setup.php straight to index.php) and $setup_free_access
+  // is FALSE (flipping either on the shared stack would be disruptive to
+  // other work, same reason task 2 couldn't run setup.php/update.php
+  // end-to-end here either). This test instead exercises the ordinary
+  // admin&go=contest_info path, which renders contestName from
+  // $row_contest_info - a different, unconverted variable, not
+  // $row_brewer/$row_comp_info. It's left as a general smoke check that the
+  // file still renders outside step4; the step4 conversion itself is
+  // guarded by tests/Unit/SourceHardeningTest.php
+  // (test_competition_info_step4_lookups_stay_parameterized) and was
+  // verified end-to-end by hand against real data on a throwaway, isolated
+  // Docker project - see the task-4 report for that procedure and its
+  // output.
+  test('competition info admin page renders the ordinary (non-step4) settings form', async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto('/index.php?section=admin&go=contest_info');
     await expect(page.locator('input[name="contestName"]')).toBeVisible();
