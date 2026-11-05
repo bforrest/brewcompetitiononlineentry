@@ -109,25 +109,26 @@ test.describe('sqli migration: root/setup/process-include file group', () => {
   });
 
   /**
-   * process_users_setup.inc.php is only reachable via
-   * process_users.inc.php's `action=add && section=setup` gate, which this
-   * test exercises with a direct POST (there is no wired admin "add user"
-   * UI that sets section=setup outside the one-time setup wizard). Its only
-   * converted query is an unparameterized `COUNT(*)` with no user input, so
-   * the meaningful check is that the count-based branching (and therefore
-   * the whole insert path) still works: on this seeded, multi-user DB the
-   * count is never 1, so the redirect carries msg=99, and the actual
-   * inserted user is still verified by logging in with the new credentials.
+   * process_users_setup.inc.php is reachable two ways: an already-logged-in
+   * admin (isset($_SESSION['loginUsername']) && isset($_SESSION['userLevel'])),
+   * or $setup_free_access (a config flag, FALSE by default, meant only for
+   * the one-time install wizard). It used to also accept a bare
+   * `$section == "setup"` request parameter with no login at all - a
+   * privilege-escalation hole that let any anonymous visitor create a
+   * super-admin account - fixed separately (see the commit that restored
+   * the `$setup_free_access` check). This test exercises the legitimate
+   * path, an already-logged-in admin, which the fix does not affect.
    *
-   * CONCERN (out of scope for this task, see report): reaching this file
-   * requires only a valid CSRF token and a same-host Referer, both
-   * obtainable by any anonymous visitor from any normal page load - no
-   * login or admin privilege is actually checked by the routing that gates
-   * this file. That looks like a pre-existing, unrelated privilege/auth
-   * issue, not something introduced or fixed by this task.
+   * Its only converted query is an unparameterized `COUNT(*)` with no user
+   * input, so the meaningful check is that the count-based branching (and
+   * therefore the whole insert path) still works: on this seeded,
+   * multi-user DB the count is never 1, so the redirect carries msg=99, and
+   * the actual inserted user is still verified by logging in with the new
+   * credentials.
    */
   test('new admin-setup user insert still redirects on the count check and the user is persisted', async ({ page }) => {
-    await page.goto('/index.php?section=register&go=entrant');
+    await loginAsAdmin(page);
+    await page.goto('/index.php?section=admin&go=entries');
     const token = await getToken(page);
 
     const email = `e2e-setup-${Date.now()}@example.com`;
@@ -151,6 +152,12 @@ test.describe('sqli migration: root/setup/process-include file group', () => {
       'SELECT id, user_name FROM users WHERE user_name = ?', [email]
     );
     expect(row).toBeDefined();
+
+    // Log the admin out first (the request above ran in the admin's own
+    // session) so the login attempt below genuinely exercises the new
+    // credentials, not the still-live admin session.
+    const logoutHref = await page.locator('a[href*="logout"]').first().getAttribute('href');
+    await page.goto(logoutHref!, { referer: page.url() });
 
     // Actual effect: the new credentials really work.
     await page.goto('/index.php?section=login');

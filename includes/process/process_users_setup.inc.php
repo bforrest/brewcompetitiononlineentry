@@ -4,7 +4,7 @@
  * Description: This module does all the heavy lifting for adding an admin user to the DB (Setup ONLY)
  */
 
-if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) && (isset($_SESSION['userLevel']))) || ($section == "setup"))) {
+if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) && (isset($_SESSION['userLevel']))) || ($setup_free_access))) {
 
 	$errors = FALSE;
 	$error_output = array();
