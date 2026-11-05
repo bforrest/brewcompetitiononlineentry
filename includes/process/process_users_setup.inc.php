@@ -50,9 +50,7 @@ if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) &
 		}
 
 		// Check to see if processed correctly.
-		$query_user_check = sprintf("SELECT COUNT(*) as 'count' FROM %s", $prefix."users");
-		$user_check = mysqli_query($connection,$query_user_check) or die (mysqli_error($connection));
-		$row_user_check = mysqli_fetch_assoc($user_check);
+		$row_user_check = $db_conn->getOne($prefix."users", "COUNT(*) as 'count'");
 
 		// If so, mark step as complete in system table and redirect to next step.
 		if ($row_user_check['count'] == 1) {

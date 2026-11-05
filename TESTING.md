@@ -75,11 +75,12 @@ Failures save a screenshot and a trace under `e2e/test-results/` (gitignored). T
 | --- | --- |
 | `smoke.spec.ts` | App serves, login modal, admin login, entrant registration |
 | `entrant-journey.spec.ts` | Register, create an entry, edit it, reach the payment page |
-| `admin-journey.spec.ts` | Entries list, build a judging table, record a score |
+| `admin-journey.spec.ts` | Entries list, build a judging table, record a score; the full-page judging-scores submit (`process_judging_scores.inc.php`) survives a single quote in the eid field (P1 SQLi migration phase 1) |
 | `security-invariants.spec.ts` | Anonymous and entrant users can't reach admin or account pages, PDF download rejects path traversal, the legacy login bypass is closed, the session id changes on login |
 | `xss-cookies.spec.ts` | Cookie values refilled into the register and contact forms are HTML-escaped (P1-SEC-003) |
 | `bluebonnet-rules.spec.ts` | Bluebonnet-only rules: 4 entries per table, 1 per entrant per table, 60 seconds between entries, unpaid entries deleted after 1 hour |
 | `forgot-password-sqli.spec.ts` | The unauthenticated forgot-password lookup survives a single-quote/OR-based injection payload instead of matching an unrelated real account (P1 SQLi migration phase 1) |
+| `sqli-migration-process-files.spec.ts` | `process_style_types.inc.php`'s next-id assignment, `process_barcode_check_in.inc.php`'s check-in surviving a single quote in the judging number, and `process_users_setup.inc.php`'s user-count branching all still work after converting to prepared statements / MysqliDb binding (P1 SQLi migration phase 1; `setup.php`/`update.php` from the same task are one-time scripts verified manually instead - see that task's report) |
 
 ### Starting from a clean database
 

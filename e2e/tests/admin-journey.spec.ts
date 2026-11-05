@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { loginAsAdmin } from '../helpers/auth';
 import { fillDateTime } from '../helpers/forms';
 import { createEntrantWithEntry } from '../helpers/entries';
+import { query } from '../helpers/db';
 
 /**
  * Admin-side journey over the highest-churn admin hotspots (design spec
@@ -14,6 +15,12 @@ import { createEntrantWithEntry } from '../helpers/entries';
  */
 
 test.describe.serial('admin journey', () => {
+  // Shared with the second test below, which reuses this table/entry to drive
+  // the full-page judging-scores form submit (process_judging_scores.inc.php),
+  // a different save path than the per-column AJAX save exercised here.
+  let sharedTableId: string | undefined;
+  let sharedEid: number | undefined;
+
   test('admin sees entries, builds a judging table, and records a score', async ({ browser, page }) => {
     const { entryName, styleName } = await createEntrantWithEntry(browser);
 
@@ -104,5 +111,69 @@ test.describe.serial('admin journey', () => {
     // — Persisted: reopen the table's scores in edit mode —
     await page.goto(`/index.php?section=admin&go=judging_scores&action=edit&id=${tableId}`);
     await expect(page.locator('input[name^="scoreEntry"]').first()).toHaveValue('42');
+
+    sharedTableId = tableId;
+    const eidAttr = await page.locator('input[type="hidden"][name^="eid"]').first().getAttribute('value');
+    sharedEid = eidAttr ? Number(eidAttr) : undefined;
+  });
+
+  /**
+   * process_judging_scores.inc.php is reached by the full-page "Update
+   * Scores" submit (admin/judging_scores.admin.php:550), a different save
+   * path from the per-column AJAX saves above - that button ships
+   * `disabled` since AJAX already covers normal use, so it's driven here by
+   * enabling it directly. The file's duplicate-score cleanup query interpolates
+   * $_POST['eid<n>'] raw (unsterilized) before the fix, so a literal quote in
+   * that field previously broke the query (die(mysqli_error(...))); after
+   * converting to a bound parameter it's treated as a literal value and the
+   * save goes through normally.
+   */
+  test('judging score save survives a single quote in the eid field', async ({ page }) => {
+    test.skip(!sharedTableId || !sharedEid, 'depends on the previous test having created a table/score');
+
+    await loginAsAdmin(page);
+    await page.goto(`/index.php?section=admin&go=judging_scores&action=edit&id=${sharedTableId}`);
+
+    const form = page.locator('form[name="scores"]');
+    await expect(form).toBeVisible();
+
+    // Append a literal quote to the hidden eid field - the value
+    // process_judging_scores.inc.php's duplicate-removal query used to
+    // interpolate unescaped - and set the new score to save.
+    await page.evaluate((eid) => {
+      const eidInput = document.querySelector<HTMLInputElement>(`input[name="eid${eid}"]`);
+      if (eidInput) eidInput.value = `${eid}'`;
+    }, sharedEid);
+
+    await page.fill(`input[name="scoreEntry${sharedEid}"]`, '55');
+
+    // Submit the form directly: the button ships `disabled` (AJAX normally
+    // covers this save) and the form also carries a bootstrap client-side
+    // validator, both of which exist to steer normal users toward the AJAX
+    // path, not to block this test from exercising the full-page submit
+    // handler itself. Wait for the actual process.inc.php response so the DB
+    // write is guaranteed to have happened before anything else runs - the
+    // redirect lands back on this same edit URL, so a URL-regex wait could
+    // otherwise resolve against the page as it already is.
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/includes/process.inc.php')),
+      page.evaluate(() => HTMLFormElement.prototype.submit.call(document.querySelector('form[name="scores"]'))),
+    ]);
+    await page.waitForLoadState('load');
+
+    // Actual effect: the score for the real entry persisted despite the
+    // quote in eid, proving the duplicate-removal lookup still matched (and
+    // only matched) the intended row rather than erroring out or silently
+    // matching zero/every row.
+    await page.goto(`/index.php?section=admin&go=judging_scores&action=edit&id=${sharedTableId}`);
+    await expect(page.locator(`input[name="scoreEntry${sharedEid}"]`)).toHaveValue('55');
+
+    const rows = await query<{ id: number; eid: number; scoreEntry: number }>(
+      'SELECT id, eid, scoreEntry FROM judging_scores WHERE scoreTable = ?', [Number(sharedTableId)]
+    );
+    // Exactly one score row for this table/entry - no duplicate left behind,
+    // and no unrelated row wiped out by an over-broad match.
+    expect(rows.filter(r => r.eid === sharedEid)).toHaveLength(1);
+    expect(Number(rows.find(r => r.eid === sharedEid)!.scoreEntry)).toBe(55);
   });
 });
