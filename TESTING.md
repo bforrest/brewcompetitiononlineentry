@@ -50,7 +50,7 @@ The two environment variables:
 - `BASE_URL`: where the app is. Defaults to `http://localhost:8080`.
 - `DB_PORT` (and `DB_HOST`): used by specs that talk to MariaDB directly, for example to backdate an entry's timestamp. Defaults to 3306.
 
-Expected result on a healthy checkout: **26 passed, 1 skipped, about 2.5 minutes.** The skipped test is a known gap (see [Known gaps](#known-gaps)).
+Expected result on a healthy checkout: **39 passed, 1 skipped, about 4.5 minutes.** The skipped test is a known gap (see [Known gaps](#known-gaps)).
 
 ### Useful variations
 
@@ -84,6 +84,7 @@ Failures save a screenshot and a trace under `e2e/test-results/` (gitignored). T
 | `setup-auth-bypass.spec.ts` | An anonymous visitor cannot create a `userLevel=0` (super admin) account via `section=setup` - closes a privilege-escalation hole found while verifying the SQLi migration (not SQLi itself; the gate had regressed from the real `$setup_free_access` config flag to the request's own `section` parameter) |
 | `login-verify-sqli.spec.ts` | `sections/login.sec.php`'s "verify security question" lookup (the forgot-password flow's second step) survives a single-quote/OR-based injection payload instead of matching an unrelated real account - a real, separately-confirmed SQLi, same class as `forgot-password-sqli.spec.ts` (P1 SQLi migration phase 1, task 3) |
 | `sqli-migration-sections-files.spec.ts` | `sections/brewer_entries.sec.php`'s eval-exists lookup and `includes/headers.inc.php`'s contact-confirmation lookup still return correct data after converting to `$db_conn` parameter binding (P1 SQLi migration phase 1, task 3). Two other converted queries from the same task - both in `sections/winners.sec.php`, and the eval-row branch of `brewer_entries.sec.php`'s style lookup - aren't reachable without flipping shared `prefsDisplayWinners`/judging-window state on this long-lived dev stack; see that spec's header comment and `tests/Unit/SourceHardeningTest.php` for how those are covered instead. |
+| `sqli-migration-admin-files.spec.ts` | `admin/competition_info.admin.php`'s step4 brewer/contest-info lookups, `admin/archive.admin.php`'s results-recorded count, and `admin/judging_assign.admin.php`'s five converted queries all still return correct data after converting to `$db_conn` (MysqliDb builder / `rawQuery()` with bound parameters) (P1 SQLi migration phase 1, task 4). The judging-assign co-brewer test asserts an exact row *count* across three entries, not just presence - this file was flagged as the one most likely to return multiple rows, so the regression it guards against is a conversion that silently narrows a multi-row fetch to one row. |
 
 ### Starting from a clean database
 
