@@ -12,11 +12,15 @@
     failOnWarning is intentionally NOT set: the legacy library triggers
     pre-existing benign PHP runtime warnings (e.g. undefined array keys in
     date_time.lib.php) that are catalogued, not test failures.
-    Only the Unit tier exists on this branch; see TESTING.md.
+    The Unit tier is DB-free. The Integration tier (tests/Integration) runs converter scripts against a
+    throwaway database on the docker stack's MariaDB and skips itself when that isn't reachable.
 -->
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
         </testsuite>
     </testsuites>
 </phpunit>

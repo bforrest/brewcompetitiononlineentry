@@ -208,8 +208,10 @@ Two things to know about that seed data:
 
 ```bash
 composer install          # first time only
-vendor/bin/phpunit        # Unit tier: 274 tests, 5 skipped, no database needed
+vendor/bin/phpunit        # Unit tier needs no database; the small Integration suite skips itself without the docker stack
 ```
+
+**A small Integration suite does exist here, separate from `testing-baseline`'s tiers below:** `tests/Integration/Bjcp2025ConverterTest.php` runs the real BJCP 2021 → 2025 converter against a throwaway database (`bcoem_phpunit_scratch`, built from copies of the docker stack's tables and dropped afterwards; the stack's own `bcoem` data is only read). It needs the stack's MariaDB on `127.0.0.1:3307` (override with `BCOEM_TEST_DB_PORT`, `BCOEM_TEST_DB_HOST`, `BCOEM_TEST_DB_ROOT_PASSWORD`) and skips itself when that is unreachable. Run it alone with `vendor/bin/phpunit --testsuite Integration`. The 2026 converter and the seed scripts are checked by hand: see [tests/manual/README.md](tests/manual/README.md).
 
 The suite was written for the 3.x code on the `testing-baseline` branch and adapted to 2.7. How it was adapted, which tests are skipped because of 2.7 bugs, and which were deleted is in [tests/README.md](tests/README.md). Four of the bugs the port exposed have been fixed on this branch; see tests/README.md for the rest.
 
