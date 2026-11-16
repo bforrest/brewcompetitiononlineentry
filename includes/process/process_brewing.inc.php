@@ -387,7 +387,8 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 		if (HOSTED) $query_style_name = sprintf("SELECT brewStyle, brewStyleCarb, brewStyleSweet, brewStyleStrength, brewStyleType FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') AND brewStyleGroup='%s' AND brewStyleNum='%s' UNION ALL SELECT brewStyle, brewStyleCarb, brewStyleSweet, brewStyleStrength, brewStyleType FROM %s WHERE brewStyleVersion='%s' AND brewStyleGroup='%s' AND brewStyleNum='%s'", $prefix."styles", $_SESSION['prefsStyleSet'], $styleFix, $style[1], "bcoem_shared_styles", $_SESSION['prefsStyleSet'], $styleFix, $style[1]);
 		else 
 		*/
-		$db_conn->where("(brewStyleVersion = ? OR brewStyleOwn = ?) AND brewStyleGroup = ? AND brewStyleNum = ?", array($_SESSION['prefsStyleSet'], "custom", $styleFix, $style[1]));
+		$ssv_style = style_set_version_clause($_SESSION['prefsStyleSet']);
+		$db_conn->where("(".$ssv_style['sql']." OR brewStyleOwn = ?) AND brewStyleGroup = ? AND brewStyleNum = ?", array_merge($ssv_style['params'], array("custom", $styleFix, $style[1])));
 		$row_style_name = $db_conn->getOne($prefix."styles", "brewStyle, brewStyleCarb, brewStyleSweet, brewStyleStrength, brewStyleType");
 		
 		$styleName = $row_style_name['brewStyle'];
@@ -405,10 +406,10 @@ if ((isset($_SERVER['HTTP_REFERER'])) && ((isset($_SESSION['loginUsername'])) &&
 		}
 
 		// For BJCP 2015/2021, process addtional info
-		if (($_SESSION['prefsStyleSet'] == "BJCP2015") || ($_SESSION['prefsStyleSet'] == "BJCP2021")) {
+		if (($_SESSION['prefsStyleSet'] == "BJCP2015") || (in_array($_SESSION['prefsStyleSet'], array("BJCP2021","BJCP2025","BJCP2026")))) {
 
 			// If BJCP 2021 and 2A, add optional regional variation if present
-			if (($index == "02-A") && ($_SESSION['prefsStyleSet'] == "BJCP2021") && (!empty($_POST['regionalVar']))) {
+			if (($index == "02-A") && (in_array($_SESSION['prefsStyleSet'], array("BJCP2021","BJCP2025","BJCP2026"))) && (!empty($_POST['regionalVar']))) {
 				$brewInfo = $purifier->purify(sterilize($_POST['regionalVar']));
 			}
 

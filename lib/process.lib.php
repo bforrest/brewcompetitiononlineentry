@@ -273,8 +273,9 @@ function check_sweetness($style,$styleSet) {
 	if (HOSTED) $query_brews = sprintf("SELECT brewStyleSweet FROM %s WHERE brewStyleGroup='%s' AND brewStyleNum='%s' AND (brewStyleVersion='%s' OR brewStyleOwn='custom') UNION ALL SELECT brewStyleSweet FROM %s WHERE brewStyleGroup='%s' AND brewStyleNum='%s' AND (brewStyleVersion='%s' OR brewStyleOwn='custom')", $styles_db_table, $style_0, $style_explodies[1], $_SESSION['prefsStyleSet'], $prefix."styles", $style_0, $style_explodies[1], $_SESSION['prefsStyleSet']);
 	else
 	*/
-	$query_brews = "SELECT brewStyleSweet FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (brewStyleVersion=? OR brewStyleOwn='custom')";
-	$row_brews = $db_conn->rawQueryOne($query_brews, array($style_0, $style_explodies[1], $_SESSION['prefsStyleSet']));
+	$ssv_style = style_set_version_clause($_SESSION['prefsStyleSet']);
+	$query_brews = "SELECT brewStyleSweet FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (".$ssv_style['sql']." OR brewStyleOwn='custom')";
+	$row_brews = $db_conn->rawQueryOne($query_brews, array_merge(array($style_0, $style_explodies[1]), $ssv_style['params']));
 
 	if ($row_brews['brewStyleSweet'] == 1) return TRUE;
 	else return FALSE;
@@ -302,8 +303,9 @@ function check_carb($style,$styleSet) {
 	if (HOSTED) $query_brews = sprintf("SELECT brewStyleCarb FROM %s WHERE brewStyleGroup='%s' AND brewStyleNum='%s' AND (brewStyleVersion='%s' OR brewStyleOwn='custom') UNION ALL SELECT brewStyleSweet FROM %s WHERE brewStyleGroup='%s' AND brewStyleNum='%s' AND (brewStyleVersion='%s' OR brewStyleOwn='custom')", $styles_db_table, $style_0, $style_explodies[1], $_SESSION['prefsStyleSet'], $prefix."styles", $style_0, $style_explodies[1], $_SESSION['prefsStyleSet']);
 	else
 	*/
-	$query_brews = "SELECT brewStyleCarb FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (brewStyleVersion=? OR brewStyleOwn='custom')";
-	$row_brews = $db_conn->rawQueryOne($query_brews, array($style_0, $style_explodies[1], $_SESSION['prefsStyleSet']));
+	$ssv_style = style_set_version_clause($_SESSION['prefsStyleSet']);
+	$query_brews = "SELECT brewStyleCarb FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (".$ssv_style['sql']." OR brewStyleOwn='custom')";
+	$row_brews = $db_conn->rawQueryOne($query_brews, array_merge(array($style_0, $style_explodies[1]), $ssv_style['params']));
 
 	if ($row_brews['brewStyleCarb'] == 1) return TRUE;
 	else return FALSE;
@@ -330,8 +332,9 @@ function check_mead_strength($style,$styleSet) {
 	if (HOSTED) $query_brews = sprintf("SELECT brewStyleStrength FROM %s WHERE brewStyleGroup='%s' AND brewStyleNum='%s' AND (brewStyleVersion='%s' OR brewStyleOwn='custom') UNION ALL SELECT brewStyleSweet FROM %s WHERE brewStyleGroup='%s' AND brewStyleNum='%s' AND (brewStyleVersion='%s' OR brewStyleOwn='custom')", $styles_db_table, $style_0, $style_explodies[1], $_SESSION['prefsStyleSet'], $prefix."styles", $style_0, $style_explodies[1], $_SESSION['prefsStyleSet']);
 	else
 	*/
-	$query_brews = "SELECT brewStyleStrength FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (brewStyleVersion=? OR brewStyleOwn='custom')";
-	$row_brews = $db_conn->rawQueryOne($query_brews, array($style_0, $style_explodies[1], $styleSet));
+	$ssv_style = style_set_version_clause($styleSet);
+	$query_brews = "SELECT brewStyleStrength FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (".$ssv_style['sql']." OR brewStyleOwn='custom')";
+	$row_brews = $db_conn->rawQueryOne($query_brews, array_merge(array($style_0, $style_explodies[1]), $ssv_style['params']));
 
 	if ($row_brews['brewStyleStrength'] == 1) return TRUE;
 	else return FALSE;

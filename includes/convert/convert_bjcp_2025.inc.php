@@ -34,7 +34,7 @@ foreach ($rows_style_ids as $row_style_ids) {
 
 foreach ($styles_2021 as $key => $id_2021) {
 	// Convert the 2021 style to 2025
-	$mapped_style_to_2021 = bjcp_map_2021_2025($key,1,$prefix,1);
+	$mapped_style_to_2025 = bjcp_map_2021_2025($key,1,$prefix,1);
 	$mapped_style_ids[$id_2021] = $mapped_style_to_2025;
 }
 
@@ -58,53 +58,41 @@ $db_conn->orderBy('id', 'ASC');
 $rows_judge_likes = $db_conn->get($prefix."brewer");
 $totalRows_judge_likes = $db_conn->count;
 
+// Resolve a BJCP2025 code to the id of the row it now lives at. Cider codes live
+// in the new BJCP2025 rows; beer and mead are unchanged by the 2025 update and
+// stay on their BJCP2021 rows.
+$resolve_2025_id = function ($code) use ($styles_2025, $styles_2021) {
+    if (array_key_exists($code, $styles_2025)) return $styles_2025[$code];
+    if (array_key_exists($code, $styles_2021)) return $styles_2021[$code];
+    return NULL;
+};
+
+// Convert a comma-separated list of style ids. Ids that map to a style are
+// replaced with that style's current id; ids that aren't a mapped style (e.g.
+// custom styles) are kept as-is. Returns array(new list, whether it changed).
+$convert_style_id_list = function ($csv) use ($mapped_style_ids, $resolve_2025_id) {
+    $new = array();
+    foreach (explode(",", (string) $csv) as $value) {
+        $value = trim($value);
+        if ($value === '') continue;
+        if (array_key_exists($value, $mapped_style_ids)) {
+            $new_id = $resolve_2025_id($mapped_style_ids[$value]);
+            if ($new_id !== NULL) $new[] = $new_id;
+        }
+        else $new[] = $value;
+    }
+    $new_csv = implode(",", array_unique($new));
+    return array($new_csv, ($new_csv !== (string) $csv));
+};
+
 if ($totalRows_judge_likes > 0) {
 
     foreach ($rows_judge_likes as $row_judge_likes) {
 
-        $likes_arr_new = array();
-        $dislikes_arr_new = array();
-        $likes_new = "";
-        $dislikes_new = "";
-        
-        $current_likes_2021 = array();
-        $current_dislikes_2021 = array();
-        $bjcp_2025_likes = array();
-        $bjcp_2025_dislikes = array();
+        list($likes_new, $likes_changed) = $convert_style_id_list($row_judge_likes['brewerJudgeLikes']);
+        list($dislikes_new, $dislikes_changed) = $convert_style_id_list($row_judge_likes['brewerJudgeDislikes']);
 
-        if (!empty($row_judge_likes['brewerJudgeLikes'])) {
-            $likes_arr = explode(",",$row_judge_likes['brewerJudgeLikes']);
-            foreach ($likes_arr as $value) {
-                $current_likes_2021[] = array_search($value,$styles_2021);
-                if (array_key_exists($value, $mapped_style_ids)) {
-                    $new_style_num = $mapped_style_ids[$value];
-                    $likes_arr_new[] = $styles_2021[$new_style_num];
-                    $bjcp_2025_likes[] = $new_style_num;
-                }
-            }
-        }
-
-        if (!empty($row_judge_likes['brewerJudgeDislikes'])) {
-            $dislikes_arr = explode(",",$row_judge_likes['brewerJudgeDislikes']);
-            foreach ($dislikes_arr as $value) {
-                $current_dislikes_2021[] = array_search($value,$styles_2021);
-                if (array_key_exists($value, $mapped_style_ids)) {
-                    $new_style_num = $mapped_style_ids[$value];
-                    $dislikes_arr_new[] = $styles_2021[$new_style_num];
-                    $bjcp_2025_dislikes[] = $new_style_num;
-                }
-            }
-        }
-
-        if (!empty($likes_arr_new)) $likes_new = implode(",",$likes_arr_new);
-        if (!empty($dislikes_arr_new)) $dislikes_new = implode(",",$dislikes_arr_new);
-
-        $current_likes = implode(",",$current_likes_2021);
-        $current_dislikes = implode(",",$current_dislikes_2021);
-        $likes_2015 = implode(",",$bjcp_2025_likes);
-        $dislikes_2015 = implode(",",$bjcp_2025_dislikes);
-        
-        if ((!empty($current_likes)) || (!empty($current_dislikes))) {
+        if (($likes_changed) || ($dislikes_changed)) {
 
             $update_table = $prefix."brewer";
             $data = array(
@@ -112,24 +100,10 @@ if ($totalRows_judge_likes > 0) {
                 'brewerJudgeDislikes' => $dislikes_new
             );
             $db_conn->where ('id', $row_judge_likes['id']);
-            if ($db_conn->update ($update_table, $data)) $output .= "<li>Judge likes updated to BJCP 2021 for ".$row_judge_likes['brewerLastName'].", ".$row_judge_likes['brewerFirstName']."</li>";
-            else $output .= "<li>Judge likes NOT updated to BJCP 2021 for ".$row_judge_likes['brewerLastName'].", ".$row_judge_likes['brewerFirstName'].". Error: ".$db_conn->getLastError()."</li>";
+            if ($db_conn->update ($update_table, $data)) $output .= "<li>Judge likes/dislikes updated to BJCP 2025 for ".$row_judge_likes['brewerLastName'].", ".$row_judge_likes['brewerFirstName']."</li>";
+            else $output .= "<li>Judge likes/dislikes NOT updated to BJCP 2025 for ".$row_judge_likes['brewerLastName'].", ".$row_judge_likes['brewerFirstName'].". Error: ".$db_conn->getLastError()."</li>";
 
         }
-
-        /*
-        echo $row_judge_likes['brewerJudgeLikes']."<br><br>";
-        print_r($current_likes_2021);
-        echo "<br>";
-        print_r($bjcp_2025_likes);
-        echo "<br><br>";            
-        print_r($current_dislikes_2021);
-        echo "<br>";            
-        print_r($bjcp_2025_dislikes);
-        echo "<br><br>";
-        if (isset($updateSQL)) echo $updateSQL."<br><br>";
-        echo "<hr><br><br>";
-        */
 
     }
 
@@ -147,41 +121,21 @@ if ($totalRows_tables > 0) {
 
     foreach ($rows_tables as $row_tables) {
 
-        $table_styles_arr_new = array();
-
         if (!empty($row_tables['tableStyles'])) {
-            
-            $table_styles_arr = explode(",",$row_tables['tableStyles']);
-            
-            foreach ($table_styles_arr as $value) {
-                if (array_key_exists($value, $mapped_style_ids)) {
-                    $new_style_num = $mapped_style_ids[$value];
-                    $table_styles_arr_new[] = $styles_2021[$new_style_num];
-                }
+
+            list($table_styles_new, $table_styles_changed) = $convert_style_id_list($row_tables['tableStyles']);
+
+            if (($table_styles_changed) && (!empty($table_styles_new))) {
+
+                $update_table = $prefix."judging_tables";
+                $data = array('tableStyles' => $table_styles_new);
+                $db_conn->where ('id', $row_tables['id']);
+                if ($db_conn->update ($update_table, $data)) $output .= "<li>Table styles updated to BJCP 2025 for ".$row_tables['tableName']."</li>";
+                else $output .= "<li>Table styles NOT updated to BJCP 2025 for ".$row_tables['tableName'].". Error: ".$db_conn->getLastError()."</li>";
+
             }
 
         }
-
-        if (!empty($table_styles_arr_new)) {
-            
-            $table_styles_new = implode(",",$table_styles_arr_new);
-
-            $update_table = $prefix."judging_tables";
-            $data = array('tableStyles' => $table_styles_new);
-            $db_conn->where ('id', $row_tables['id']);
-            if ($db_conn->update ($update_table, $data)) $output .= "<li>Table styles updated to BJCP 2025 for ".$row_tables['tableName']."</li>";
-            else $output .= "<li>Judge likes NOT updated to BJCP 2025  for ".$row_tables['tableName'].". Error: ".$db_conn->getLastError()."</li>";
-
-        }
-        
-        /*
-        echo $row_tables['tableName']."<br>";
-        print_r($table_styles_arr);
-        echo "<br>";
-        print_r($table_styles_arr_new);
-        echo "<br>";
-        echo $updateSQL."<br><br><hr><br><br>";
-        */
 
     }
 
@@ -193,50 +147,56 @@ if ($totalRows_tables > 0) {
  */
 
 $db_conn->where('brewStyleVersion', 'BJCP2021');
+$db_conn->where('brewStyleType', '2');
 $db_conn->where('brewStyleActive', 'Y');
 $rows_styles_active = $db_conn->get($styles_db_table);
 $totalRows_styles_active = $db_conn->count;
 
-if ($totalRows_styles_active > 0) {
+// Deselect only the BJCP2025 cider styles that are an actual mapping TARGET of
+// a BJCP2021 code, then re-activate the ones whose 2021 counterpart was active,
+// below. A 2025 style that nothing maps to (new in 2025, e.g. Heirloom Cider)
+// is never touched and stays active as update/styles_bjcp_2025_update.php
+// seeded it. Old rows are deactivated but never deleted so archived
+// competitions that ran under BJCP2021 still resolve their cider style names.
+$mapped_target_ids = array();
+foreach (array_unique(array_values($mapped_style_ids)) as $mapped_target_code) {
+    if (array_key_exists($mapped_target_code, $styles_2025)) $mapped_target_ids[] = $styles_2025[$mapped_target_code];
+}
 
-    // First, "deselect" all styles in the DB for BJCP2025
+if (!empty($mapped_target_ids)) {
     $update_table = $prefix."styles";
     $data = array('brewStyleActive' => 'N');
-    $db_conn->where ('brewStyleVersion', 'BJCP2025');
+    $db_conn->where ('id', $mapped_target_ids, 'IN');
     $db_conn->update ($update_table, $data);
+}
 
-    if (HOSTED) {
-        $update_table = $styles_db_table;
-        $data = array('brewStyleActive' => 'N');
-        $db_conn->where ('brewStyleVersion', 'BJCP2025');
-        $result = $db_conn->update ($update_table, $data);
-    }
+if ($totalRows_styles_active > 0) {
 
     foreach ($rows_styles_active as $row_styles_active) {
 
-        $style = $row_styles_active['brewStyleGroup'].$row_styles_active['brewStyleNum'];
+        if (array_key_exists($row_styles_active['id'], $mapped_style_ids)) {
 
-        if (in_array($style, $mapped_style_ids)) {
-            
-            $key = array_search($style, $mapped_style_ids);
-            $new_style_num = $mapped_style_ids[$key];
-            $id = $styles_2021[$new_style_num];
+            $new_style_num = $mapped_style_ids[$row_styles_active['id']];
 
-            $update_table = $prefix."styles";
-            $data = array('brewStyleActive' => 'Y');
-            $db_conn->where ('id', $id);
-            $result = $db_conn->update ($update_table, $data);
+            if (array_key_exists($new_style_num, $styles_2025)) {
 
-            if (HOSTED) {
-                $update_table = $styles_db_table;
+                $update_table = $prefix."styles";
                 $data = array('brewStyleActive' => 'Y');
-                $db_conn->where ('id', $id);
-                $result = $db_conn->update ($update_table, $data);
+                $db_conn->where ('id', $styles_2025[$new_style_num]);
+                $db_conn->update ($update_table, $data);
+
             }
 
         }
 
     }
+
+    // Deactivate the old cider rows now that their BJCP2025 counterparts are active.
+    $update_table = $prefix."styles";
+    $data = array('brewStyleActive' => 'N');
+    $db_conn->where ('brewStyleVersion', 'BJCP2021');
+    $db_conn->where ('brewStyleType', '2');
+    $db_conn->update ($update_table, $data);
 
 } // end if ($totalRows_styles_active > 0)
 
@@ -280,6 +240,10 @@ if (!empty($current_active)) {
         $data = array('brewStyleActive' => 'Y');
         $db_conn->where ('brewStyleGroup', $style_parts[0]);
         $db_conn->where ('brewStyleNum', $style_parts[1]);
+        // Limit to BJCP2025: group/num codes are reused across style sets (BJCP2021,
+        // AABC, NWCiderCup...), so matching on group/num alone re-activated old
+        // BJCP2021 rows and switched on unrelated styles in other style sets.
+        $db_conn->where ('brewStyleVersion', 'BJCP2025');
         $db_conn->update ($update_table, $data);
 
     }

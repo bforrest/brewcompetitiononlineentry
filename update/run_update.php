@@ -4555,6 +4555,23 @@ if (HOSTED) {
 
 /**
  * ---------------------------------------------------------------------------------------------------
+ * Backported from upstream 3.x: BJCP 2025 (cider) and BJCP 2026 (mead) style updates.
+ * Seed rows only - no entries are converted here. Admins convert entries by changing the style set
+ * in Admin > Preferences, which runs includes/convert/convert_bjcp_2025.inc.php or
+ * convert_bjcp_2026.inc.php via process.inc.php (action=convert_bjcp).
+ *
+ * The check styles are sentinels that never existed under an older version of the same set:
+ * C1-E "Spanish Cider" is new in BJCP2025; M2-E "Other Fruit Mead" is new in BJCP2026 (old M2E was
+ * "Melomel"). check_new_style_version() also matches on brewStyleVersion because most style names
+ * are reused across versions.
+ * ---------------------------------------------------------------------------------------------------
+ */
+
+if (($setup_running) || (!check_new_style_version("C1","E","Spanish Cider","BJCP2025"))) include (UPDATE.'styles_bjcp_2025_update.php');
+if (($setup_running) || (!check_new_style_version("M2","E","Other Fruit Mead","BJCP2026"))) include (UPDATE.'styles_bjcp_2026_update.php');
+
+/**
+ * ---------------------------------------------------------------------------------------------------
  * End all unordered lists
  * ---------------------------------------------------------------------------------------------------
  */

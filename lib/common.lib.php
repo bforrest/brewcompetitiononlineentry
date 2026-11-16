@@ -320,11 +320,12 @@ function purge_entries($type, $interval) {
 
 		*/
 
-		$query_check = "SELECT a.id, a.brewUpdated, a.brewInfo, a.brewCategorySort, a.brewSubCategory FROM ".$prefix."brewing"." as a, ".$styles_db_table." as b WHERE a.brewCategorySort=b.brewStyleGroup AND a.brewSubCategory=b.brewStyleNum AND b.brewStyleReqSpec=1 AND (a.brewInfo IS NULL OR a.brewInfo='') AND b.brewStyleVersion = ?";
-		$params_check = array($_SESSION['prefsStyleSet']);
+		$ssv_check = style_set_version_clause($_SESSION['prefsStyleSet'], "b.");
+		$query_check = "SELECT a.id, a.brewUpdated, a.brewInfo, a.brewCategorySort, a.brewSubCategory FROM ".$prefix."brewing"." as a, ".$styles_db_table." as b WHERE a.brewCategorySort=b.brewStyleGroup AND a.brewSubCategory=b.brewStyleNum AND b.brewStyleReqSpec=1 AND (a.brewInfo IS NULL OR a.brewInfo='') AND ".$ssv_check['sql'];
+		$params_check = $ssv_check['params'];
 
 		if ($interval > 0) $query_check .=" AND a.brewUpdated < DATE_SUB( NOW(), INTERVAL 1 DAY)";
-		$rows_check = $db_conn->rawQuery($query_check, $params_check);
+		$rows_check = (!empty($params_check)) ? $db_conn->rawQuery($query_check, $params_check) : $db_conn->rawQuery($query_check);
 		$totalRows_check = $db_conn->count;
 
 		if ($totalRows_check == 0) $count += 1;
@@ -1413,8 +1414,9 @@ function style_convert($number,$type,$base_url="",$archive="") {
 	if (HOSTED) $query_style = sprintf("SELECT brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleOwn FROM %s WHERE brewStyleGroup='%s' AND (brewStyleVersion='%s' OR brewStyleOwn='custom') UNION ALL SELECT brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleOwn FROM %s WHERE brewStyleGroup='%s' AND (brewStyleVersion='%s' OR brewStyleOwn='custom')", $prefix."styles", $number, $style_set, $styles_db_table, $number, $style_set);
 	else
 	*/
-	$query_style = "SELECT brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleOwn FROM ".$styles_db_table." WHERE brewStyleGroup=? AND (brewStyleVersion=? OR brewStyleOwn='custom')";
-	$row_style = $db_conn->rawQueryOne($query_style, array($number, $style_set));
+	$ssv_style = style_set_version_clause($style_set);
+	$query_style = "SELECT brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleOwn FROM ".$styles_db_table." WHERE brewStyleGroup=? AND (".$ssv_style['sql']." OR brewStyleOwn='custom')";
+	$row_style = $db_conn->rawQueryOne($query_style, array_merge(array($number), $ssv_style['params']));
 
 	if ((isset($archive)) && (!empty($archive)) && ($archive != "default")) {
 		$db_conn->where('archiveSuffix', $archive);
@@ -1801,8 +1803,9 @@ function style_convert($number,$type,$base_url="",$archive="") {
 			brewStyleNum='%s' AND (brewStyleVersion='%s' OR brewStyleOwn='custom') UNION ALL SELECT brewStyleNum, brewStyleGroup, brewStyle, brewStyleVersion, brewStyleReqSpec, brewStyleStrength,brewStyleCarb,brewStyleSweet FROM %s WHERE brewStyleGroup='%s' AND brewStyleNum='%s' AND (brewStyleVersion='%s' OR brewStyleOwn='custom');", $styles_db_table, $number[0], $number[1], $number[2], $prefix."styles", $number[0], $number[1], $number[2]);
 		else
 		*/
-		$query_style = "SELECT brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleStrength,brewStyleCarb,brewStyleSweet FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (brewStyleVersion=? OR brewStyleOwn='custom')";
-		$row_style = $db_conn->rawQueryOne($query_style, array($number[0], $number[1], $number[2]));
+		$ssv_style = style_set_version_clause($number[2]);
+		$query_style = "SELECT brewStyleNum,brewStyleGroup,brewStyle,brewStyleVersion,brewStyleReqSpec,brewStyleStrength,brewStyleCarb,brewStyleSweet FROM ".$styles_db_table." WHERE brewStyleGroup=? AND brewStyleNum=? AND (".$ssv_style['sql']." OR brewStyleOwn='custom')";
+		$row_style = $db_conn->rawQueryOne($query_style, array_merge(array($number[0], $number[1]), $ssv_style['params']));
 
 		// Exception for BJCP2021 2A
 		if (($number[0] == "02") && ($number[1] == "A") && ($number[2] == "BJCP2021")) $row_style['brewStyleReqSpec'] = 1;
@@ -2763,8 +2766,9 @@ function winner_check($id,$judging_scores_db_table,$judging_tables_db_table,$bre
 			if (HOSTED) $query_style = sprintf("SELECT brewStyle FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') AND brewStyleGroup='%s' AND brewStyleNum='%s' UNION ALL SELECT brewStyle FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') AND brewStyleGroup='%s' AND brewStyleNum='%s'", $styles_db_table, $_SESSION['prefsStyleSet'], $row_entry['brewCategorySort'],$row_entry['brewSubCategory'], $prefix."styles", $_SESSION['prefsStyleSet'], $row_entry['brewCategorySort'],$row_entry['brewSubCategory']);
 			else
 			*/
-			$query_style = "SELECT brewStyle FROM ".$styles_db_table." WHERE (brewStyleVersion=? OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
-			$row_style = $db_conn->rawQueryOne($query_style, array($_SESSION['prefsStyleSet'], $row_entry['brewCategorySort'], $row_entry['brewSubCategory']));
+			$ssv_style = style_set_version_clause($_SESSION['prefsStyleSet']);
+			$query_style = "SELECT brewStyle FROM ".$styles_db_table." WHERE (".$ssv_style['sql']." OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
+			$row_style = $db_conn->rawQueryOne($query_style, array_merge($ssv_style['params'], array($row_entry['brewCategorySort'], $row_entry['brewSubCategory'])));
 
 			$r = display_place($row_scores['scorePlace'],1).": ".$row_style['brewStyle']." (".$row_entry['brewCategory'].$row_entry['brewSubCategory'].")";
 			}
@@ -2867,8 +2871,9 @@ function check_special_ingredients($style,$style_version) {
 	if (HOSTED) $query_brews = sprintf("SELECT brewStyleReqSpec FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') AND brewStyleGroup='%s' AND brewStyleNum='%s' UNION ALL SELECT brewStyleReqSpec FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') AND brewStyleGroup='%s' AND brewStyleNum='%s'", $styles_db_table, $style_version, $style_explodies[0], $style_explodies[1], $prefix."styles", $style_version, $style_explodies[0], $style_explodies[1]);
 	else
 	*/
-	$query_brews = "SELECT brewStyleReqSpec FROM ".$styles_db_table." WHERE (brewStyleVersion=? OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
-	$row_brews = $db_conn->rawQueryOne($query_brews, array($style_version, $style_explodies[0], $style_explodies[1]));
+	$ssv_style = style_set_version_clause($style_version);
+	$query_brews = "SELECT brewStyleReqSpec FROM ".$styles_db_table." WHERE (".$ssv_style['sql']." OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
+	$row_brews = $db_conn->rawQueryOne($query_brews, array_merge($ssv_style['params'], array($style_explodies[0], $style_explodies[1])));
 
 	if ((!empty($row_brews)) && ($row_brews['brewStyleReqSpec'] == 1)) return TRUE;
 	else return FALSE;
@@ -3602,8 +3607,9 @@ function limit_subcategory($style,$pref_num,$pref_exception_sub_num,$pref_except
 	if (HOSTED) $query_style = sprintf("SELECT id FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') AND brewStyleGroup='%s' AND brewStyleNum='%s' UNION ALL SELECT id FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') AND brewStyleGroup='%s' AND brewStyleNum='%s'", $styles_db_table, $_SESSION['prefsStyleSet'], $style_num, $style_break[1], $prefix."styles", $_SESSION['prefsStyleSet'], $style_num, $style_break[1]);
 	else
 	*/
-	$query_style = "SELECT id FROM ".$styles_db_table." WHERE (brewStyleVersion=? OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
-	$row_style = $db_conn->rawQueryOne($query_style, array($_SESSION['prefsStyleSet'], $style_num, $style_break[1]));
+	$ssv_style = style_set_version_clause($_SESSION['prefsStyleSet']);
+	$query_style = "SELECT id FROM ".$styles_db_table." WHERE (".$ssv_style['sql']." OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
+	$row_style = $db_conn->rawQueryOne($query_style, array_merge($ssv_style['params'], array($style_num, $style_break[1])));
 
 	$style_id = "";
 	if ($row_style) $style_id = $row_style['id'];
@@ -3650,8 +3656,9 @@ function highlight_required($msg,$method,$style_version) {
 		if (!empty($explodies)) {
 
 			if ((isset($explodies[1])) && (isset($explodies[2]))) {
-				$query_check = "SELECT brewStyleSweet FROM ".$prefix."styles WHERE (brewStyleVersion=? OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
-				$row_check = $db_conn->rawQueryOne($query_check, array($style_version,$explodies[1],$explodies[2]));
+				$ssv_style = style_set_version_clause($style_version);
+				$query_check = "SELECT brewStyleSweet FROM ".$prefix."styles WHERE (".$ssv_style['sql']." OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
+				$row_check = $db_conn->rawQueryOne($query_check, array_merge($ssv_style['params'], array($explodies[1],$explodies[2])));
 
 				if ((!empty($row_check)) && ($row_check['brewStyleSweet'] == 1)) $return = TRUE;
 			}
@@ -3666,8 +3673,9 @@ function highlight_required($msg,$method,$style_version) {
 
 			if ((isset($explodies[1])) && (isset($explodies[2]))) {
 
-				$query_check = "SELECT brewStyleReqSpec FROM ".$prefix."styles WHERE (brewStyleVersion=? OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
-				$row_check = $db_conn->rawQueryOne($query_check, array($style_version,$explodies[1],$explodies[2]));
+				$ssv_style = style_set_version_clause($style_version);
+				$query_check = "SELECT brewStyleReqSpec FROM ".$prefix."styles WHERE (".$ssv_style['sql']." OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
+				$row_check = $db_conn->rawQueryOne($query_check, array_merge($ssv_style['params'], array($explodies[1],$explodies[2])));
 
 				if ((!empty($row_check)) && ($row_check['brewStyleReqSpec'] == 1)) $return = TRUE;
 			}
@@ -3680,8 +3688,9 @@ function highlight_required($msg,$method,$style_version) {
 		if (!empty($explodies)) {
 
 			if ((isset($explodies[1])) && (isset($explodies[2]))) {
-				$query_check = "SELECT brewStyleCarb FROM ".$prefix."styles WHERE (brewStyleVersion=? OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
-				$row_check = $db_conn->rawQueryOne($query_check, array($style_version,$explodies[1],$explodies[2]));
+				$ssv_style = style_set_version_clause($style_version);
+				$query_check = "SELECT brewStyleCarb FROM ".$prefix."styles WHERE (".$ssv_style['sql']." OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
+				$row_check = $db_conn->rawQueryOne($query_check, array_merge($ssv_style['params'], array($explodies[1],$explodies[2])));
 
 				if ((!empty($row_check)) && ($row_check['brewStyleCarb'] == 1)) $return = TRUE;
 			}
@@ -3694,8 +3703,9 @@ function highlight_required($msg,$method,$style_version) {
 		if (!empty($explodies)) {
 
 			if ((isset($explodies[1])) && (isset($explodies[2]))) {
-				$query_check = "SELECT brewStyleStrength FROM ".$prefix."styles WHERE (brewStyleVersion=? OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
-				$row_check = $db_conn->rawQueryOne($query_check, array($style_version,$explodies[1],$explodies[2]));
+				$ssv_style = style_set_version_clause($style_version);
+				$query_check = "SELECT brewStyleStrength FROM ".$prefix."styles WHERE (".$ssv_style['sql']." OR brewStyleOwn='custom') AND brewStyleGroup=? AND brewStyleNum=?";
+				$row_check = $db_conn->rawQueryOne($query_check, array_merge($ssv_style['params'], array($explodies[1],$explodies[2])));
 
 				if ((!empty($row_check)) && ($row_check['brewStyleStrength'] == 1)) $return = TRUE;
 			}
@@ -3783,6 +3793,53 @@ function yes_no($input,$base_url,$method=0) {
 	return $output;
 }
 
+/**
+ * SQL condition (no leading WHERE/AND) selecting the style rows that make up
+ * a style set. Backported from upstream 3.x, where BJCP2025 and BJCP2026 are
+ * composite sets whose rows live under several brewStyleVersion tags:
+ *   BJCP2025 = cider (type 2) from BJCP2025, everything else from BJCP2021
+ *   BJCP2026 = mead (type 3) from BJCP2026, cider from BJCP2025, beer from BJCP2021
+ * Any other set is a plain brewStyleVersion match. $alias (e.g. "b.") prefixes
+ * the columns for joined queries. Composite results are
+ * parenthesised so callers can safely append " OR brewStyleOwn='custom'".
+ * brewStyleType: 1 = beer, 2 = cider, 3 = mead.
+ */
+function style_set_version_clause($style_set, $alias="") {
+
+	$v = $alias."brewStyleVersion";
+	$t = $alias."brewStyleType";
+
+	if ($style_set == "BJCP2025") return array("sql" => "(($v='BJCP2025' AND $t='2') OR ($v='BJCP2021' AND $t NOT IN ('2')))", "params" => array());
+	if ($style_set == "BJCP2026") return array("sql" => "(($v='BJCP2026' AND $t='3') OR ($v='BJCP2025' AND $t='2') OR ($v='BJCP2021' AND $t NOT IN ('2','3')))", "params" => array());
+	return array("sql" => $v."=?", "params" => array($style_set));
+
+}
+
+/**
+ * Same condition as style_set_version_clause() but with the value inlined
+ * (addslashes-escaped) for the few legacy sprintf()-built queries that can't
+ * take bound parameters. Prefer style_set_version_clause().
+ */
+function style_set_version_sql($style_set, $alias="") {
+
+	$clause = style_set_version_clause($style_set, $alias);
+	if (empty($clause['params'])) return $clause['sql'];
+	return $alias."brewStyleVersion='".addslashes($style_set)."'";
+
+}
+
+/**
+ * Applies the style set's version condition to a MysqliDb builder as a
+ * bound-parameter where().
+ */
+function style_set_where($db_conn, $style_set) {
+
+	$clause = style_set_version_clause($style_set);
+	if (empty($clause['params'])) $db_conn->where($clause['sql']);
+	else $db_conn->where($clause['sql'], $clause['params']);
+
+}
+
 function styles_active($method,$archive="") {
 
 	require(CONFIG.'config.php');
@@ -3828,11 +3885,12 @@ function styles_active($method,$archive="") {
 		}
 		*/
 
-		$query_styles = "SELECT DISTINCT brewStyleGroup FROM ".$styles_db_table." WHERE (brewStyleVersion=? OR brewStyleOwn='custom')";
+		$ssv_styles = style_set_version_clause($style_set);
+		$query_styles = "SELECT DISTINCT brewStyleGroup FROM ".$styles_db_table." WHERE (".$ssv_styles['sql']." OR brewStyleOwn='custom')";
 		if ((empty($archive)) || ($archive == "default")) $query_styles .= " AND brewStyleActive='Y'";
 		$query_styles .= " ORDER BY brewStyleGroup ASC";
 
-		$rows_styles = $db_conn->rawQuery($query_styles, array($style_set));
+		$rows_styles = (!empty($ssv_styles['params'])) ? $db_conn->rawQuery($query_styles, $ssv_styles['params']) : $db_conn->rawQuery($query_styles);
 
 		if (!empty($rows_styles)) {
 			foreach ($rows_styles as $row_styles) {
@@ -3859,11 +3917,12 @@ function styles_active($method,$archive="") {
 		if (HOSTED) $query_styles = sprintf("SELECT brewStyleGroup,brewStyleNum,brewStyle FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') UNION ALL SELECT brewStyleGroup,brewStyleNum,brewStyle FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom')", $styles_db_table, $style_set, $prefix."styles", $style_set);
 		else
 		*/
-		$query_styles = "SELECT brewStyleGroup,brewStyleNum,brewStyle FROM ".$styles_db_table." WHERE (brewStyleVersion=? OR brewStyleOwn='custom')";
+		$ssv_styles = style_set_version_clause($style_set);
+		$query_styles = "SELECT brewStyleGroup,brewStyleNum,brewStyle FROM ".$styles_db_table." WHERE (".$ssv_styles['sql']." OR brewStyleOwn='custom')";
 		if ((empty($archive)) || ($archive == "default")) $query_styles .= " AND brewStyleActive='Y'";
 		$query_styles .= " ORDER BY brewStyleGroup,brewStyleNum ASC";
 
-		$rows_styles = $db_conn->rawQuery($query_styles, array($style_set));
+		$rows_styles = (!empty($ssv_styles['params'])) ? $db_conn->rawQuery($query_styles, $ssv_styles['params']) : $db_conn->rawQuery($query_styles);
 		$a = array();
 		foreach ($rows_styles as $row_styles) {
 			$a[] = $row_styles['brewStyleGroup']."^".$row_styles['brewStyleNum']."^".$row_styles['brewStyle'];
@@ -4503,7 +4562,7 @@ function style_number_const($style_category_number,$style_sub,$style_set_display
 		case 0:
 			if (isset($_SESSION['prefsStyleSet'])) {
 				if ($_SESSION['prefsStyleSet'] == "BA") return "";
-				elseif (($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2015")) return ltrim($style_category_number,"0").$style_set_display_separator.ltrim($style_sub,"0");
+				elseif (($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2025") || ($_SESSION['prefsStyleSet'] == "BJCP2026") || ($_SESSION['prefsStyleSet'] == "BJCP2015")) return ltrim($style_category_number,"0").$style_set_display_separator.ltrim($style_sub,"0");
 				else return $style_category_number.$style_set_display_separator.$style_sub;
 			}
 			else return "";

@@ -33,7 +33,7 @@ if (TESTING) {
 	if (HOSTED) $query_style = sprintf("SELECT brewStyleType FROM %s WHERE brewStyleVersion='%s'AND brewStyleGroup='%s' AND brewStyleNum='%s' UNION ALL SELECT brewStyleType FROM %s WHERE brewStyleVersion='%s'AND brewStyleGroup='%s' AND brewStyleNum='%s'",$prefix."styles",$_SESSION['prefsStyleSet'],$row_entries['brewCategorySort'],$row_entries['brewSubCategory'],$styles_db_table,$_SESSION['prefsStyleSet'],$row_entries['brewCategorySort'],$row_entries['brewSubCategory']);
 	else 
 	*/
-	$db_conn->where ("brewStyleVersion", $_SESSION['prefsStyleSet']);
+	style_set_where($db_conn, $_SESSION['prefsStyleSet']);
 	$db_conn->where ("brewStyleGroup", $row_entries['brewCategorySort']);
 	$db_conn->where ("brewStyleNum", $row_entries['brewSubCategory']);
 	$row_style = $db_conn->getOne ($prefix."styles", "brewStyleType");

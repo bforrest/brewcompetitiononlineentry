@@ -159,7 +159,7 @@ if ($totalRows_log > 0) {
 
 		$brewInfo = "";
 		if (!empty($row_log['brewInfo'])) {
-			if (($_SESSION['prefsStyleSet'] == "BJCP2021") && ($row_log['brewCategorySort'] == "02") && ($row_log['brewSubCategory'] == "A")) $brewInfo .= "<li><strong>".$label_regional_variation.":</strong> ".str_replace("^", " | ", $row_log['brewInfo'])."</li>";
+			if ((in_array($_SESSION['prefsStyleSet'], array("BJCP2021","BJCP2025","BJCP2026"))) && ($row_log['brewCategorySort'] == "02") && ($row_log['brewSubCategory'] == "A")) $brewInfo .= "<li><strong>".$label_regional_variation.":</strong> ".str_replace("^", " | ", $row_log['brewInfo'])."</li>";
 			else $brewInfo .= "<li><strong>".$label_required_info.":</strong> ".str_replace("^", " | ", $row_log['brewInfo'])."</li>";
 		}
 
@@ -252,7 +252,7 @@ if ($totalRows_log > 0) {
 					if (HOSTED) $query_style = sprintf("SELECT id,brewStyleType FROM %s WHERE brewStyleVersion='%s'AND brewStyleGroup='%s' AND brewStyleNum='%s' UNION ALL SELECT id,brewStyleType FROM %s WHERE brewStyleVersion='%s'AND brewStyleGroup='%s' AND brewStyleNum='%s'", "bcoem_shared_styles", $_SESSION['prefsStyleSet'], $row_log['brewCategorySort'], $row_log['brewSubCategory'], $prefix."styles", $_SESSION['prefsStyleSet'], $row_log['brewCategorySort'], $row_log['brewSubCategory']);
 					else 
 					*/
-					$db_conn->where("brewStyleVersion", $_SESSION['prefsStyleSet']);
+					style_set_where($db_conn, $_SESSION['prefsStyleSet']);
 					$db_conn->where("brewStyleGroup", $row_log['brewCategorySort']);
 					$db_conn->where("brewStyleNum", $row_log['brewSubCategory']);
 					$row_style = $db_conn->getOne($prefix."styles", "id,brewStyleType");

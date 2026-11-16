@@ -399,9 +399,9 @@ class SourceHardeningTest extends TestCase
 
         $styleConvert = $this->extractFunction($source, 'style_convert');
         $this->assertSame(0, preg_match('/mysqli_query\(/', $styleConvert), 'style_convert() has reverted to raw mysqli_query()');
-        $this->assertStringContainsString('$row_style = $db_conn->rawQueryOne($query_style, array($number, $style_set));', $styleConvert);
+        $this->assertStringContainsString('$row_style = $db_conn->rawQueryOne($query_style, array_merge(array($number), $ssv_style[\'params\']));', $styleConvert);
         $this->assertStringContainsString("\$db_conn->where('archiveSuffix', \$archive);\n\t\t\$row_archive_db = \$db_conn->getOne(\$prefix.\"archive\", \"archiveStyleSet\");", $styleConvert);
-        $this->assertStringContainsString('$row_style = $db_conn->rawQueryOne($query_style, array($number[0], $number[1], $number[2]));', $styleConvert);
+        $this->assertStringContainsString('$row_style = $db_conn->rawQueryOne($query_style, array_merge(array($number[0], $number[1]), $ssv_style[\'params\']));', $styleConvert);
 
         $styleType = $this->extractFunction($source, 'style_type');
         $this->assertSame(0, preg_match('/mysqli_query\(/', $styleType), 'style_type() has reverted to raw mysqli_query()');
@@ -448,10 +448,10 @@ class SourceHardeningTest extends TestCase
         $stylesActive = $this->extractFunction($source, 'styles_active');
         $this->assertSame(0, preg_match('/mysqli_query\(/', $stylesActive), 'styles_active() has reverted to raw mysqli_query()');
         $this->assertStringContainsString("\$db_conn->where('archiveSuffix', \$archive_suffix);\n\t\t\$row_archive_style_set = \$db_conn->getOne(\$prefix.\"archive\", \"archiveStyleSet\");", $stylesActive);
-        $this->assertStringContainsString('$query_styles = "SELECT DISTINCT brewStyleGroup FROM ".$styles_db_table." WHERE (brewStyleVersion=? OR brewStyleOwn=\'custom\')";', $stylesActive);
-        $this->assertStringContainsString('$rows_styles = $db_conn->rawQuery($query_styles, array($style_set));', $stylesActive);
+        $this->assertStringContainsString('$query_styles = "SELECT DISTINCT brewStyleGroup FROM ".$styles_db_table." WHERE (".$ssv_styles[\'sql\']." OR brewStyleOwn=\'custom\')";', $stylesActive);
+        $this->assertStringContainsString('$rows_styles = (!empty($ssv_styles[\'params\'])) ? $db_conn->rawQuery($query_styles, $ssv_styles[\'params\']) : $db_conn->rawQuery($query_styles);', $stylesActive);
         $this->assertStringContainsString('$row_style_types_active = $db_conn->rawQueryOne("SELECT COUNT(*) as \'count\' FROM ".$style_types_db.$archive." WHERE styleTypeBOS=\'Y\'");', $stylesActive);
-        $this->assertStringContainsString('$query_styles = "SELECT brewStyleGroup,brewStyleNum,brewStyle FROM ".$styles_db_table." WHERE (brewStyleVersion=? OR brewStyleOwn=\'custom\')";', $stylesActive);
+        $this->assertStringContainsString('$query_styles = "SELECT brewStyleGroup,brewStyleNum,brewStyle FROM ".$styles_db_table." WHERE (".$ssv_styles[\'sql\']." OR brewStyleOwn=\'custom\')";', $stylesActive);
     }
 
     /**
@@ -484,7 +484,7 @@ class SourceHardeningTest extends TestCase
 
         $limitSubcategory = $this->extractFunction($source, 'limit_subcategory');
         $this->assertSame(0, preg_match('/mysqli_query\(/', $limitSubcategory), 'limit_subcategory() has reverted to raw mysqli_query()');
-        $this->assertStringContainsString('$row_style = $db_conn->rawQueryOne($query_style, array($_SESSION[\'prefsStyleSet\'], $style_num, $style_break[1]));', $limitSubcategory);
+        $this->assertStringContainsString('$row_style = $db_conn->rawQueryOne($query_style, array_merge($ssv_style[\'params\'], array($style_num, $style_break[1])));', $limitSubcategory);
         $this->assertStringContainsString("\$db_conn->where('brewBrewerID', \$uid);\n\t\t\$db_conn->where('brewSubCategory', \$style_break[1]);\n\t\t\$row_check = \$db_conn->getOne(\$prefix.\"brewing\", \"COUNT(*) as 'count'\");", $limitSubcategory);
         $this->assertStringContainsString("\$db_conn->where('brewBrewerID', \$uid);\n\t\t\$db_conn->where('brewCategorySort', \$style_num);\n\t\t\$db_conn->where('brewSubCategory', \$style_break[1]);", $limitSubcategory);
         // fork divergence: no upstream BJCP2025/2026 $chosen_style_set branching.
@@ -509,11 +509,11 @@ class SourceHardeningTest extends TestCase
 
         $highlightRequired = $this->extractFunction($source, 'highlight_required');
         $this->assertSame(0, preg_match('/mysqli_query\(/', $highlightRequired), 'highlight_required() has reverted to raw mysqli_query()');
-        $this->assertSame(4, substr_count($highlightRequired, '$db_conn->rawQueryOne($query_check, array($style_version,$explodies[1],$explodies[2]));'), 'all four highlight_required() branches should use the converted, bound query');
-        $this->assertStringContainsString('"SELECT brewStyleSweet FROM ".$prefix."styles WHERE (brewStyleVersion=? OR brewStyleOwn=\'custom\') AND brewStyleGroup=? AND brewStyleNum=?"', $highlightRequired);
-        $this->assertStringContainsString('"SELECT brewStyleReqSpec FROM ".$prefix."styles WHERE (brewStyleVersion=? OR brewStyleOwn=\'custom\') AND brewStyleGroup=? AND brewStyleNum=?"', $highlightRequired);
-        $this->assertStringContainsString('"SELECT brewStyleCarb FROM ".$prefix."styles WHERE (brewStyleVersion=? OR brewStyleOwn=\'custom\') AND brewStyleGroup=? AND brewStyleNum=?"', $highlightRequired);
-        $this->assertStringContainsString('"SELECT brewStyleStrength FROM ".$prefix."styles WHERE (brewStyleVersion=? OR brewStyleOwn=\'custom\') AND brewStyleGroup=? AND brewStyleNum=?"', $highlightRequired);
+        $this->assertSame(4, substr_count($highlightRequired, '$db_conn->rawQueryOne($query_check, array_merge($ssv_style[\'params\'], array($explodies[1],$explodies[2])));'), 'all four highlight_required() branches should use the converted, bound query');
+        $this->assertStringContainsString('"SELECT brewStyleSweet FROM ".$prefix."styles WHERE (".$ssv_style[\'sql\']." OR brewStyleOwn=\'custom\') AND brewStyleGroup=? AND brewStyleNum=?"', $highlightRequired);
+        $this->assertStringContainsString('"SELECT brewStyleReqSpec FROM ".$prefix."styles WHERE (".$ssv_style[\'sql\']." OR brewStyleOwn=\'custom\') AND brewStyleGroup=? AND brewStyleNum=?"', $highlightRequired);
+        $this->assertStringContainsString('"SELECT brewStyleCarb FROM ".$prefix."styles WHERE (".$ssv_style[\'sql\']." OR brewStyleOwn=\'custom\') AND brewStyleGroup=? AND brewStyleNum=?"', $highlightRequired);
+        $this->assertStringContainsString('"SELECT brewStyleStrength FROM ".$prefix."styles WHERE (".$ssv_style[\'sql\']." OR brewStyleOwn=\'custom\') AND brewStyleGroup=? AND brewStyleNum=?"', $highlightRequired);
     }
 
     /**
@@ -809,9 +809,9 @@ class SourceHardeningTest extends TestCase
     public static function styleAttributeFunctions(): array
     {
         return [
-            'check_sweetness'     => ['check_sweetness', '$db_conn->rawQueryOne($query_brews, array($style_0, $style_explodies[1], $_SESSION[\'prefsStyleSet\']));'],
-            'check_carb'          => ['check_carb', '$db_conn->rawQueryOne($query_brews, array($style_0, $style_explodies[1], $_SESSION[\'prefsStyleSet\']));'],
-            'check_mead_strength' => ['check_mead_strength', '$db_conn->rawQueryOne($query_brews, array($style_0, $style_explodies[1], $styleSet));'],
+            'check_sweetness'     => ['check_sweetness', '$db_conn->rawQueryOne($query_brews, array_merge(array($style_0, $style_explodies[1]), $ssv_style[\'params\']));'],
+            'check_carb'          => ['check_carb', '$db_conn->rawQueryOne($query_brews, array_merge(array($style_0, $style_explodies[1]), $ssv_style[\'params\']));'],
+            'check_mead_strength' => ['check_mead_strength', '$db_conn->rawQueryOne($query_brews, array_merge(array($style_0, $style_explodies[1]), $ssv_style[\'params\']));'],
         ];
     }
 

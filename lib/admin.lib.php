@@ -902,7 +902,7 @@ function received_entries() {
 	if (HOSTED) $query_styles = sprintf("SELECT brewStyle FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') UNION ALL SELECT brewStyle FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom');", $styles_db_table, $_SESSION['prefsStyleSet'], $prefix."styles", $_SESSION['prefsStyleSet']);
 	else 
 	*/
-	$query_styles = sprintf("SELECT brewStyle FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom');", $prefix."styles",$_SESSION['prefsStyleSet']);
+	$query_styles = sprintf("SELECT brewStyle FROM %s WHERE (%s OR brewStyleOwn='custom');", $prefix."styles",style_set_version_sql($_SESSION['prefsStyleSet']));
 	$styles = mysqli_query($connection,$query_styles);
 	$row_styles = mysqli_fetch_array($styles);
 

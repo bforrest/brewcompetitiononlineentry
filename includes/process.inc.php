@@ -271,6 +271,24 @@ if (((isset($_SERVER['HTTP_REFERER'])) && ($referrer['host'] == $_SERVER['SERVER
 			$result = $db_conn->update($prefix."preferences", array('prefsStyleSet' => 'BJCP2021'));
 
 		}
+
+		if ($_SESSION['prefsStyleSet'] == "BJCP2021") {
+
+			include (INCLUDES.'convert/convert_bjcp_2025.inc.php');
+
+			$db_conn->where('id', '1');
+			$result = $db_conn->update($prefix."preferences", array('prefsStyleSet' => 'BJCP2025'));
+
+		}
+
+		if ($_SESSION['prefsStyleSet'] == "BJCP2025") {
+
+			include (INCLUDES.'convert/convert_bjcp_2026.inc.php');
+
+			$db_conn->where('id', '1');
+			$result = $db_conn->update($prefix."preferences", array('prefsStyleSet' => 'BJCP2026'));
+
+		}
 		
 		if (session_status() === PHP_SESSION_NONE) {
 			session_name($prefix_session);

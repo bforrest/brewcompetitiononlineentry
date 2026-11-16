@@ -295,7 +295,7 @@ if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) &
 		// User will deselect any unwanted in Step 7
 		$update_table = $prefix."styles";
 		$data = array('brewStyleActive' => 'Y');
-		$db_conn->where ('brewStyleVersion', sterilize($_POST['prefsStyleSet']));
+		style_set_where($db_conn, sterilize($_POST['prefsStyleSet']));
 		$result = $db_conn->update ($update_table, $data);
 
 		if ($_POST['prefsPaypalIPN'] == 1) {
@@ -401,6 +401,62 @@ if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) &
 			}
 
 		}
+
+		/**
+		 * If the style set has changed from BJCP 2021 to BJCP 2025, map
+		 * 2021 cider styles to updated 2025 styles in brewing DB.
+		 * Backported from upstream 3.x. As a safeguard, also check for any
+		 * old cider style names that are still present.
+		 */
+
+		if ($prefsStyleSet == "BJCP2025") {
+
+			include (LIB.'convert.lib.php');
+
+			if ($_SESSION['prefsStyleSet'] == "BJCP2021") {
+				include (INCLUDES.'convert/convert_bjcp_2025.inc.php');
+			}
+
+			$db_conn->where("brewStyle='New World Perry' OR brewStyle='Traditional Perry' OR brewStyle='Specialty Cider/Perry' OR brewStyle='Cider with Herbs/Spices' OR brewStyle='Cider with Other Fruit' OR brewStyle='New World Cider'");
+			$row_check_entry_styles = $db_conn->getOne($prefix."brewing", "COUNT(*) as 'count'");
+
+			if ($row_check_entry_styles['count'] > 0) {
+				include (INCLUDES.'convert/convert_bjcp_2025.inc.php');
+			}
+
+		}
+
+		/**
+		 * If the style set has changed to BJCP 2026, map old (BJCP2021 and
+		 * any orphaned BJCP2015) mead styles to their 2026 equivalents.
+		 * BJCP2025 only ever added cider, so either outgoing set (2021 or
+		 * 2025) triggers the mead conversion. "Fruit and Spice Mead" and
+		 * "Experimental Mead" are checked against their old group/sub-category
+		 * since both names are reused at a different slot in BJCP2026.
+		 */
+
+		if ($prefsStyleSet == "BJCP2026") {
+
+			include (LIB.'convert.lib.php');
+
+			// BJCP2026 takes its cider from BJCP2025 rows, so a jump straight from
+			// BJCP2021 must convert cider (2021 -> 2025) before mead (-> 2026).
+			if ($_SESSION['prefsStyleSet'] == "BJCP2021") {
+				include (INCLUDES.'convert/convert_bjcp_2025.inc.php');
+			}
+
+			if (($_SESSION['prefsStyleSet'] == "BJCP2021") || ($_SESSION['prefsStyleSet'] == "BJCP2025")) {
+				include (INCLUDES.'convert/convert_bjcp_2026.inc.php');
+			}
+
+			$db_conn->where("brewStyle='Melomel' OR brewStyle='Spice, Herb, or Vegetable Mead' OR brewStyle='Historical Mead' OR (brewCategorySort='M3' AND brewSubCategory='A' AND brewStyle='Fruit and Spice Mead') OR (brewCategorySort='M4' AND brewSubCategory='C' AND brewStyle='Experimental Mead')");
+			$row_check_entry_styles = $db_conn->getOne($prefix."brewing", "COUNT(*) as 'count'");
+
+			if ($row_check_entry_styles['count'] > 0) {
+				include (INCLUDES.'convert/convert_bjcp_2026.inc.php');
+			}
+
+		}
 			
 		if ($_POST['prefsPaypalIPN'] == 1) {
 
@@ -442,7 +498,7 @@ if ((isset($_SERVER['HTTP_REFERER'])) && (((isset($_SESSION['loginUsername'])) &
 			if (HOSTED) $query_styles_default = sprintf("SELECT id, brewStyle, brewStyleGroup, brewStyleNum, brewStyleVersion FROM `%s` WHERE brewStyleVersion='%s' UNION ALL SELECT id, brewStyle, brewStyleGroup, brewStyleNum, brewStyleVersion FROM `%s` WHERE brewStyleVersion='%s';", $styles_db_table, $prefsStyleSet, $prefix."styles", $prefsStyleSet);
 			else 
 			*/
-			$query_styles_default = sprintf("SELECT id, brewStyle, brewStyleGroup, brewStyleNum, brewStyleVersion FROM %s WHERE brewStyleVersion='%s'", $styles_db_table, $prefsStyleSet);
+			$query_styles_default = sprintf("SELECT id, brewStyle, brewStyleGroup, brewStyleNum, brewStyleVersion FROM %s WHERE %s", $styles_db_table, style_set_version_sql($prefsStyleSet));
 			$styles_default = mysqli_query($connection,$query_styles_default);
 			$row_styles_default = mysqli_fetch_assoc($styles_default);
 

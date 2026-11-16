@@ -47,7 +47,7 @@ if ($_SESSION['prefsWinnerMethod'] == "1") { // Output by Category
 	if (HOSTED) $query_styles = sprintf("SELECT id,brewStyleGroup FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') ORDER BY brewStyleGroup ASC UNION ALL SELECT id,brewStyleGroup FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') ORDER BY brewStyleGroup ASC;", $styles_db_table, $_SESSION['prefsStyleSet'], $prefix."styles", $_SESSION['prefsStyleSet']);
 	else
 	*/
-	$query_styles = sprintf("SELECT id,brewStyleGroup FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') ORDER BY brewStyleGroup ASC;", $styles_db_table, $_SESSION['prefsStyleSet']);
+	$query_styles = sprintf("SELECT id,brewStyleGroup FROM %s WHERE (%s OR brewStyleOwn='custom') ORDER BY brewStyleGroup ASC;", $styles_db_table, style_set_version_sql($_SESSION['prefsStyleSet']));
 	$styles = mysqli_query($connection,$query_styles) or die (mysqli_error($connection));
 	$row_styles = mysqli_fetch_assoc($styles);
 	$totalRows_styles = mysqli_num_rows($styles);
@@ -121,7 +121,7 @@ elseif ($_SESSION['prefsWinnerMethod'] == "2") { // Output by sub-category
 	if (HOSTED) $query_styles = sprintf("SELECT id,brewStyleGroup,brewStyleNum,brewStyle FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') ORDER BY brewStyleGroup,brewStyleNum ASC UNION ALL SELECT id,brewStyleGroup,brewStyleNum,brewStyle FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') ORDER BY brewStyleGroup,brewStyleNum ASC;", $styles_db_table, $_SESSION['prefsStyleSet'], $prefix."styles", $_SESSION['prefsStyleSet']);
 	else
 	*/
-	$query_styles = sprintf("SELECT id,brewStyleGroup,brewStyleNum,brewStyle FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') ORDER BY brewStyleGroup,brewStyleNum ASC;", $styles_db_table, $_SESSION['prefsStyleSet']);
+	$query_styles = sprintf("SELECT id,brewStyleGroup,brewStyleNum,brewStyle FROM %s WHERE (%s OR brewStyleOwn='custom') ORDER BY brewStyleGroup,brewStyleNum ASC;", $styles_db_table, style_set_version_sql($_SESSION['prefsStyleSet']));
 	$styles = mysqli_query($connection,$query_styles) or die (mysqli_error($connection));
 	$row_styles = mysqli_fetch_assoc($styles);
 	$totalRows_styles = mysqli_num_rows($styles);

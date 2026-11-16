@@ -64,7 +64,7 @@ if (HOSTED) {
 }
 */
 
-$query_styles = sprintf("SELECT * FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom')", $styles_db_table, $styleSet);
+$query_styles = sprintf("SELECT * FROM %s WHERE (%s OR brewStyleOwn='custom')", $styles_db_table, style_set_version_sql($styleSet));
 if (($section == "admin") && ($action == "edit") && ($go != "judging_tables")) $query_styles .= " AND id='$id'";
 
 if (($view != "default") && ($section == "styles")) {
@@ -105,7 +105,7 @@ if ($section != "list") {
 	if (HOSTED) $query_styles2 = sprintf("SELECT * FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom') UNION ALL SELECT * FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom')", $styles_db_table, $styleSet, $prefix."styles", $styleSet);
 	else
 	*/
-	$query_styles2 = sprintf("SELECT * FROM %s WHERE (brewStyleVersion='%s' OR brewStyleOwn='custom')", $styles_db_table, $styleSet);
+	$query_styles2 = sprintf("SELECT * FROM %s WHERE (%s OR brewStyleOwn='custom')", $styles_db_table, style_set_version_sql($styleSet));
 	if (($section == "judge") && ($go == "judge")) $query_styles2 .= " ORDER BY brewStyleType, brewStyleGroup, brewStyleNum ASC";
 	elseif ($section == "brew") $query_styles2 .= " AND brewStyleGroup > '28' AND brewStyleReqSpec = '1'";
 	else {

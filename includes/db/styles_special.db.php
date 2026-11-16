@@ -171,7 +171,7 @@ else $styleSet = $_SESSION['prefsStyleSet'];
 if (HOSTED) $query_required_optional = sprintf("SELECT * FROM %s WHERE (brewStyleVersion = '%s' OR brewStyleOwn = 'custom') UNION ALL SELECT * FROM %s WHERE (brewStyleVersion = '%s' OR brewStyleOwn = 'custom')", $styles_db_table, $_SESSION['prefsStyleSet'], $prefix."styles", $_SESSION['prefsStyleSet']);
 else
 */
-$query_required_optional = sprintf("SELECT * FROM %s WHERE (brewStyleVersion = '%s' OR brewStyleOwn = 'custom')", $styles_db_table, $_SESSION['prefsStyleSet']);
+$query_required_optional = sprintf("SELECT * FROM %s WHERE (%s OR brewStyleOwn = 'custom')", $styles_db_table, style_set_version_sql($_SESSION['prefsStyleSet']));
 $required_optional = mysqli_query($connection,$query_required_optional) or die (mysqli_error($connection));
 $row_required_optional = mysqli_fetch_assoc($required_optional);
 $totalRows_required_optional = mysqli_num_rows($required_optional);
