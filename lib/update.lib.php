@@ -55,6 +55,34 @@ function check_new_style($style1, $style2, $style3, $mode="none") {
 }
 
 
+/**
+ * Version-aware variant of check_new_style(). Group/num/name codes are reused
+ * across BJCP versions (e.g. BJCP2021 kept most BJCP2015 codes, and 8 of the
+ * 17 BJCP2026 mead names match BJCP2021 rows), so matching on group+num+name
+ * alone treats a newer version's row as already present once an older
+ * version's row exists. Backported from upstream (issue #1759).
+ */
+function check_new_style_version($style1, $style2, $style3, $version, $mode="none") {
+
+	require(CONFIG.'config.php');
+
+	$styles_db_table = $prefix."styles";
+
+	$query_new_style = sprintf("SELECT COUNT(*) as 'count' FROM %s WHERE brewStyleGroup='%s' AND brewStyle='%s' AND brewStyleVersion='%s'",
+		$styles_db_table,
+		mysqli_real_escape_string($connection, $style1),
+		mysqli_real_escape_string($connection, $style3),
+		mysqli_real_escape_string($connection, $version));
+	if ($mode != "ignore_style_num") $query_new_style .= sprintf(" AND brewStyleNum='%s'", mysqli_real_escape_string($connection, $style2));
+
+	$new_style = mysqli_query($connection,$query_new_style) or die (mysqli_error($connection));
+	$row_new_style = mysqli_fetch_assoc($new_style);
+
+	if ($row_new_style['count'] > 0) return TRUE;
+	else return FALSE;
+
+}
+
 function check_mysql_data_type($column_name, $table_name) {
 	
 	require(CONFIG.'config.php');	
